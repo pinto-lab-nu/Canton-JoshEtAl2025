@@ -44,6 +44,7 @@ def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
         keys.append((spont_timescales.TwopTau & primary_key).fetch('KEY'))
     keys    = [entries for subkeys in keys for entries in subkeys] # flatten
     
+    # retrieve taus with inclusion flags, return just good ones (with corresponding keys)
     taus    = np.array((spont_timescales.TwopTau & keys).fetch('tau'))
     is_good = np.array((spont_timescales.TwopTauInclusion & keys & 'twop_inclusion_param_set_id={}'.format(params['twop_inclusion_param_set_id'])).fetch('is_good_tau_roi'))
     
@@ -99,23 +100,4 @@ def plot_area_tau_comp(params=params, dff_type='residuals_dff', bin_size=.2, axi
 
     return tau_stats, ax 
     
-    # %%
-    import scipy.stats
-
-# %%
-
-
-# %%
-
-p
-# %%
-_, p = scipy.stats.ranksums(v1_taus, m2_taus)
-# %%
-
-# %%
-x1 = np.random.normal(size=100)
-x2 = np.random.normal(size=100)+3
-two_group_comparison(x1, x2, is_paired=True,tail='greater')
-# %%
-np.shape(v1_taus)
-# %%
+    
