@@ -54,15 +54,17 @@ def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
     end_time = time.time()
     print("     done after {: 1.1g} min".format((end_time-start_time)/60))
     
-    return taus, keys
+    return taus, keys, np.size(is_good)
 # %%
 # ---------------
 # statistically compare taus across areas and plot
-def plot_area_tau_comp(params=params, dff_type='residuals_dff', bin_size=.2, axisHandle=None):
+def plot_area_tau_comp(params=params, dff_type='residuals_dff', bin_size=.2, max_tau=10, axisHandle=None, v1_taus=None, m2_taus=None):
 
     # get taus
-    v1_taus, _ = get_all_tau('V1',params=params,dff_type=dff_type)
-    m2_taus, _ = get_all_tau('M2',params=params,dff_type=dff_type)
+    if v1_taus is None:
+        v1_taus, _ = get_all_tau('V1',params=params,dff_type=dff_type)
+    if m2_taus is None:
+        m2_taus, _ = get_all_tau('M2',params=params,dff_type=dff_type)
     
     # compute stats
     tau_stats = dict()
@@ -85,11 +87,15 @@ def plot_area_tau_comp(params=params, dff_type='residuals_dff', bin_size=.2, axi
     else:
         ax = axisHandle
 
-    histbins     = np.arange(0,30,bin_size)
+    histbins     = np.arange(0,max_tau,bin_size)
     v1_counts, _ = np.histogram(v1_taus,bins=histbins,density=False)
     m2_counts, _ = np.histogram(m2_taus,bins=histbins,density=False)
-    ax.plot(histbins[:-1]+bin_size/2,np.cumsum(v1_counts)/np.sum(v1_counts),color=params['V1_cl'],label=params['V1_lbl'])
-    ax.plot(histbins[:-1]+bin_size/2,np.cumsum(m2_counts)/np.sum(m2_counts),color=params['M2_cl'],label=params['M2_lbl'])
+    xaxis        = histbins[:-1]+bin_size/2
+    ax.plot(xaxis,np.cumsum(v1_counts)/np.sum(v1_counts),color=params['V1_cl'],label=params['V1_lbl'])
+    ax.plot(xaxis,np.cumsum(m2_counts)/np.sum(m2_counts),color=params['M2_cl'],label=params['M2_lbl'])
+    ax.plot(tau_stats['V1_median'],0.03,'v',color=params['V1_cl'])
+    ax.plot(tau_stats['M2_median'],0.03,'v',color=params['M2_cl'])
+    ax.text(.1,.8,'p = {:1.2f}'.format(tau_stats['pval']))
 
     ax.set_xscale('log')
     ax.set_xlabel('$\\tau$ (sec)')
@@ -99,5 +105,59 @@ def plot_area_tau_comp(params=params, dff_type='residuals_dff', bin_size=.2, axi
     ax.spines['top'].set_visible(False)
 
     return tau_stats, ax 
+
+# %%
+# ---------------
+# get centroid and sess info for a list of tau keys
+def get_centroids_by_rec(tau_keys):
+
+    # find unique sessions 
+    subj_date_list = ['{}-{}'.format(this_key['subject_fullname'],this_key['session_date']) for this_key in tau_keys] 
+    unique_sess    = np.unique(subj_date_list)
+
+    # get centroids and assign numeric session ids
+    centroids = list()
+    sess_ids  = list()
+    for idx, this_key in tau_keys:
+        centroids.append((VM['twophoton'].Roi2P & this_key).fetch1('centroid_pxls'))
+        sess_ids.append(unique_sess.index(subj_date_list[idx]))
     
+    return np.array(centroids), np.array(sess_ids) 
+
+# %%
+# ---------------
+# statistically compare taus across areas and plot
+def clustering_by_tau(taus, centroids, rec_ids, params=params):
+
+    # pairwise dists and tau diffs (per rec of course)
+    unique_recs = np.unique(rec_ids).aslist()
+    roi_dists   = list()
+    tau_diffs   = list()
+    for rec in unique_recs:
+        idx = rec_ids == rec
+        sub_centroids = centroids[idx]
+        sub_taus      = taus[idx]
+        num_cells     = np.sum(idx==1)
+        
+        for iCell1 in range(num_cells):
+            for iCell2 in range(num_cells):
+                if iCell1 < iCell2:
+                    this_dist = np.sqrt((sub_centroids[iCell1][0] - sub_centroids[iCell2][0])**2+(sub_centroids[iCell1][1] - sub_centroids[iCell2][1])**2)
+                    roi_dists.append(this_dist)
+                    tau_diffs.append(np.abs(sub_taus[iCell1] - sub_taus[iCell2]))
     
+    roi_dists = np.array(roi_dists)
+    tau_diffs = np.array(tau_diffs)
+    
+    # bin, boostrap
+    clust_results = dict()
+
+    return clust_results 
+
+
+# %%
+v1_taus, v1_keys, v1_total = get_all_tau('V1', params = params, dff_type = 'residuals_dff')
+m2_taus, m2_keys, m2_total = get_all_tau('M2', params = params, dff_type = 'residuals_dff')
+# 
+tau_stats, _ = plot_area_tau_comp(v1_taus=v1_taus, m2_taus=m2_taus)
+# %%
