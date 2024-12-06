@@ -268,13 +268,58 @@ def plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axisHandle
     return ax 
 
 # %%
+# ---------------
+# statistically compare taus across areas and plot
+def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_zscore_taus'], prctile_cap=90, axisHandle=None, figHandle=None):
+
+    # fetch roi coordinates for desired session
+    idx  = np.argwhere(sess_ids == which_sess)
+    keys = np.array(tau_keys)[idx].tolist()
+    
+    taus                         = (spont_timescales.TwopTau & keys).fetch('tau')
+    row_pxls, col_pxls           = (VM['twophoton'].Roi2P & keys).fetch('row_pxls','col_pxls')
+    num_rows,num_cols,um_per_pxl = (VM['twophoton'].Scan & keys[0]).fetch1('lines_per_frame','pixels_per_line','microns_per_pxl_y')
+    
+    if do_zscore:
+        taus = np.array(taus)
+        taus = ((taus-np.mean(taus))/np.std(taus)).tolist()
+        lbl  = '$\\tau$ (z-score)'
+    else:
+        lbl  = '$\\tau$ (sec)'
+    
+    # create image
+    tau_im = np.zeros((num_rows,num_cols)) + np.nan
+    for idx, tau in enumerate(taus):
+        rows = row_pxls[idx]
+        cols = col_pxls[idx]
+        for iPxl in range(len(rows[0,:])):
+            tau_im[rows[0,iPxl],cols[0,iPxl]] = tau
+    
+    # plot
+    if axisHandle is None:
+        fig = plt.figure()
+        ax  = plt.gca()
+    else:
+        fig = figHandle
+        ax  = axisHandle
+
+    this_map = plt.cm.viridis  # Choose your desired colormap
+    this_map.set_bad('gray')
+    ax1 = ax.imshow(tau_im,cmap=this_map,vmax=np.percentile(np.array(taus),prctile_cap))
+    ax.plot([12, 12+100*um_per_pxl],[500, 500],'w-',linewidth=2)
+    ax.text((12+100*um_per_pxl)/2,490,'100 $\\mu$m',color='w',horizontalalignment='center')
+    ax.set_axis_off()
+    fig.colorbar(ax1,ax=ax,label=lbl)
+
+
+    return ax 
+# %%
 v1_taus, v1_keys, v1_total = get_all_tau('V1', params = params, dff_type = 'residuals_dff')
 m2_taus, m2_keys, m2_total = get_all_tau('M2', params = params, dff_type = 'residuals_dff')
 # %%
 tau_stats, _ = plot_area_tau_comp(v1_taus=v1_taus, m2_taus=m2_taus)
 tau_stats
 # %%
-# fig 2f: clustering FOV example
 v1_centr, v1_rec_ids = get_centroids_by_rec(v1_keys)
 m2_centr, m2_rec_ids = get_centroids_by_rec(m2_keys)
 
@@ -289,4 +334,11 @@ these_params['clustering_zscore_taus'] = False
 clust_stats_v1 , tau_diff_mat_v1 = clustering_by_tau(v1_taus, v1_centr, v1_rec_ids, these_params)
 clust_stats_m2 , tau_diff_mat_m2 = clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, these_params)
 _ = plot_clustering_comp(v1_clust=clust_stats_v1,m2_clust=clust_stats_m2, params=these_params)
+# %%
+im_ax = plot_tau_fov(v1_keys, v1_rec_ids, which_sess=2, do_zscore=False, prctile_cap=90)
+# good ones m2: 0, 4, 5, 10 (95th prct), 17, 22
+# good ones v1: 0 , 2(clust), 1 (not clust?) tbc depends on results
+# try just long or short timescale cells for clusetring
+# %%
+plt.colorbar()
 # %%
