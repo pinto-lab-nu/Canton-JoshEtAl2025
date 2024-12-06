@@ -58,7 +58,16 @@ tau_stats['M2_total_num_cells'] = m2_total
 # fig 2f: clustering FOV example
 v1_centr, v1_rec_ids = analyzeSpont2P.get_centroids_by_rec(v1_keys)
 m2_centr, m2_rec_ids = analyzeSpont2P.get_centroids_by_rec(m2_keys)
+fov_v1 = analyzeSpont2P.plot_tau_fov(v1_keys, v1_rec_ids, which_sess=2, do_zscore=False, prctile_cap=[0,95])
+fov_m2 = analyzeSpont2P.plot_tau_fov(v1_keys, v1_rec_ids, which_sess=17, do_zscore=False, prctile_cap=[0,95])
+# good ones m2: 0, 4, 5, 10 (95th prct), 17, 22
+# good ones v1: 0 , 2 
 
 # fig 2g: clustering
 clust_stats_v1 , tau_diff_mat_v1 = analyzeSpont2P.clustering_by_tau(v1_taus, v1_centr, v1_rec_ids, params = tau_params)
 clust_stats_m2 , tau_diff_mat_m2 = analyzeSpont2P.clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, params = tau_params)
+cax = analyzeSpont2P.plot_clustering_comp(v1_clust=clust_stats_v1,m2_clust=clust_stats_m2, params = tau_params)
+# %%
+
+
+# try just long or short timescale cells for clusetring

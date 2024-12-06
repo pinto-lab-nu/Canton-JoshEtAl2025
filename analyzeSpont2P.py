@@ -6,6 +6,9 @@ import scipy.stats
 from copy import deepcopy
 from schemas import spont_timescales
 from utils.stats import general_stats
+from utils.plotting import plot_pval_circles
+from utils.plotting import plot_fov_heatmap
+
 import time
 
 # connect to dj 
@@ -19,7 +22,7 @@ params = {
         'M2_cl'       : np.array([90, 60, 172])/255 ,
         'V1_lbl'      : 'VISp' ,
         'M2_lbl'      : 'MOs' ,
-        'random_seed' : 413,
+        'random_seed' : 42,
         'corr_param_id_noGlm_dff'        : 2, 
         'corr_param_id_residuals_dff'    : 5,
         'corr_param_id_residuals_deconv' : 4, 
@@ -27,7 +30,7 @@ params = {
         'tau_param_set_id'               : 1,
         'max_tau'                        : 10,
         'tau_hist_bins'                  : np.arange(0,10.2,.2),
-        'clustering_dist_bins'           : np.arange(0,300,30),
+        'clustering_dist_bins'           : np.arange(0,350,50),
         'clustering_num_boot_iter'       : 10000,
         'clustering_num_shuffles'        : 1000,
         'clustering_zscore_taus'         : True,
@@ -144,12 +147,13 @@ def get_centroids_by_rec(tau_keys):
 # %%
 # ---------------
 # statistically compare taus across areas and plot
-def clustering_by_tau(taus, centroids, rec_ids, params=params):
+def clustering_by_tau(taus, centroids, rec_ids, params=params, rng=None):
 
     # set random seed and delete very high tau values if applicable
     start_time      = time.time()
     print('Performing clustering analysis...')
-    rng = np.random.default_rng(params['random_seed'])
+    if rng is None:
+        rng = np.random.default_rng(seed=params['random_seed'])
     
     if params['max_tau'] is not None:
         del_idx   = np.argwhere(taus>params['max_tau'])
@@ -187,8 +191,8 @@ def clustering_by_tau(taus, centroids, rec_ids, params=params):
     bins          = params['clustering_dist_bins']
     num_bins      = np.size(bins)-1
     tau_mat       = np.zeros((num_iter,num_bins)) + np.nan
-    idx_vec       = np.arange(num_iter)
     num_cells     = np.size(tau_diffs)
+    idx_vec       = np.arange(num_cells)
     
     for iBoot in range(num_iter):
         idx       = rng.choice(idx_vec,num_cells)
@@ -224,11 +228,14 @@ def clustering_by_tau(taus, centroids, rec_ids, params=params):
     clust_results['tau_diff_bydist_shuffle_std']  = np.nanstd(shuffle_mat,axis=0,ddof=1).flatten()
     pvals = np.zeros(num_bins)
     for iBin in range(num_bins):
-        if clust_results['tau_diff_bydist_mean'][iBin] <= 0:
+        if clust_results['tau_diff_bydist_mean'][iBin] <= shuffle_mean[iBin]:
             pvals[iBin] = np.sum(tau_mat[:,iBin] > shuffle_mean[iBin]) / num_iter
         else:
             pvals[iBin] = np.sum(tau_mat[:,iBin] < shuffle_mean[iBin]) / num_iter
     clust_results['tau_diff_bydist_pvals'] = pvals
+    
+    # FDR correction
+    clust_results['tau_diff_bydist_isSig'], _ = general_stats.FDR(clust_results['tau_diff_bydist_pvals'])
     
     end_time = time.time()
     print("     done after {: 1.2f} sec".format((end_time-start_time)))
@@ -247,6 +254,7 @@ def plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axisHandle
     else:
         ax = axisHandle
 
+    # data
     xaxis   = v1_clust['dist_um']
     v1_mean = v1_clust['tau_diff_bydist_mean'] - v1_clust['tau_diff_bydist_shuffle_mean']
     v1_std  = v1_clust['tau_diff_bydist_std'] 
@@ -255,6 +263,12 @@ def plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axisHandle
     ax.errorbar(x=xaxis,y=v1_mean,yerr=v1_std,color=params['V1_cl'],label=params['V1_lbl'],marker='.')
     ax.errorbar(x=xaxis,y=m2_mean,yerr=m2_std,color=params['M2_cl'],label=params['M2_lbl'],marker='.')
     ax.plot(np.array([0,xaxis[-1]+xaxis[0]]),np.array([0,0]),'--',color='gray')
+    
+    #  pvals
+    plot_pval_circles(ax, xaxis, v1_mean-v1_std, v1_clust['tau_diff_bydist_pvals'], 
+                    where='below',color=params['V1_cl'],isSig=v1_clust['tau_diff_bydist_isSig'])
+    plot_pval_circles(ax, xaxis, m2_mean-m2_std-0.01, m2_clust['tau_diff_bydist_pvals'], 
+                    where='below',color=params['M2_cl'],isSig=m2_clust['tau_diff_bydist_isSig'])
 
     if params['clustering_zscore_taus']:
         ax.set_ylabel('|$\\tau$ diff (z-score)| - shuffle')
@@ -270,7 +284,7 @@ def plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axisHandle
 # %%
 # ---------------
 # statistically compare taus across areas and plot
-def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_zscore_taus'], prctile_cap=90, axisHandle=None, figHandle=None):
+def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_zscore_taus'], prctile_cap=[0,90], axisHandle=None, figHandle=None):
 
     # fetch roi coordinates for desired session
     idx  = np.argwhere(sess_ids == which_sess)
@@ -279,6 +293,8 @@ def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_
     taus                         = (spont_timescales.TwopTau & keys).fetch('tau')
     row_pxls, col_pxls           = (VM['twophoton'].Roi2P & keys).fetch('row_pxls','col_pxls')
     num_rows,num_cols,um_per_pxl = (VM['twophoton'].Scan & keys[0]).fetch1('lines_per_frame','pixels_per_line','microns_per_pxl_y')
+    roi_coords = [row_pxls,col_pxls]
+    im_size    = (num_rows,num_cols)
     
     if do_zscore:
         taus = np.array(taus)
@@ -287,32 +303,12 @@ def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_
     else:
         lbl  = '$\\tau$ (sec)'
     
-    # create image
-    tau_im = np.zeros((num_rows,num_cols)) + np.nan
-    for idx, tau in enumerate(taus):
-        rows = row_pxls[idx]
-        cols = col_pxls[idx]
-        for iPxl in range(len(rows[0,:])):
-            tau_im[rows[0,iPxl],cols[0,iPxl]] = tau
+    # send to generic function
+    ax, fig = plot_fov_heatmap(roi_vals=taus, roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
+                              prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=axisHandle, figHandle=figHandle)
     
-    # plot
-    if axisHandle is None:
-        fig = plt.figure()
-        ax  = plt.gca()
-    else:
-        fig = figHandle
-        ax  = axisHandle
+    return ax, fig
 
-    this_map = plt.cm.viridis  # Choose your desired colormap
-    this_map.set_bad('gray')
-    ax1 = ax.imshow(tau_im,cmap=this_map,vmax=np.percentile(np.array(taus),prctile_cap))
-    ax.plot([12, 12+100*um_per_pxl],[500, 500],'w-',linewidth=2)
-    ax.text((12+100*um_per_pxl)/2,490,'100 $\\mu$m',color='w',horizontalalignment='center')
-    ax.set_axis_off()
-    fig.colorbar(ax1,ax=ax,label=lbl)
-
-
-    return ax 
 # %%
 v1_taus, v1_keys, v1_total = get_all_tau('V1', params = params, dff_type = 'residuals_dff')
 m2_taus, m2_keys, m2_total = get_all_tau('M2', params = params, dff_type = 'residuals_dff')
@@ -325,20 +321,21 @@ m2_centr, m2_rec_ids = get_centroids_by_rec(m2_keys)
 
 # %% fig 2g: clustering
 these_params = deepcopy(params)
-these_params['random_seed'] = 10
+these_params['random_seed'] = 42
 these_params['max_tau'] = None
 these_params['clustering_num_boot_iter'] = 1000
-these_params['clustering_dist_bins'] = np.arange(0,300,30)
-these_params['clustering_zscore_taus'] = False
+these_params['clustering_dist_bins'] = np.arange(0,330,30)
+these_params['clustering_zscore_taus'] = True
 
-clust_stats_v1 , tau_diff_mat_v1 = clustering_by_tau(v1_taus, v1_centr, v1_rec_ids, these_params)
-clust_stats_m2 , tau_diff_mat_m2 = clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, these_params)
-_ = plot_clustering_comp(v1_clust=clust_stats_v1,m2_clust=clust_stats_m2, params=these_params)
+rng = np.random.default_rng(seed=these_params['random_seed'])
+
+clust_stats_v1 , tau_diff_mat_v1 = clustering_by_tau(v1_taus, v1_centr, v1_rec_ids, these_params,rng=rng)
+clust_stats_m2 , tau_diff_mat_m2 = clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, these_params,rng=rng)
+cax = plot_clustering_comp(v1_clust=clust_stats_v1,m2_clust=clust_stats_m2, params=these_params)
 # %%
-im_ax = plot_tau_fov(v1_keys, v1_rec_ids, which_sess=2, do_zscore=False, prctile_cap=90)
+im_ax = plot_tau_fov(v1_keys, v1_rec_ids, which_sess=1, do_zscore=False, prctile_cap=[0,95])
 # good ones m2: 0, 4, 5, 10 (95th prct), 17, 22
-# good ones v1: 0 , 2(clust), 1 (not clust?) tbc depends on results
+# good ones v1: 0 , 2 
 # try just long or short timescale cells for clusetring
-# %%
-plt.colorbar()
+# SEPARATE TAU FROM GENERIC FOV PLOT FOR REUSE
 # %%
