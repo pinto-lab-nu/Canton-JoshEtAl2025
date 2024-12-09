@@ -16,26 +16,27 @@ VM     = connect_to_dj.get_virtual_modules()
 
 # %% declare default params 
 params = {
+        'random_seed'               : 42, 
+        'max_tau'                   : None,
+        'tau_hist_bins'             : np.arange(0,10.2,.2),
+        'clustering_dist_bins'      : np.arange(0,350,50),
+        'clustering_num_boot_iter'  : 10000,
+        'clustering_num_shuffles'   : 1000,
+        'clustering_zscore_taus'    : True,
+        }
+params['general_params'] = {
         'V1_mice'     : ['jec822_NCCR62','jec822_NCCR63','jec822_NCCR66','jec822_NCCR86'] ,
         'M2_mice'     : ['jec822_NCCR32','jec822_NCCR72','jec822_NCCR73','jec822_NCCR77'] ,
-        'V1_cl'       : np.array([120, 120, 120])/255 ,
-        'M2_cl'       : np.array([90, 60, 172])/255 ,
+        'V1_cl'       : np.array([180, 137, 50])/255 ,#np.array([120, 120, 120])/255 ,
+        'M2_cl'       : np.array([43, 67, 121])/255 ,#np.array([90, 60, 172])/255 ,
         'V1_lbl'      : 'VISp' ,
         'M2_lbl'      : 'MOs' ,
-        'random_seed' : 42,
         'corr_param_id_noGlm_dff'        : 2, 
         'corr_param_id_residuals_dff'    : 5,
         'corr_param_id_residuals_deconv' : 4, 
         'twop_inclusion_param_set_id'    : 4,
         'tau_param_set_id'               : 1,
-        'max_tau'                        : 10,
-        'tau_hist_bins'                  : np.arange(0,10.2,.2),
-        'clustering_dist_bins'           : np.arange(0,350,50),
-        'clustering_num_boot_iter'       : 10000,
-        'clustering_num_shuffles'        : 1000,
-        'clustering_zscore_taus'         : True,
         }
-
 
 # FUNCTIONS
 # %%
@@ -47,8 +48,8 @@ def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
     print('Fetching all taus for {}...'.format(area))
         
     # get primary keys for query
-    mice              = params['{}_mice'.format(area)]
-    corr_param_set_id = params['corr_param_id_{}'.format(dff_type)]
+    mice              = params['general_params']['{}_mice'.format(area)]
+    corr_param_set_id = params['general_params']['corr_param_id_{}'.format(dff_type)]
     
     # get relavant keys 
     keys = list()
@@ -76,7 +77,7 @@ def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
 # %%
 # ---------------
 # statistically compare taus across areas and plot
-def plot_area_tau_comp(params=params, dff_type='residuals_dff', axisHandle=None, v1_taus=None, m2_taus=None):
+def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None, v1_taus=None, m2_taus=None):
 
     # get taus
     if v1_taus is None:
@@ -88,31 +89,31 @@ def plot_area_tau_comp(params=params, dff_type='residuals_dff', axisHandle=None,
     tau_stats = dict()
     tau_stats['V1_num_cells'] = np.size(v1_taus)
     tau_stats['V1_mean']      = np.mean(v1_taus)
-    tau_stats['V1_sem']       = np.std(v1_taus,ddof=1) / np.sqrt(tau_stats['V1_num_cells'])
+    tau_stats['V1_sem']       = np.std(v1_taus,ddof=1) / np.sqrt(tau_stats['V1_num_cells']-1)
     tau_stats['V1_median']    = np.median(v1_taus)
     tau_stats['V1_iqr']       = scipy.stats.iqr(v1_taus)
     tau_stats['M2_num_cells'] = np.size(m2_taus)
     tau_stats['M2_mean']      = np.mean(m2_taus)
-    tau_stats['M2_sem']       = np.std(m2_taus,ddof=1) / np.sqrt(tau_stats['M2_num_cells'])
+    tau_stats['M2_sem']       = np.std(m2_taus,ddof=1) / np.sqrt(tau_stats['M2_num_cells']-1)
     tau_stats['M2_median']    = np.median(m2_taus)
     tau_stats['M2_iqr']       = scipy.stats.iqr(m2_taus)
     tau_stats['pval'], tau_stats['test_name'] = general_stats.two_group_comparison(v1_taus, m2_taus, is_paired=False, tail="two-sided")
 
     # plot
-    if axisHandle is None:
+    if axis_handle is None:
         plt.figure()
         ax = plt.gca()
     else:
-        ax = axisHandle
+        ax = axis_handle
 
     histbins     = params['tau_hist_bins']
     v1_counts, _ = np.histogram(v1_taus,bins=histbins,density=False)
     m2_counts, _ = np.histogram(m2_taus,bins=histbins,density=False)
     xaxis        = histbins[:-1]+np.diff(histbins)[0]
-    ax.plot(xaxis,np.cumsum(v1_counts)/np.sum(v1_counts),color=params['V1_cl'],label=params['V1_lbl'])
-    ax.plot(xaxis,np.cumsum(m2_counts)/np.sum(m2_counts),color=params['M2_cl'],label=params['M2_lbl'])
-    ax.plot(tau_stats['V1_median'],0.03,'v',color=params['V1_cl'])
-    ax.plot(tau_stats['M2_median'],0.03,'v',color=params['M2_cl'])
+    ax.plot(xaxis,np.cumsum(v1_counts)/np.sum(v1_counts),color=params['general_params']['V1_cl'],label=params['general_params']['V1_lbl'])
+    ax.plot(xaxis,np.cumsum(m2_counts)/np.sum(m2_counts),color=params['general_params']['M2_cl'],label=params['general_params']['M2_lbl'])
+    ax.plot(tau_stats['V1_median'],0.03,'v',color=params['general_params']['V1_cl'])
+    ax.plot(tau_stats['M2_median'],0.03,'v',color=params['general_params']['M2_cl'])
     ax.text(.18,.8,'p = {:1.2g}'.format(tau_stats['pval']))
 
     ax.set_xscale('log')
@@ -245,14 +246,14 @@ def clustering_by_tau(taus, centroids, rec_ids, params=params, rng=None):
 # %%
 # ---------------
 # statistically compare taus across areas and plot
-def plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axisHandle=None):
+def plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axis_handle=None):
 
     # plot
-    if axisHandle is None:
+    if axis_handle is None:
         plt.figure()
         ax = plt.gca()
     else:
-        ax = axisHandle
+        ax = axis_handle
 
     # data
     xaxis   = v1_clust['dist_um']
@@ -260,15 +261,15 @@ def plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axisHandle
     v1_std  = v1_clust['tau_diff_bydist_std'] 
     m2_mean = m2_clust['tau_diff_bydist_mean'] - m2_clust['tau_diff_bydist_shuffle_mean']
     m2_std  = m2_clust['tau_diff_bydist_std'] 
-    ax.errorbar(x=xaxis,y=v1_mean,yerr=v1_std,color=params['V1_cl'],label=params['V1_lbl'],marker='.')
-    ax.errorbar(x=xaxis,y=m2_mean,yerr=m2_std,color=params['M2_cl'],label=params['M2_lbl'],marker='.')
+    ax.errorbar(x=xaxis,y=v1_mean,yerr=v1_std,color=params['general_params']['V1_cl'],label=params['general_params']['V1_lbl'],marker='.')
+    ax.errorbar(x=xaxis,y=m2_mean,yerr=m2_std,color=params['general_params']['M2_cl'],label=params['general_params']['M2_lbl'],marker='.')
     ax.plot(np.array([0,xaxis[-1]+xaxis[0]]),np.array([0,0]),'--',color='gray')
     
     #  pvals
     plot_pval_circles(ax, xaxis, v1_mean-v1_std, v1_clust['tau_diff_bydist_pvals'], 
-                    where='below',color=params['V1_cl'],isSig=v1_clust['tau_diff_bydist_isSig'])
+                    where='below',color=params['general_params']['V1_cl'],isSig=v1_clust['tau_diff_bydist_isSig'])
     plot_pval_circles(ax, xaxis, m2_mean-m2_std-0.01, m2_clust['tau_diff_bydist_pvals'], 
-                    where='below',color=params['M2_cl'],isSig=m2_clust['tau_diff_bydist_isSig'])
+                    where='below',color=params['general_params']['M2_cl'],isSig=m2_clust['tau_diff_bydist_isSig'])
 
     if params['clustering_zscore_taus']:
         ax.set_ylabel('|$\\tau$ diff (z-score)| - shuffle')
@@ -284,7 +285,7 @@ def plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axisHandle
 # %%
 # ---------------
 # statistically compare taus across areas and plot
-def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_zscore_taus'], prctile_cap=[0,90], axisHandle=None, figHandle=None):
+def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_zscore_taus'], prctile_cap=[0,95], axis_handle=None, fig_handle=None):
 
     # fetch roi coordinates for desired session
     idx  = np.argwhere(sess_ids == which_sess)
@@ -305,37 +306,37 @@ def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_
     
     # send to generic function
     ax, fig = plot_fov_heatmap(roi_vals=taus, roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
-                              prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=axisHandle, figHandle=figHandle)
+                              prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=axis_handle, figHandle=fig_handle)
     
     return ax, fig
 
-# %%
-v1_taus, v1_keys, v1_total = get_all_tau('V1', params = params, dff_type = 'residuals_dff')
-m2_taus, m2_keys, m2_total = get_all_tau('M2', params = params, dff_type = 'residuals_dff')
-# %%
-tau_stats, _ = plot_area_tau_comp(v1_taus=v1_taus, m2_taus=m2_taus)
-tau_stats
-# %%
-v1_centr, v1_rec_ids = get_centroids_by_rec(v1_keys)
-m2_centr, m2_rec_ids = get_centroids_by_rec(m2_keys)
+# # %%
+# v1_taus, v1_keys, v1_total = get_all_tau('V1', params = params, dff_type = 'residuals_dff')
+# m2_taus, m2_keys, m2_total = get_all_tau('M2', params = params, dff_type = 'residuals_dff')
+# # %%
+# tau_stats, _ = plot_area_tau_comp(v1_taus=v1_taus, m2_taus=m2_taus)
+# tau_stats
+# # %%
+# v1_centr, v1_rec_ids = get_centroids_by_rec(v1_keys)
+# m2_centr, m2_rec_ids = get_centroids_by_rec(m2_keys)
 
-# %% fig 2g: clustering
-these_params = deepcopy(params)
-these_params['random_seed'] = 42
-these_params['max_tau'] = None
-these_params['clustering_num_boot_iter'] = 1000
-these_params['clustering_dist_bins'] = np.arange(0,330,30)
-these_params['clustering_zscore_taus'] = True
+# # %% fig 2g: clustering
+# these_params = deepcopy(params)
+# these_params['random_seed'] = 42
+# these_params['max_tau'] = None
+# these_params['clustering_num_boot_iter'] = 1000
+# these_params['clustering_dist_bins'] = np.arange(0,330,30)
+# these_params['clustering_zscore_taus'] = True
 
-rng = np.random.default_rng(seed=these_params['random_seed'])
+# # rng = np.random.default_rng(seed=these_params['random_seed'])
 
-clust_stats_v1 , tau_diff_mat_v1 = clustering_by_tau(v1_taus, v1_centr, v1_rec_ids, these_params,rng=rng)
-clust_stats_m2 , tau_diff_mat_m2 = clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, these_params,rng=rng)
-cax = plot_clustering_comp(v1_clust=clust_stats_v1,m2_clust=clust_stats_m2, params=these_params)
-# %%
-im_ax = plot_tau_fov(v1_keys, v1_rec_ids, which_sess=1, do_zscore=False, prctile_cap=[0,95])
-# good ones m2: 0, 4, 5, 10 (95th prct), 17, 22
-# good ones v1: 0 , 2 
-# try just long or short timescale cells for clusetring
-# SEPARATE TAU FROM GENERIC FOV PLOT FOR REUSE
-# %%
+# # clust_stats_v1 , tau_diff_mat_v1 = clustering_by_tau(v1_taus, v1_centr, v1_rec_ids, these_params,rng=rng)
+# # clust_stats_m2 , tau_diff_mat_m2 = clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, these_params,rng=rng)
+# cax = plot_clustering_comp(v1_clust=clust_stats_v1,m2_clust=clust_stats_m2, params=these_params)
+# # %%
+# im_ax = plot_tau_fov(v1_keys, v1_rec_ids, which_sess=1, do_zscore=False, prctile_cap=[0,95])
+# # good ones m2: 0, 4, 5, 10 (95th prct), 17, 22
+# # good ones v1: 0 , 2 
+# # try just long or short timescale cells for clusetring
+# # SEPARATE TAU FROM GENERIC FOV PLOT FOR REUSE
+# # %%

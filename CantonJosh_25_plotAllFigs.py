@@ -26,13 +26,15 @@ code_dir = "/Users/lpr6177/Documents/code/Canton-JoshEtAl2025/"
 sys.path.insert(0,code_dir)
 from analyzeSpont2P import params as tau_params
 import analyzeSpont2P
+from analyzeEvoked2P import params as opto_params
+import analyzeEvoked2P
 
-# ==============================
+# %% ===========================
 # ==========  Fig 1  ===========
 # ==============================
 
 
-# ==============================
+# %% ===========================
 # ==========  Fig 2  ===========
 # ==============================
 
@@ -67,7 +69,9 @@ fov_m2 = analyzeSpont2P.plot_tau_fov(v1_keys, v1_rec_ids, which_sess=17, do_zsco
 clust_stats_v1 , tau_diff_mat_v1 = analyzeSpont2P.clustering_by_tau(v1_taus, v1_centr, v1_rec_ids, params = tau_params)
 clust_stats_m2 , tau_diff_mat_m2 = analyzeSpont2P.clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, params = tau_params)
 cax = analyzeSpont2P.plot_clustering_comp(v1_clust=clust_stats_v1,m2_clust=clust_stats_m2, params = tau_params)
-# %%
-
-
 # try just long or short timescale cells for clusetring
+
+# %% ===========================
+# ==========  Fig 3  ===========
+# ==============================
+
