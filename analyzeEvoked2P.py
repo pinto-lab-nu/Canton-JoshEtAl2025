@@ -46,6 +46,7 @@ def get_keys_for_expt_types(area, params=params, expt_type='standard'):
             max_num_trials     = np.max(np.array(this_sess['num_trials_per_stim']))
             max_dur            = np.max(np.array(this_sess['dur_sec_per_stim']))
             
+            # choose experiments that match type
             if expt_type == 'standard':
                 if np.logical_and((not has_multicell_stim), np.logical_and(max_num_trials <= 10 , max_dur >= 0.2)):
                     keys.append(this_sess)
@@ -68,11 +69,13 @@ def get_keys_for_expt_types(area, params=params, expt_type='standard'):
 # get proportion of significantly responding neurons for an area and experiment type
 def get_prop_responding_neurons(area, params=params, expt_type='standard', resp_type='dff'):
     
+    # get all keys
     expt_keys = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
     
     trigdff_param_set_id           = params['trigdff_param_set_id_{}'.format(resp_type)]
     trigdff_inclusion_param_set_id = params['trigdff_inclusion_param_set_id']
     
+    # loop over keys and get summary stats
     prop_neurons = list()
     num_neurons  = list()
     num_stimd    = list()
@@ -87,6 +90,7 @@ def get_prop_responding_neurons(area, params=params, expt_type='standard', resp_
         else:
             num_neurons.append(num)
         
+    # compile resluts in a dictionary
     prop_neurons = np.array(prop_neurons).flatten()
     num_stimd    = np.array(num_stimd).flatten()
         
@@ -108,6 +112,7 @@ def get_prop_responding_neurons(area, params=params, expt_type='standard', resp_
 # plot comparison of proportion of significantly responding neurons
 def plot_prop_response_comparison(params=params, expt_type='standard', resp_type='dff', axis_handle=None):
     
+    # get data
     v1_data = get_prop_responding_neurons('V1', params=params, expt_type=expt_type, resp_type=resp_type)
     m2_data = get_prop_responding_neurons('M2', params=params, expt_type=expt_type, resp_type=resp_type)
     v1_prop = v1_data['prop_neurons_per_stim']
@@ -145,11 +150,105 @@ def plot_prop_response_comparison(params=params, expt_type='standard', resp_type
     return response_stats, ax 
     
 # %%
+# get average opto-triiggered responses for an area and experiment type
+def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', as_matrix=False):
+    
+    # get relevant keys
+    expt_keys = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
+    
+    # restrict to only desired rec/stim if applicable
+    if eg_ids is not None:
+        expt_keys = expt_keys[np.array(eg_ids).astype(int)]
+    
+    # loop through keys to fetch the responses
+    trigdff_param_set_id           = params['trigdff_param_set_id_{}'.format(resp_type)]
+    trigdff_inclusion_param_set_id = params['trigdff_inclusion_param_set_id']
+    
+    avg_resps = list()
+    sem_resps = list()
+    t_axes    = list()
+    is_stimd  = list()
+    is_sig    = list()
+    is_incl   = list()
+    for this_key in expt_keys:
+        this_key['trigdff_param_set_id']           = trigdff_param_set_id
+        this_key['trigdff_inclusion_param_set_id'] = trigdff_inclusion_param_set_id
+        avgs, sems, ts, stimd, keys = (twop_opto_analysis.TrigDffTrialAvg & this_key).fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd','KEY')
+        sig, incl                   = (twop_opto_analysis.TrigDffTrialAvgInclusion & keys).fetch('is_significant', 'is_included')
+        avg_resps.append(avgs)
+        sem_resps.append(sems)
+        t_axes.append(ts)
+        is_stimd.append(stimd)
+        is_sig.append(sig)
+        is_incl.append(incl)
+            
+    is_stimd = np.array(is_stimd).flatten()
+    is_sig   = np.array(is_sig).flatten()
+    is_incl  = np.array(is_incl).flatten()
+    
+    # apply selection criteria
+    if which_neurons != 'all':
+        idx = np.logical_or(is_incl == 1, is_stimd == 1)
+    elif which_neurons == 'non_stimd':
+        idx = np.logical_and(is_stimd == 0, is_incl == 1)
+    elif which_neurons == 'stimd':
+        idx = is_stimd == 1
+    else:
+        print('Unknown category of which_neurons, returning nothing')
+        return
+    
+    # apply significance unless only stimd are desired
+    if which_neurons != 'stimd' & signif_only:
+        idx = np.logical_and(idx,is_sig==1)
+    
+    idx       = np.argwhere(idx).flatten()    
+    is_stimd  = is_stimd[idx]
+    is_sig    = is_sig[idx]
+    avg_resps = avg_resps[idx]
+    sem_resps = sem_resps[idx]
+    t_axes    = t_axes[idx]
+        
+    # interpolate to put everyone on the exact same time axis (small diffs in frame rate are possible)
+    # start by aligning all time axes to zero and taking the mode of each bin
+    nt_pre  = list()
+    nt_post = list()
+    fdur    = list()
+    for taxis in t_axes:
+        nt_pre.append(np.size(taxis[taxis<0]))
+        nt_post.append(np.size(taxis[taxis>=0]))
+        fdur.append(np.mode(np.diff(taxis)))
+    
+    fdur    = np.mode(np.array(fdur).flatten())
+    nt_pre  = np.mode(np.array(nt_pre).flatten()) 
+    nt_post = np.mode(np.array(nt_post).flatten())     
+        
+        
+    # collect summary data    
+    
+    if as_matrix:
+        # insert code 
+        
+    summary_data = {
+                    'prop_neurons_per_stim' : prop_neurons, 
+                    'total_neurons_per_fov' : np.array(num_neurons).flatten(),
+                    'stimd_neurons_per_fov' : num_stimd,
+                    'num_unique_stimd'      : np.sum(num_stimd),
+                    'num_fovs'              : len(expt_keys),
+                    'prop_mean'             : np.mean(prop_neurons),
+                    'prop_sem'              : np.std(prop_neurons,ddof=1) / np.sqrt(np.size(prop_neurons)-1),
+                    'prop_median'           : np.median(prop_neurons),
+                    'prop_iqr'              : scipy.stats.iqr(prop_neurons),
+                    }
+    
+    return summary_data
+
+# %%
 plot_prop_response_comparison(resp_type='deconv')
     
 # TO DO
 # basic triggered stats -- incidence, magnitude, fov egs, by space etc
-# time course
+# eg avg trig responses. all time courses in a field of view + peak + time of peak
+# time course -- summary and fov sequence heatmaps
 # trig running
 # opsin expression
 # seuqence xval
