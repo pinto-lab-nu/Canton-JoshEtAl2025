@@ -218,26 +218,38 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
         nt_post.append(np.size(taxis[taxis>=0]))
         fdur.append(np.mode(np.diff(taxis)))
     
-    fdur    = np.mode(np.array(fdur).flatten())
-    nt_pre  = np.mode(np.array(nt_pre).flatten()) 
-    nt_post = np.mode(np.array(nt_post).flatten())     
-        
-        
-    # collect summary data    
+    # base time axis making sure to include t = 0
+    fdur       = np.mode(np.array(fdur).flatten())
+    nt_pre     = np.mode(np.array(nt_pre).flatten()) 
+    nt_post    = np.mode(np.array(nt_post).flatten())   
+    pre_t      = np.arange(-nt_pre*fdur,0,fdur)
+    post_t     = np.arange(0,nt_post*fdur+fdur,fdur) 
+    base_taxis = np.concatenate((pre_t,post_t)) 
     
-    if as_matrix:
-        # insert code 
+    # convert all axes to base (mostly expected to be unchanged)
+    for iResp in range(len(t_axes)):
+        avg_resps[iResp] = np.interp(base_taxis,t_axes[iResp],avg_resps[iResp])  
+        sem_resps[iResp] = np.interp(base_taxis,t_axes[iResp],sem_resps[iResp])    
         
+    # convert from list to matrix if desired    
+    if as_matrix:
+        avgs = np.zeros((len(t_axes),len(base_taxis)))
+        sems = np.zeros((len(t_axes),len(base_taxis)))
+        for iResp in range(len(t_axes)):
+            avgs[iResp,:] = avg_resps[iResp]
+            sems[iResp,:] = sem_resps[iResp]
+    else:
+        avgs = avg_resps
+        sems = sem_resps
+        
+    # collect summary data   
     summary_data = {
-                    'prop_neurons_per_stim' : prop_neurons, 
-                    'total_neurons_per_fov' : np.array(num_neurons).flatten(),
-                    'stimd_neurons_per_fov' : num_stimd,
-                    'num_unique_stimd'      : np.sum(num_stimd),
-                    'num_fovs'              : len(expt_keys),
-                    'prop_mean'             : np.mean(prop_neurons),
-                    'prop_sem'              : np.std(prop_neurons,ddof=1) / np.sqrt(np.size(prop_neurons)-1),
-                    'prop_median'           : np.median(prop_neurons),
-                    'prop_iqr'              : scipy.stats.iqr(prop_neurons),
+                    'trig_dff_avgs'    : avgs, 
+                    'trig_dff_sems'    : sems,
+                    'time_axis_sec'    : base_taxis,
+                    'num_unique_stimd' : np.sum(is_stimd==1),
+                    'num_responding'   : len(avg_resps),
+                    'includes_signif_only' : signif_only,
                     }
     
     return summary_data
