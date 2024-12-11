@@ -51,7 +51,7 @@ plt.subplot(233)
 ax = plt.gca()
 v1_taus, v1_keys, v1_total = analyzeSpont2P.get_all_tau('V1', params = tau_params, dff_type = 'residuals_dff')
 m2_taus, m2_keys, m2_total = analyzeSpont2P.get_all_tau('M2', params = tau_params, dff_type = 'residuals_dff')
-tau_stats, ax_tau = analyzeSpont2P.plot_area_tau_comp(v1_taus=v1_taus, m2_taus=m2_taus, axisHandle = ax, params = tau_params)
+tau_stats, ax_tau = analyzeSpont2P.plot_area_tau_comp(v1_taus=v1_taus, m2_taus=m2_taus, axis_handle = ax, params = tau_params)
 tau_stats['V1_total_num_cells'] = v1_total
 tau_stats['M2_total_num_cells'] = m2_total
 
@@ -75,3 +75,6 @@ cax = analyzeSpont2P.plot_clustering_comp(v1_clust=clust_stats_v1,m2_clust=clust
 # ==========  Fig 3  ===========
 # ==============================
 
+resp_prob_summary, _ = analyzeEvoked2P.plot_prop_response_comparison(params=opto_params, expt_type='standard', resp_type='dff', axis_handle=None)
+v1_avgs = analyzeEvoked2P.get_avg_trig_responses('V1', params=opto_params, expt_type='standard', resp_type='dff')
+m2_avgs = analyzeEvoked2P.get_avg_trig_responses('M2', params=opto_params, expt_type='standard', resp_type='dff')

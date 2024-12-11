@@ -151,14 +151,17 @@ def plot_prop_response_comparison(params=params, expt_type='standard', resp_type
     
 # %%
 # get average opto-triiggered responses for an area and experiment type
-def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', as_matrix=False):
+def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', as_matrix=True):
+    
+    start_time      = time.time()
+    print('Fetching opto-triggered averages...')
     
     # get relevant keys
     expt_keys = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
     
     # restrict to only desired rec/stim if applicable
     if eg_ids is not None:
-        expt_keys = expt_keys[np.array(eg_ids).astype(int)]
+        expt_keys = list(np.array(expt_keys)[np.array(eg_ids).astype(int)])
     
     # loop through keys to fetch the responses
     trigdff_param_set_id           = params['trigdff_param_set_id_{}'.format(resp_type)]
@@ -169,45 +172,54 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
     t_axes    = list()
     is_stimd  = list()
     is_sig    = list()
-    is_incl   = list()
-    for this_key in expt_keys:
-        this_key['trigdff_param_set_id']           = trigdff_param_set_id
-        this_key['trigdff_inclusion_param_set_id'] = trigdff_inclusion_param_set_id
-        avgs, sems, ts, stimd, keys = (twop_opto_analysis.TrigDffTrialAvg & this_key).fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd','KEY')
-        sig, incl                   = (twop_opto_analysis.TrigDffTrialAvgInclusion & keys).fetch('is_significant', 'is_included')
-        avg_resps.append(avgs)
-        sem_resps.append(sems)
-        t_axes.append(ts)
-        is_stimd.append(stimd)
-        is_sig.append(sig)
-        is_incl.append(incl)
+    coms      = list()
+    peak_ts   = list()
+    num_expt  = len(expt_keys)
+    for ct, ikey in enumerate(expt_keys):
+        print('     {} of {}...'.format(ct+1,num_expt))
+        this_key = {'subject_fullname' : ikey['subject_fullname'], 
+                    'session_date': ikey['session_date'], 
+                    'trigdff_param_set_id': trigdff_param_set_id, 
+                    'trigdff_inclusion_param_set_id': trigdff_inclusion_param_set_id
+                    }
+        
+        # do selecion at the fetching level for speed
+        if which_neurons == 'stimd':
+            # stimd neurons bypass inclusion criteria
+            avgs, sems, ts, stimd, com, peak = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall')
+        else:
+            sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
+            idx  = np.argwhere(np.array(incl)==1).flatten()
+            keys = list(np.array(keys)[idx])
+            sig  = list(np.array(sig)[idx])
+            
+            if signif_only:
+                idx  = np.argwhere(np.array(sig)==1).flatten()
+                keys = list(np.array(keys)[idx])
+                sig  = list(np.array(sig)[idx]) 
+            
+            if which_neurons == 'all':
+                avgs, sems, ts, stimd, com, peak = (twop_opto_analysis.TrigDffTrialAvg & keys).fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall')
+            elif which_neurons == 'non_stimd':
+                avgs, sems, ts, stimd, com, peak = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall')
+            else:
+                print('Unknown category of which_neurons, returning nothing')
+                return
+
+        # flatten list
+        [avg_resps.append(avg) for avg in avgs]
+        [sem_resps.append(sem) for sem in sems]
+        [t_axes.append(t) for t in ts]
+        [is_stimd.append(st) for st in stimd]
+        [is_sig.append(sg) for sg in sig]
+        [coms.append(co) for co in com]
+        [peak_ts.append(pt) for pt in peak]
             
     is_stimd = np.array(is_stimd).flatten()
     is_sig   = np.array(is_sig).flatten()
-    is_incl  = np.array(is_incl).flatten()
-    
-    # apply selection criteria
-    if which_neurons != 'all':
-        idx = np.logical_or(is_incl == 1, is_stimd == 1)
-    elif which_neurons == 'non_stimd':
-        idx = np.logical_and(is_stimd == 0, is_incl == 1)
-    elif which_neurons == 'stimd':
-        idx = is_stimd == 1
-    else:
-        print('Unknown category of which_neurons, returning nothing')
-        return
-    
-    # apply significance unless only stimd are desired
-    if which_neurons != 'stimd' & signif_only:
-        idx = np.logical_and(idx,is_sig==1)
-    
-    idx       = np.argwhere(idx).flatten()    
-    is_stimd  = is_stimd[idx]
-    is_sig    = is_sig[idx]
-    avg_resps = avg_resps[idx]
-    sem_resps = sem_resps[idx]
-    t_axes    = t_axes[idx]
-        
+    peak_ts  = np.array(peak_ts).flatten()
+    coms     = np.array(coms).flatten()
+
     # interpolate to put everyone on the exact same time axis (small diffs in frame rate are possible)
     # start by aligning all time axes to zero and taking the mode of each bin
     nt_pre  = list()
@@ -216,14 +228,14 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
     for taxis in t_axes:
         nt_pre.append(np.size(taxis[taxis<0]))
         nt_post.append(np.size(taxis[taxis>=0]))
-        fdur.append(np.mode(np.diff(taxis)))
+        fdur.append(scipy.stats.mode(np.diff(taxis)))
     
     # base time axis making sure to include t = 0
-    fdur       = np.mode(np.array(fdur).flatten())
-    nt_pre     = np.mode(np.array(nt_pre).flatten()) 
-    nt_post    = np.mode(np.array(nt_post).flatten())   
+    fdur, _    = scipy.stats.mode(np.array(fdur).flatten())
+    nt_pre, _  = scipy.stats.mode(np.array(nt_pre).flatten()) 
+    nt_post, _ = scipy.stats.mode(np.array(nt_post).flatten())   
     pre_t      = np.arange(-nt_pre*fdur,0,fdur)
-    post_t     = np.arange(0,nt_post*fdur+fdur,fdur) 
+    post_t     = np.arange(0,nt_post*fdur,fdur) 
     base_taxis = np.concatenate((pre_t,post_t)) 
     
     # convert all axes to base (mostly expected to be unchanged)
@@ -238,22 +250,69 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
         for iResp in range(len(t_axes)):
             avgs[iResp,:] = avg_resps[iResp]
             sems[iResp,:] = sem_resps[iResp]
+            
+        # make sure NaN frames for shuttered pmt are the same
+        nan_idx1    = np.argwhere(np.isnan(np.sum(avgs,axis=0))).flatten()
+        nan_idx     = np.zeros(np.size(nan_idx1)+1)
+        nan_idx[0]  = nan_idx1[0]-1
+        nan_idx[1:] = nan_idx1
+        avgs[:,nan_idx.astype(int)] = np.nan
+        sems[:,nan_idx.astype(int)] = np.nan
     else:
         avgs = avg_resps
         sems = sem_resps
         
     # collect summary data   
     summary_data = {
-                    'trig_dff_avgs'    : avgs, 
-                    'trig_dff_sems'    : sems,
-                    'time_axis_sec'    : base_taxis,
-                    'num_unique_stimd' : np.sum(is_stimd==1),
-                    'num_responding'   : len(avg_resps),
-                    'includes_signif_only' : signif_only,
+                    'trig_dff_avgs'  : avgs, 
+                    'trig_dff_sems'  : sems,
+                    'time_axis_sec'  : base_taxis,
+                    'num_responding' : len(avg_resps),
+                    'is_stimd'       : is_stimd,
+                    'is_sig'         : is_sig,
+                    'peak_times_sec' : peak_ts,
+                    'com_sec'        : coms,
                     }
+    
+    end_time = time.time()
+    print("     done after {: 1.2f} min".format((end_time-start_time)/60))
     
     return summary_data
 
+# %%
+v1_avgs = get_avg_trig_responses('V1', params=params, expt_type='standard', resp_type='dff')
+m2_avgs = get_avg_trig_responses('M2', params=params, expt_type='standard', resp_type='dff')
+
+idx = np.argsort(v1_avgs['peak_times_sec']).flatten()
+resp_mat_v1 = v1_avgs['trig_dff_avgs'][idx,:]
+idx = np.argsort(m2_avgs['peak_times_sec'])
+resp_mat_m2 = m2_avgs['trig_dff_avgs'][idx,:]
+maxval = np.nanmax(np.abs(resp_mat_m2))
+plt.matshow(resp_mat_v1,vmin=-maxval,vmax=maxval,cmap='coolwarm')
+plt.matshow(resp_mat_m2,vmin=-maxval,vmax=maxval,cmap='coolwarm')
+# %%
+v1_mat = v1_avgs['trig_dff_avgs']
+m2_mat = m2_avgs['trig_dff_avgs']
+num_v1 = np.size(v1_mat,axis=0)
+num_m2 = np.size(m2_mat,axis=0)
+idx_v1 = np.argwhere(np.isnan(np.sum(v1_mat,axis=0)))[-1]+1
+idx_m2 = np.argwhere(np.isnan(np.sum(m2_mat,axis=0)))[-1]+1
+
+for iNeuron in range(num_v1):
+    v1_mat[iNeuron,:] = v1_mat[iNeuron,:]/np.nanmax(v1_mat[iNeuron,:]) #v1_mat[iNeuron,idx_v1]
+for iNeuron in range(num_m2):
+    m2_mat[iNeuron,:] = m2_mat[iNeuron,:]/np.nanmax(m2_mat[iNeuron,:]) #m2_mat[iNeuron,idx_m2]    
+
+
+v1_avg = np.nanmean(v1_mat,axis=0)
+v1_sem = np.nanstd(v1_mat,axis=0)/np.sqrt(num_v1-1)
+m2_avg = np.nanmean(m2_mat,axis=0)
+m2_sem = np.nanstd(m2_mat,axis=0)/np.sqrt(num_m2-1)
+t_axis_v1   = v1_avgs['time_axis_sec']
+t_axis_m2   = m2_avgs['time_axis_sec']
+
+plt.plot(t_axis_v1,v1_avg,'-',color=params['general_params']['V1_cl'],label=params['general_params']['V1_lbl'])
+plt.plot(t_axis_m2,m2_avg,'-',color=params['general_params']['M2_cl'],label=params['general_params']['M2_lbl'])
 # %%
 plot_prop_response_comparison(resp_type='deconv')
     
@@ -261,12 +320,10 @@ plot_prop_response_comparison(resp_type='deconv')
 # basic triggered stats -- incidence, magnitude, fov egs, by space etc
 # eg avg trig responses. all time courses in a field of view + peak + time of peak
 # time course -- summary and fov sequence heatmaps
+# for each fov, Compare tau of post stim decay to predicted tau from eigenvalue of xcorr mat
 # trig running
 # opsin expression
 # seuqence xval
 # PCA
 # opto vs tau, including dyanmics of that
-# %%
-v1_data = get_prop_responding_neurons('V1')
-v1_data
 # %%

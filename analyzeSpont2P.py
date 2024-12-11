@@ -51,20 +51,16 @@ def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
     mice              = params['general_params']['{}_mice'.format(area)]
     corr_param_set_id = params['general_params']['corr_param_id_{}'.format(dff_type)]
     
-    # get relavant keys 
+    # get relavant keys, filtering for inclusion for speed
     keys = list()
     for mouse in mice:
-        primary_key = {'subject_fullname': mouse, 'corr_param_set_id': corr_param_set_id, 'tau_param_set_id': params['tau_param_set_id']}
-        keys.append((spont_timescales.TwopTau & primary_key).fetch('KEY'))
+        primary_key = {'subject_fullname': mouse, 'corr_param_set_id': corr_param_set_id, 'tau_param_set_id': params['tau_param_set_id'], 'twop_inclusion_param_set_id': params['twop_inclusion_param_set_id']}
+        keys.append((spont_timescales.TwopTauInclusion & primary_key & 'is_good_tau_roi=1').fetch('KEY'))
     keys    = [entries for subkeys in keys for entries in subkeys] # flatten
     
-    # retrieve taus with inclusion flags, return just good ones (with corresponding keys)
+    # retrieve taus 
     taus    = np.array((spont_timescales.TwopTau & keys).fetch('tau'))
-    is_good = np.array((spont_timescales.TwopTauInclusion & keys & 'twop_inclusion_param_set_id={}'.format(params['twop_inclusion_param_set_id'])).fetch('is_good_tau_roi'))
-    
-    taus = taus[is_good==1]
-    keys = list(np.array(keys)[is_good==1])
-    
+
     # figure out how many of those are somas
     seg_keys   = VM['twophoton'].Segmentation2P & keys
     is_soma    = np.array((VM['twophoton'].Roi2P & seg_keys).fetch('is_soma'))
