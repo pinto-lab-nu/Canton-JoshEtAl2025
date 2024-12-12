@@ -1,3 +1,7 @@
+# ========================================
+# =============== SET UP =================
+# ========================================
+
 # %% import stuff
 from utils import connect_to_dj
 import numpy as np
@@ -5,6 +9,7 @@ import matplotlib.pyplot as plt
 import scipy.stats
 from copy import deepcopy
 from schemas import spont_timescales
+from schemas import twop_opto_analysis
 from utils.stats import general_stats
 from utils.plotting import plot_pval_circles
 from utils.plotting import plot_fov_heatmap
@@ -38,7 +43,37 @@ params['general_params'] = {
         'tau_param_set_id'               : 1,
         }
 
-# FUNCTIONS
+# ========================================
+# =============== METHODS ================
+# ========================================
+# %%
+# ---------------
+# retrieve dj keys for unique experimental sessions given area and set of parameters
+def get_single_sess_keys(area, params=params, dff_type='residuals_dff'):
+    
+    # get primary keys for query
+    mice              = params['general_params']['{}_mice'.format(area)]
+    corr_param_set_id = params['general_params']['corr_param_id_{}'.format(dff_type)]
+    
+    # get relavant keys 
+    keys = list()
+    for mouse in mice:
+        primary_key = {'subject_fullname': mouse, 'corr_param_set_id': corr_param_set_id, 'tau_param_set_id': params['tau_param_set_id'], 'twop_inclusion_param_set_id': params['twop_inclusion_param_set_id']}
+        keys.append((spont_timescales.TwopTauInclusion & primary_key & 'is_good_tau_roi=1').fetch('KEY'))
+        
+    # find unique ones and rearrange    
+    subj_date_list = ['{},{}'.format(this_key['subject_fullname'],this_key['session_date']) for this_key in keys] 
+    unique_sess    = np.unique(subj_date_list).tolist()
+    
+    sess_keys = list()
+    for sess in unique_sess:
+        idx  = sess.find(',')
+        subj = sess[:idx-1]
+        dat  = sess[idx+1:]
+        sess_keys.append({'subject_fullname':subj,'session_date':dat})
+    
+    return sess_keys
+
 # %%
 # ---------------
 # retrieve all taus for a given area and set of parameters, from dj database
@@ -70,6 +105,34 @@ def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
     print("     done after {: 1.1g} min".format((end_time-start_time)/60))
     
     return taus, keys, total_soma
+
+# %%
+# ---------------
+# retrieve all x-corr taus for a given area and set of parameters, from dj database
+def get_all_tau_xcorr(area, params = params, dff_type = 'residuals_dff'):
+    
+    start_time      = time.time()
+    print('Fetching all x-corr taus for {}...'.format(area))
+        
+    # get primary keys for query
+    mice              = params['general_params']['{}_mice'.format(area)]
+    corr_param_set_id = params['general_params']['corr_param_id_{}'.format(dff_type)]
+    
+    # get relavant keys, filtering for inclusion for speed
+    keys = list()
+    for mouse in mice:
+        primary_key = {'subject_fullname': mouse, 'corr_param_set_id': corr_param_set_id, 'tau_param_set_id': params['tau_param_set_id'], 'twop_inclusion_param_set_id': params['twop_inclusion_param_set_id']}
+        keys.append((spont_timescales.TwopXcorrTauInclusion & primary_key & 'is_good_xcorr_tau=1').fetch('KEY'))
+    keys    = [entries for subkeys in keys for entries in subkeys] # flatten
+    
+    # retrieve taus 
+    taus    = np.array((spont_timescales.TwopXcorrTau & keys).fetch('tau'))
+
+    end_time = time.time()
+    print("     done after {: 1.1g} min".format((end_time-start_time)/60))
+    
+    return taus, keys
+
 # %%
 # ---------------
 # statistically compare taus across areas and plot
@@ -305,6 +368,61 @@ def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_
                               prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=axis_handle, figHandle=fig_handle)
     
     return ax, fig
+
+# %%
+# ---------------
+# retrieve all x-corr taus for a given area and set of parameters, from dj database
+def get_rec_xcorr_mats(area, params = params, dff_type = 'residuals_dff'):
+    
+    start_time      = time.time()
+    print('Fetching all xcorr mats for {}...'.format(area))
+        
+    # get primary keys for query
+    sess_keys = get_single_sess_keys(area, params=params, dff_type='residuals_dff')
+    corr_param_set_id = params['general_params']['corr_param_id_{}'.format(dff_type)]
+    
+    # get relavant keys, filtering for inclusion for speed
+    xcorr_mats = list()
+    for sess in sess_keys:
+        # get keys for good pairs in this session
+        sess['corr_param_set_id'] = corr_param_set_id 
+        sess['tau_param_set_id']  = params['tau_param_set_id']
+        sess['twop_inclusion_param_set_id'] = params['twop_inclusion_param_set_id']
+        good_keys = (spont_timescales.TwopXcorrInclusion & sess & 'is_good_xcorr_pair=1').fetch('KEY')
+        
+        # figure out total number of neurons
+        seg_key     = twop_opto_analysis.get_single_segmentation_key(sess)
+        num_neurons = np.sum(np.array((VM['twophoton'].Segmentation2P & seg_key).fetch('roi_type'))=='soma')
+        
+        # compute mat
+        xcorr_mats.append(xcorr_mat_from_keys(good_keys,num_neurons))
+        
+    end_time = time.time()
+    print("     done after {: 1.1g} min".format((end_time-start_time)/60))
+    
+    return xcorr_mats
+
+# %%
+# ---------------
+# build a symmetrical x-corr matrix from dj keys
+def xcorr_mat_from_keys(xcorr_keys, num_neurons):
+        
+    xcorr_mat = np.zeros((num_neurons,num_neurons))
+    for key in xcorr_keys:
+        idx1 = key['roi_id_1']-1
+        idx2 = key['roi_id_2']-1
+        xcorr_vals = (spont_timescales.TwopXcorr & key).fetch1('xcorr_vals')
+        max_val    = np.max(xcorr_vals)
+        min_val    = np.min(xcorr_vals)
+        if max_val >= np.abs(min_val):
+            val = max_val
+        else:
+            val = min_val
+        xcorr_mat[idx1,idx2] = val
+        xcorr_mat[idx2,idx1] = val
+
+    return xcorr_mat
+
 
 # # %%
 # v1_taus, v1_keys, v1_total = get_all_tau('V1', params = params, dff_type = 'residuals_dff')

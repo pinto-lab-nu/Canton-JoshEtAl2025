@@ -1,3 +1,7 @@
+# ========================================
+# =============== SET UP =================
+# ========================================
+
 # %% import stuff
 from utils import connect_to_dj
 import numpy as np
@@ -18,14 +22,19 @@ VM     = connect_to_dj.get_virtual_modules()
 
 # %% declare default params, inherit general params from tau_params
 params = {
-        'trigdff_param_set_id_dff'       : 1, 
-        'trigdff_param_set_id_deconv'    : 3, 
-        'trigdff_inclusion_param_set_id' : 1,
+        'trigdff_param_set_id_dff'       : 4, 
+        'trigdff_param_set_id_deconv'    : 5, 
+        'trigdff_inclusion_param_set_id' : 3,
+        'trigdff_inclusion_param_set_id_notiming' : 4, # for inhibition, we may want to relax trough timing constraint
         'trigspeed_param_set_id'         : 1,
         'prop_resp_bins'                 : np.arange(0,.41,.01),
         }
 
 params['general_params'] = deepcopy(tau_params['general_params'])
+
+# ========================================
+# =============== METHODS ================
+# ========================================
 
 # %%
 # ---------------
@@ -280,34 +289,43 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
     return summary_data
 
 # %%
-v1_avgs = get_avg_trig_responses('V1', params=params, expt_type='standard', resp_type='dff')
-m2_avgs = get_avg_trig_responses('M2', params=params, expt_type='standard', resp_type='dff')
+v1_avgs = get_avg_trig_responses('V1', params=params, expt_type='standard', resp_type='dff',signif_only=False)
+m2_avgs = get_avg_trig_responses('M2', params=params, expt_type='standard', resp_type='dff',signif_only=False)
 
 idx = np.argsort(v1_avgs['peak_times_sec']).flatten()
 resp_mat_v1 = v1_avgs['trig_dff_avgs'][idx,:]
 idx = np.argsort(m2_avgs['peak_times_sec'])
 resp_mat_m2 = m2_avgs['trig_dff_avgs'][idx,:]
 maxval = np.nanmax(np.abs(resp_mat_m2))
-plt.matshow(resp_mat_v1,vmin=-maxval,vmax=maxval,cmap='coolwarm')
-plt.matshow(resp_mat_m2,vmin=-maxval,vmax=maxval,cmap='coolwarm')
-# %%
-v1_mat = v1_avgs['trig_dff_avgs']
-m2_mat = m2_avgs['trig_dff_avgs']
-num_v1 = np.size(v1_mat,axis=0)
-num_m2 = np.size(m2_mat,axis=0)
-idx_v1 = np.argwhere(np.isnan(np.sum(v1_mat,axis=0)))[-1]+1
-idx_m2 = np.argwhere(np.isnan(np.sum(m2_mat,axis=0)))[-1]+1
+num_v1 = np.size(resp_mat_v1,axis=0)
+num_m2 = np.size(resp_mat_m2,axis=0)
 
 for iNeuron in range(num_v1):
-    v1_mat[iNeuron,:] = v1_mat[iNeuron,:]/np.nanmax(v1_mat[iNeuron,:]) #v1_mat[iNeuron,idx_v1]
+    resp_mat_v1[iNeuron,:] = resp_mat_v1[iNeuron,:]/np.nanmax(resp_mat_v1[iNeuron,:]) #v1_mat[iNeuron,idx_v1]
 for iNeuron in range(num_m2):
-    m2_mat[iNeuron,:] = m2_mat[iNeuron,:]/np.nanmax(m2_mat[iNeuron,:]) #m2_mat[iNeuron,idx_m2]    
+    resp_mat_m2[iNeuron,:] = resp_mat_m2[iNeuron,:]/np.nanmax(resp_mat_m2[iNeuron,:]) #m2_mat[iNeuron,idx_m2]    
+    
+t_axis_v1   = v1_avgs['time_axis_sec']
+t_axis_m2   = m2_avgs['time_axis_sec']
+# 
+plt.matshow(resp_mat_v1,cmap='coolwarm',vmin=-1,vmax=1)
+plt.colorbar()
+plt.matshow(resp_mat_m2,cmap='coolwarm',vmin=-1,vmax=1)
+plt.colorbar()
+# %%
+# v1_mat = v1_avgs['trig_dff_avgs']
+# m2_mat = m2_avgs['trig_dff_avgs']
+
+# idx_v1 = np.argwhere(np.isnan(np.sum(v1_mat,axis=0)))[-1]+1
+# idx_m2 = np.argwhere(np.isnan(np.sum(m2_mat,axis=0)))[-1]+1
 
 
-v1_avg = np.nanmean(v1_mat,axis=0)
-v1_sem = np.nanstd(v1_mat,axis=0)/np.sqrt(num_v1-1)
-m2_avg = np.nanmean(m2_mat,axis=0)
-m2_sem = np.nanstd(m2_mat,axis=0)/np.sqrt(num_m2-1)
+
+# %%
+v1_avg = np.nanmean(resp_mat_v1,axis=0)
+v1_sem = np.nanstd(resp_mat_v1,axis=0)/np.sqrt(num_v1-1)
+m2_avg = np.nanmean(resp_mat_m2,axis=0)
+m2_sem = np.nanstd(resp_mat_m2,axis=0)/np.sqrt(num_m2-1)
 t_axis_v1   = v1_avgs['time_axis_sec']
 t_axis_m2   = m2_avgs['time_axis_sec']
 
