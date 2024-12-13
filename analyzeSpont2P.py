@@ -24,6 +24,7 @@ params = {
         'random_seed'               : 42, 
         'max_tau'                   : None,
         'tau_hist_bins'             : np.arange(0,10.2,.2),
+        'tau_hist_bins_xcorr'       : np.arange(0,20.2,.2),
         'clustering_dist_bins'      : np.arange(0,350,50),
         'clustering_num_boot_iter'  : 10000,
         'clustering_num_shuffles'   : 1000,
@@ -54,12 +55,15 @@ def get_single_sess_keys(area, params=params, dff_type='residuals_dff'):
     # get primary keys for query
     mice              = params['general_params']['{}_mice'.format(area)]
     corr_param_set_id = params['general_params']['corr_param_id_{}'.format(dff_type)]
+    tau_param_set_id  = params['general_params']['tau_param_set_id']
+    incl_set_id       = params['general_params']['twop_inclusion_param_set_id']
     
     # get relavant keys 
     keys = list()
     for mouse in mice:
-        primary_key = {'subject_fullname': mouse, 'corr_param_set_id': corr_param_set_id, 'tau_param_set_id': params['tau_param_set_id'], 'twop_inclusion_param_set_id': params['twop_inclusion_param_set_id']}
-        keys.append((spont_timescales.TwopTauInclusion & primary_key & 'is_good_tau_roi=1').fetch('KEY'))
+        primary_key = {'subject_fullname': mouse, 'corr_param_set_id': corr_param_set_id, 'tau_param_set_id': tau_param_set_id, 'twop_inclusion_param_set_id': incl_set_id}
+        mouse_keys  = (spont_timescales.TwopTauInclusion & primary_key & 'is_good_tau_roi=1').fetch('KEY')
+        [keys.append(ikey) for ikey in mouse_keys]
         
     # find unique ones and rearrange    
     subj_date_list = ['{},{}'.format(this_key['subject_fullname'],this_key['session_date']) for this_key in keys] 
@@ -68,7 +72,7 @@ def get_single_sess_keys(area, params=params, dff_type='residuals_dff'):
     sess_keys = list()
     for sess in unique_sess:
         idx  = sess.find(',')
-        subj = sess[:idx-1]
+        subj = sess[:idx]
         dat  = sess[idx+1:]
         sess_keys.append({'subject_fullname':subj,'session_date':dat})
     
@@ -85,11 +89,13 @@ def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
     # get primary keys for query
     mice              = params['general_params']['{}_mice'.format(area)]
     corr_param_set_id = params['general_params']['corr_param_id_{}'.format(dff_type)]
+    tau_param_set_id  = params['general_params']['tau_param_set_id']
+    incl_set_id       = params['general_params']['twop_inclusion_param_set_id']
     
     # get relavant keys, filtering for inclusion for speed
     keys = list()
     for mouse in mice:
-        primary_key = {'subject_fullname': mouse, 'corr_param_set_id': corr_param_set_id, 'tau_param_set_id': params['tau_param_set_id'], 'twop_inclusion_param_set_id': params['twop_inclusion_param_set_id']}
+        primary_key = {'subject_fullname': mouse, 'corr_param_set_id': corr_param_set_id, 'tau_param_set_id': tau_param_set_id, 'twop_inclusion_param_set_id': incl_set_id}
         keys.append((spont_timescales.TwopTauInclusion & primary_key & 'is_good_tau_roi=1').fetch('KEY'))
     keys    = [entries for subkeys in keys for entries in subkeys] # flatten
     
@@ -102,7 +108,7 @@ def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
     total_soma = np.sum(is_soma)
     
     end_time = time.time()
-    print("     done after {: 1.1g} min".format((end_time-start_time)/60))
+    print("     done after {: 1.1f} min".format((end_time-start_time)/60))
     
     return taus, keys, total_soma
 
@@ -117,11 +123,13 @@ def get_all_tau_xcorr(area, params = params, dff_type = 'residuals_dff'):
     # get primary keys for query
     mice              = params['general_params']['{}_mice'.format(area)]
     corr_param_set_id = params['general_params']['corr_param_id_{}'.format(dff_type)]
+    tau_param_set_id  = params['general_params']['tau_param_set_id']
+    incl_set_id       = params['general_params']['twop_inclusion_param_set_id']
     
-    # get relavant keys, filtering for inclusion for speed
+    # get relavant keys 
     keys = list()
     for mouse in mice:
-        primary_key = {'subject_fullname': mouse, 'corr_param_set_id': corr_param_set_id, 'tau_param_set_id': params['tau_param_set_id'], 'twop_inclusion_param_set_id': params['twop_inclusion_param_set_id']}
+        primary_key = {'subject_fullname': mouse, 'corr_param_set_id': corr_param_set_id, 'tau_param_set_id': tau_param_set_id, 'twop_inclusion_param_set_id': incl_set_id}
         keys.append((spont_timescales.TwopXcorrTauInclusion & primary_key & 'is_good_xcorr_tau=1').fetch('KEY'))
     keys    = [entries for subkeys in keys for entries in subkeys] # flatten
     
@@ -129,33 +137,56 @@ def get_all_tau_xcorr(area, params = params, dff_type = 'residuals_dff'):
     taus    = np.array((spont_timescales.TwopXcorrTau & keys).fetch('tau'))
 
     end_time = time.time()
-    print("     done after {: 1.1g} min".format((end_time-start_time)/60))
+    print("     done after {: 1.1f} min".format((end_time-start_time)/60))
     
     return taus, keys
 
 # %%
 # ---------------
 # statistically compare taus across areas and plot
-def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None, v1_taus=None, m2_taus=None):
+def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None, v1_taus=None, m2_taus=None, tau_type='autocorr'):
 
     # get taus
-    if v1_taus is None:
-        v1_taus, _ , _ = get_all_tau('V1',params=params,dff_type=dff_type)
-    if m2_taus is None:
-        m2_taus, _ , _ = get_all_tau('M2',params=params,dff_type=dff_type)
+    if tau_type == 'autocorr':
+        if v1_taus is None:
+            v1_taus, _ , _ = get_all_tau('V1',params=params,dff_type=dff_type)
+        if m2_taus is None:
+            m2_taus, _ , _ = get_all_tau('M2',params=params,dff_type=dff_type)
+        histbins = params['tau_hist_bins']
+        n_is     = 'neurons'
+        
+    elif tau_type == 'xcorr':
+        if v1_taus is None:
+            v1_taus, _ = get_all_tau_xcorr('V1',params=params,dff_type=dff_type)
+        if m2_taus is None:
+            m2_taus, _ = get_all_tau_xcorr('M2',params=params,dff_type=dff_type)
+        histbins = params['tau_hist_bins_xcorr']
+        n_is     = 'pairs'
+       
+    elif tau_type == 'eigen':
+        if v1_taus is None:
+            v1_taus, _ = get_rec_xcorr_eigen_taus('V1',params=params,dff_type=dff_type)
+        if m2_taus is None:
+            m2_taus, _ = get_rec_xcorr_eigen_taus('M2',params=params,dff_type=dff_type)
+        histbins = params['tau_hist_bins_xcorr']
+        n_is     = 'fovs'
+         
+    else:    
+        print('unknown corr_type, doing nothing')
+        return
     
     # compute stats
     tau_stats = dict()
-    tau_stats['V1_num_cells'] = np.size(v1_taus)
-    tau_stats['V1_mean']      = np.mean(v1_taus)
-    tau_stats['V1_sem']       = np.std(v1_taus,ddof=1) / np.sqrt(tau_stats['V1_num_cells']-1)
-    tau_stats['V1_median']    = np.median(v1_taus)
-    tau_stats['V1_iqr']       = scipy.stats.iqr(v1_taus)
-    tau_stats['M2_num_cells'] = np.size(m2_taus)
-    tau_stats['M2_mean']      = np.mean(m2_taus)
-    tau_stats['M2_sem']       = np.std(m2_taus,ddof=1) / np.sqrt(tau_stats['M2_num_cells']-1)
-    tau_stats['M2_median']    = np.median(m2_taus)
-    tau_stats['M2_iqr']       = scipy.stats.iqr(m2_taus)
+    tau_stats['V1_num_'+ n_is] = np.size(v1_taus)
+    tau_stats['V1_mean']       = np.mean(v1_taus)
+    tau_stats['V1_sem']        = np.std(v1_taus,ddof=1) / np.sqrt(tau_stats['V1_num_cells']-1)
+    tau_stats['V1_median']     = np.median(v1_taus)
+    tau_stats['V1_iqr']        = scipy.stats.iqr(v1_taus)
+    tau_stats['M2_num_'+ n_is] = np.size(m2_taus)
+    tau_stats['M2_mean']       = np.mean(m2_taus)
+    tau_stats['M2_sem']        = np.std(m2_taus,ddof=1) / np.sqrt(tau_stats['M2_num_cells']-1)
+    tau_stats['M2_median']     = np.median(m2_taus)
+    tau_stats['M2_iqr']        = scipy.stats.iqr(m2_taus)
     tau_stats['pval'], tau_stats['test_name'] = general_stats.two_group_comparison(v1_taus, m2_taus, is_paired=False, tail="two-sided")
 
     # plot
@@ -165,7 +196,6 @@ def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None
     else:
         ax = axis_handle
 
-    histbins     = params['tau_hist_bins']
     v1_counts, _ = np.histogram(v1_taus,bins=histbins,density=False)
     m2_counts, _ = np.histogram(m2_taus,bins=histbins,density=False)
     xaxis        = histbins[:-1]+np.diff(histbins)[0]
@@ -177,7 +207,7 @@ def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None
 
     ax.set_xscale('log')
     ax.set_xlabel('$\\tau$ (sec)')
-    ax.set_ylabel('Prop. neurons')
+    ax.set_ylabel('Prop. ' + n_is)        
     ax.legend()
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
@@ -371,46 +401,51 @@ def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_
 
 # %%
 # ---------------
-# retrieve all x-corr taus for a given area and set of parameters, from dj database
-def get_rec_xcorr_mats(area, params = params, dff_type = 'residuals_dff'):
+# retrieve all x-corr taus for a given area and set of parameters using matrix eigenvalues
+def get_rec_xcorr_eigen_taus(area, params = params, dff_type = 'residuals_dff'):
     
     start_time      = time.time()
     print('Fetching all xcorr mats for {}...'.format(area))
         
     # get primary keys for query
     sess_keys = get_single_sess_keys(area, params=params, dff_type='residuals_dff')
-    corr_param_set_id = params['general_params']['corr_param_id_{}'.format(dff_type)]
     
     # get relavant keys, filtering for inclusion for speed
     xcorr_mats = list()
+    taus       = list()
     for sess in sess_keys:
         # get keys for good pairs in this session
-        sess['corr_param_set_id'] = corr_param_set_id 
-        sess['tau_param_set_id']  = params['tau_param_set_id']
-        sess['twop_inclusion_param_set_id'] = params['twop_inclusion_param_set_id']
+        sess['corr_param_set_id'] = params['general_params']['corr_param_id_{}'.format(dff_type)]
+        sess['tau_param_set_id']  = params['general_params']['tau_param_set_id']
+        sess['twop_inclusion_param_set_id'] = params['general_params']['twop_inclusion_param_set_id']
         good_keys = (spont_timescales.TwopXcorrInclusion & sess & 'is_good_xcorr_pair=1').fetch('KEY')
         
         # figure out total number of neurons
-        seg_key     = twop_opto_analysis.get_single_segmentation_key(sess)
-        num_neurons = np.sum(np.array((VM['twophoton'].Segmentation2P & seg_key).fetch('roi_type'))=='soma')
+        seg_key   = twop_opto_analysis.get_single_segmentation_key(sess)
+        is_neuron = np.array((VM['twophoton'].Roi2P & seg_key).fetch('roi_type'))=='soma'
+        f_period  = 1/((VM['twophoton'].Scan & seg_key).fetch1('frame_rate_hz'))
         
         # compute mat
-        xcorr_mats.append(xcorr_mat_from_keys(good_keys,num_neurons))
+        this_mat = xcorr_mat_from_keys(good_keys,is_neuron)
+        xcorr_mats.append(this_mat)
+        taus.append(tau_from_eigenval(this_mat,f_period))
         
     end_time = time.time()
-    print("     done after {: 1.1g} min".format((end_time-start_time)/60))
+    print("     done after {: 1.1f} min".format((end_time-start_time)/60))
     
-    return xcorr_mats
+    return np.array(taus), xcorr_mats
 
 # %%
 # ---------------
 # build a symmetrical x-corr matrix from dj keys
-def xcorr_mat_from_keys(xcorr_keys, num_neurons):
+def xcorr_mat_from_keys(xcorr_keys, is_neuron):
         
-    xcorr_mat = np.zeros((num_neurons,num_neurons))
+    neuron_idx  = np.argwhere(is_neuron==1)
+    num_neurons = np.size(neuron_idx)    
+    xcorr_mat   = np.zeros((num_neurons,num_neurons))
     for key in xcorr_keys:
-        idx1 = key['roi_id_1']-1
-        idx2 = key['roi_id_2']-1
+        idx1 = np.argwhere(neuron_idx==key['roi_id_1']-1)
+        idx2 = np.argwhere(neuron_idx==key['roi_id_2']-1)
         xcorr_vals = (spont_timescales.TwopXcorr & key).fetch1('xcorr_vals')
         max_val    = np.max(xcorr_vals)
         min_val    = np.min(xcorr_vals)
@@ -423,34 +458,21 @@ def xcorr_mat_from_keys(xcorr_keys, num_neurons):
 
     return xcorr_mat
 
+# %%
+# ---------------
+# timescale from eigenvalue of the x-corr matrix
+def tau_from_eigenval(xcorr_mat,frame_period):
+  
+    # tau will be defined by the longest timescale, 
+    # given by the reciprocal of the smallest-magnitude negative eigenvalue
+    eigvals = np.real(np.linalg.eigvals(xcorr_mat))  
+    eigvals = eigvals[eigvals<0]
+    tau     = 1/np.abs(np.max(eigvals))
+    
+    return tau*frame_period
 
-# # %%
-# v1_taus, v1_keys, v1_total = get_all_tau('V1', params = params, dff_type = 'residuals_dff')
-# m2_taus, m2_keys, m2_total = get_all_tau('M2', params = params, dff_type = 'residuals_dff')
-# # %%
-# tau_stats, _ = plot_area_tau_comp(v1_taus=v1_taus, m2_taus=m2_taus)
-# tau_stats
-# # %%
-# v1_centr, v1_rec_ids = get_centroids_by_rec(v1_keys)
-# m2_centr, m2_rec_ids = get_centroids_by_rec(m2_keys)
-
-# # %% fig 2g: clustering
-# these_params = deepcopy(params)
-# these_params['random_seed'] = 42
-# these_params['max_tau'] = None
-# these_params['clustering_num_boot_iter'] = 1000
-# these_params['clustering_dist_bins'] = np.arange(0,330,30)
-# these_params['clustering_zscore_taus'] = True
-
-# # rng = np.random.default_rng(seed=these_params['random_seed'])
-
-# # clust_stats_v1 , tau_diff_mat_v1 = clustering_by_tau(v1_taus, v1_centr, v1_rec_ids, these_params,rng=rng)
-# # clust_stats_m2 , tau_diff_mat_m2 = clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, these_params,rng=rng)
-# cax = plot_clustering_comp(v1_clust=clust_stats_v1,m2_clust=clust_stats_m2, params=these_params)
-# # %%
-# im_ax = plot_tau_fov(v1_keys, v1_rec_ids, which_sess=1, do_zscore=False, prctile_cap=[0,95])
-# # good ones m2: 0, 4, 5, 10 (95th prct), 17, 22
-# # good ones v1: 0 , 2 
-# # try just long or short timescale cells for clusetring
-# # SEPARATE TAU FROM GENERIC FOV PLOT FOR REUSE
-# # %%
+# %%
+v1_eigen_taus, v1_xcorr_mats = get_rec_xcorr_eigen_taus('V1', params = params, dff_type = 'residuals_dff')
+m2_eigen_taus, m2_xcorr_mats = get_rec_xcorr_eigen_taus('M2', params = params, dff_type = 'residuals_dff')
+eigen_tau_stats, _ = plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None, v1_taus=v1_eigen_taus, m2_taus=m2_eigen_taus, corr_type='eigen')
+# %%
