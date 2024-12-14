@@ -75,6 +75,6 @@ cax = analyzeSpont2P.plot_clustering_comp(v1_clust=clust_stats_v1,m2_clust=clust
 # ==========  Fig 3  ===========
 # ==============================
 
-resp_prob_summary, _ = analyzeEvoked2P.plot_prop_response_comparison(params=opto_params, expt_type='standard', resp_type='dff', axis_handle=None)
+resp_prob_summary, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, expt_type='standard', resp_type='dff', axis_handle=None, plot_what='response_probability')
 v1_avgs = analyzeEvoked2P.get_avg_trig_responses('V1', params=opto_params, expt_type='standard', resp_type='dff')
 m2_avgs = analyzeEvoked2P.get_avg_trig_responses('M2', params=opto_params, expt_type='standard', resp_type='dff')

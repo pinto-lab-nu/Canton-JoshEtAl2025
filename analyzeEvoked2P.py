@@ -7,6 +7,8 @@ from utils import connect_to_dj
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats
+import pingouin as pg
+import pandas as pd
 from copy import deepcopy
 from schemas import spont_timescales
 from schemas import twop_opto_analysis
@@ -28,6 +30,9 @@ params = {
         'trigdff_inclusion_param_set_id_notiming' : 4, # for inhibition, we may want to relax trough timing constraint
         'trigspeed_param_set_id'         : 1,
         'prop_resp_bins'                 : np.arange(0,.41,.01),
+        'dist_bins_resp_prob'            : np.arange(30,480,50),
+        'reponse_magnitude_bins'         : np.arange(-10,10.2,.2),
+        'reponse_time_bins'              : np.arange(0,10.1,.1),
         }
 
 params['general_params'] = deepcopy(tau_params['general_params'])
@@ -118,7 +123,7 @@ def get_prop_responding_neurons(area, params=params, expt_type='standard', resp_
     return summary_data
         
 # %%
-# plot comparison of proportion of significantly responding neurons
+# plot comparison of overall proportion of significantly responding neurons
 def plot_prop_response_comparison(params=params, expt_type='standard', resp_type='dff', axis_handle=None):
     
     # get data
@@ -158,6 +163,7 @@ def plot_prop_response_comparison(params=params, expt_type='standard', resp_type
 
     return response_stats, ax 
     
+
 # %%
 # get average opto-triiggered responses for an area and experiment type
 def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', as_matrix=True):
@@ -288,6 +294,238 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
     
     return summary_data
 
+# %%
+# get response stats (peak, dist from stim etc) for an area and experiment type
+def get_response_stats(area, params=params, expt_type='standard', resp_type='dff', eg_ids=None, which_neurons='non_stimd'):
+    
+    start_time      = time.time()
+    print('Fetching opto-triggered response stats...')
+    
+    # get relevant keys
+    expt_keys = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
+    
+    # restrict to only desired rec/stim if applicable
+    if eg_ids is not None:
+        expt_keys = list(np.array(expt_keys)[np.array(eg_ids).astype(int)])
+    
+    # loop through keys to fetch the responses
+    trigdff_param_set_id           = params['trigdff_param_set_id_{}'.format(resp_type)]
+    trigdff_inclusion_param_set_id = params['trigdff_inclusion_param_set_id']
+    
+    is_stimd   = list()
+    is_sig     = list()
+    coms       = list()
+    maxmins_ts = list()
+    maxmins    = list()
+    dists      = list()
+    num_expt   = len(expt_keys)
+    dist_by_expt   = list()
+    is_sig_by_expt = list()
+    n_by_expt      = list()
+    n_sig_by_expt  = list()
+    prop_vs_total  = list()
+    prop_of_sig    = list()
+    dist_bins      = params['dist_bins_resp_prob']
+    num_bins       = len(dist_bins)-1
+    
+    for ct, ikey in enumerate(expt_keys):
+        print('     {} of {}...'.format(ct+1,num_expt))
+        this_key = {'subject_fullname' : ikey['subject_fullname'], 
+                    'session_date': ikey['session_date'], 
+                    'trigdff_param_set_id': trigdff_param_set_id, 
+                    'trigdff_inclusion_param_set_id': trigdff_inclusion_param_set_id
+                    }
+        
+        # do selecion at the fetching level for speed
+        if which_neurons == 'stimd':
+            # stimd neurons bypass inclusion criteria
+            stimd, com, maxmin, peakt, trought, dist, sid = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_posstim', 'time_of_trough_sec_posstim', 'min_dist_from_stim_um', 'stim_id')
+            n    = len(stimd)
+        else:
+            sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
+            idx  = np.argwhere(np.array(incl)==1).flatten()
+            n    = np.size(idx)
+            keys = list(np.array(keys)[idx])
+            sig  = list(np.array(sig)[idx])
+
+            if which_neurons == 'all':
+                stimd, com, maxmin, peakt, trought, dist, sid = (twop_opto_analysis.TrigDffTrialAvg & keys).fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_posstim', 'time_of_trough_sec_posstim', 'min_dist_from_stim_um', 'stim_id')
+            elif which_neurons == 'non_stimd':
+                stimd, com, maxmin, peakt, trought, dist, sid = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_posstim', 'time_of_trough_sec_posstim', 'min_dist_from_stim_um', 'stim_id')
+            else:
+                print('Unknown category of which_neurons, returning nothing')
+                return
+
+        # pick trough or peak time, whichever is higher magnitude
+        maxmin_t = list()
+        for iNeuron in range(len):
+            if maxmin[iNeuron] < 0:
+                maxmin_t.append(trought[iNeuron])
+            else:
+                maxmin_t.append(peakt[iNeuron])
+
+        # flatten list
+        [is_stimd.append(st) for st in stimd]
+        [is_sig.append(sg) for sg in sig]
+        [coms.append(co) for co in com]
+        [maxmins.append(mm) for mm in maxmin]
+        [maxmins_ts.append(mmt) for mmt in maxmin_t]
+        [dists.append(ds) for ds in dist]
+
+        # response prob by dist per experiment
+        dist        = np.array(dist).flatten()
+        sig         = np.array(sig).flatten()
+        unique_sids = np.unique(sid)
+        n           = n / len(unique_sids)
+        vs_total    = np.zeros(num_bins)
+        vs_sig      = np.zeros(num_bins)
+        for this_id in unique_sids:
+            this_dist = dist[sid == this_id]
+            this_sig  = sig[sid == this_id]
+            dist_by_expt.append(this_dist)
+            is_sig_by_expt.append(this_sig)
+            n_sig_by_expt.append(np.sum(this_sig==1))
+            n_by_expt.append(n)
+            for iBin in range(num_bins):
+                idx    = this_dist > dist_bins[iBin] & dists <= dist_bins[iBin+1]
+                this_n = np.sum(this_sig[idx==1])
+                vs_total[iBin] = this_n / n
+                vs_sig[iBin]   = this_n / n_sig_by_expt[-1]
+                
+            prop_vs_total.append(vs_total)
+            prop_of_sig.append(vs_sig)
+    
+    # collect summary data   
+    summary_data = {
+                    'num_total_neurons'     : np.sum(np.array(n_by_expt).flatten()),
+                    'num_responding'        : np.sum(np.array(n_sig_by_expt).flatten()),
+                    'num_experiments'       : len(prop_vs_total),
+                    'num_sig_by_expt'       : np.array(n_sig_by_expt).flatten(),
+                    'is_stimd'              : np.array(is_stimd).flatten(),
+                    'is_sig'                : np.array(is_sig).flatten(),
+                    'max_or_min_times_sec'  : np.array(maxmins_ts).flatten(),
+                    'max_or_min_vals'       : np.array(maxmins).flatten(),
+                    'com_sec'               : np.array(coms).flatten(),
+                    'dist_from_stim_um'     : np.array(dists).flatten(),
+                    'dist_axis'             : dist_bins+np.diff(dist_bins)[0]/2,
+                    'prop_by_dist_vs_total' : prop_vs_total,
+                    'prop_by_dist_of_sig'   : prop_of_sig,
+                    }
+    
+    end_time = time.time()
+    print("     done after {: 1.2f} min".format((end_time-start_time)/60))
+    
+    return summary_data
+
+# %%
+# compare general responses stats between areas
+def compare_response_stats(params=params, expt_type='standard', resp_type='dff', which_neurons='non_stimd'):
+    
+    # get data
+    v1_data = get_response_stats('V1', params=params, expt_type=expt_type, resp_type=resp_type, which_neurons=which_neurons)
+    m2_data = get_response_stats('M2', params=params, expt_type=expt_type, resp_type=resp_type, which_neurons=which_neurons)
+
+    # compute stats
+    response_stats = dict()
+    response_stats['V1_stats'] = v1_data
+    response_stats['M2_stats'] = m2_data
+    
+    # two-group comparisons
+    response_stats['response_magnitude_pval'], response_stats['response_magnitude_test_name'] = \
+        general_stats.two_group_comparison(v1_data['max_or_min_vals'], m2_data['max_or_min_vals'], is_paired=False, tail="two-sided")
+    response_stats['response_time_pval'], response_stats['response_time_test_name'] = \
+        general_stats.two_group_comparison(v1_data['max_or_min_time_sec'], m2_data['max_or_min_time_sec'], is_paired=False, tail="two-sided")
+    response_stats['response_com_pval'], response_stats['response_com_test_name'] = \
+        general_stats.two_group_comparison(v1_data['com_sec'], m2_data['com_sec'], is_paired=False, tail="two-sided")
+
+    # two-way RM ANOVAs for the space-dependent metrics 
+    # make it flattened lists for dataframe conversion first
+    dists      = list()
+    areas      = list()
+    prop_total = list()
+    prop_sig   = list()
+    dist_vals  = list(v1_data['dist_axis'])
+    num_bins   = len(dist_vals)
+    for iEx in range(v1_data['num_experiments']):
+        [prop_total.append(ii) for ii in list(v1_data['prop_by_dist_vs_total'][iEx])]
+        [prop_sig.append(ii) for ii in list(v1_data['prop_by_dist_of_sig'][iEx])]
+        [dists.append(ii) for ii in list(dist_vals)]
+        [areas.append(ii) for ii in ['V1']*num_bins]
+    for iEx in range(m2_data['num_experiments']):
+        [prop_total.append(ii) for ii in list(m2_data['prop_by_dist_vs_total'][iEx])]
+        [prop_sig.append(ii) for ii in list(m2_data['prop_by_dist_of_sig'][iEx])]
+        [dists.append(ii) for ii in list(dist_vals)]
+        [areas.append(ii) for ii in ['M2']*num_bins]
+        
+    df         = pd.DataFrame({'area': areas, 
+                               'dist': dists, 
+                               'prop_vs_total': prop_total, 
+                               'prop_of_sig'  : prop_sig
+                               })
+
+    response_stats['anova_prop_vs_dist_total'] = pg.anova(data=df, dv='prop_vs_total', within=['area', 'dist'])
+    response_stats['anova_prop_vs_dist_sig']   = pg.anova(data=df, dv='prop_of_sig', within=['area', 'dist'])
+
+    return response_stats
+
+# %%
+# plot comparison of overall proportion of significantly responding neurons
+def plot_response_stats_comparison(params=params, expt_type='standard', resp_type='dff', which_neurons='non_stimd', response_stats=None, axis_handle=None, plot_what='response_magnitude'):
+    
+    # call this one dedicated function if it's just overall proportion (there for historical reasons)
+    if plot_what == 'response_probability':
+        response_stats, ax = plot_prop_response_comparison(params=params, expt_type=expt_type, resp_type=resp_type, axis_handle=axis_handle)
+        return response_stats, ax
+    
+    # get data
+    if response_stats is None:
+        response_stats = compare_response_stats(params=params, expt_type=expt_type, resp_type=resp_type, which_neurons=which_neurons)
+            
+    # isolate desired variables    
+    if plot_what == 'reponse_magnitude':
+        v1_data  = response_stats['V1_stats']['max_or_min_vals']
+        m2_data  = response_stats['M2_stats']['max_or_min_vals']
+        pval     = response_stats[plot_what+'_pval']
+        histbins = params[plot_what+'_bins']
+        xlbl     = 'Response magnitude (z-score)'
+        
+    elif plot_what == 'response_time':
+    elif plot_what == 'prop_by_dist_vs_total':
+    elif plot_what == 'prop_by_dist_of_sig':
+    else:
+    
+    # plot
+    if axis_handle is None:
+        plt.figure()
+        ax = plt.gca()
+    else:
+        ax = axis_handle
+
+    if plot_what == 'prop_by_dist_vs_total' or plot_what == 'prop_by_dist_of_sig':
+        # by dist plots
+        
+    else:
+        # cumulative histograms
+        v1_counts, _ = np.histogram(v1_data,bins=histbins,density=False)
+        m2_counts, _ = np.histogram(m2_data,bins=histbins,density=False)
+        xaxis        = histbins[:-1]+np.diff(histbins)[0]
+        ax.plot(xaxis,np.cumsum(v1_counts)/np.sum(v1_counts),color=params['general_params']['V1_cl'],label=params['general_params']['V1_lbl'])
+        ax.plot(xaxis,np.cumsum(m2_counts)/np.sum(m2_counts),color=params['general_params']['M2_cl'],label=params['general_params']['M2_lbl'])
+        ax.plot(v1_data['prop_median'],0.03,'v',color=params['general_params']['V1_cl'])
+        ax.plot(m2_data['prop_median'],0.03,'v',color=params['general_params']['M2_cl'])
+        ax.text(0,.8,'p = {:1.2g}'.format(pval),horizontalalignment='left')
+
+        ax.set_xlabel(xlbl)
+        ax.set_ylabel("Prop. of responding neurons")
+        ax.legend()
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+
+    return response_stats, ax 
+
+# ====================
+# SANDBOX
+# =====================
 # %%
 v1_avgs = get_avg_trig_responses('V1', params=params, expt_type='standard', resp_type='dff',signif_only=False)
 m2_avgs = get_avg_trig_responses('M2', params=params, expt_type='standard', resp_type='dff',signif_only=False)
