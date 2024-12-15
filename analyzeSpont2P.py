@@ -472,7 +472,7 @@ def tau_from_eigenval(xcorr_mat,frame_period):
     return tau*frame_period
 
 # %%
-v1_eigen_taus, v1_xcorr_mats = get_rec_xcorr_eigen_taus('V1', params = params, dff_type = 'residuals_dff')
-m2_eigen_taus, m2_xcorr_mats = get_rec_xcorr_eigen_taus('M2', params = params, dff_type = 'residuals_dff')
-eigen_tau_stats, _ = plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None, v1_taus=v1_eigen_taus, m2_taus=m2_eigen_taus, corr_type='eigen')
+# v1_eigen_taus, v1_xcorr_mats = get_rec_xcorr_eigen_taus('V1', params = params, dff_type = 'residuals_dff')
+# m2_eigen_taus, m2_xcorr_mats = get_rec_xcorr_eigen_taus('M2', params = params, dff_type = 'residuals_dff')
+# eigen_tau_stats, _ = plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None, v1_taus=v1_eigen_taus, m2_taus=m2_eigen_taus, corr_type='eigen')
 # %%
