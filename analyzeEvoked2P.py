@@ -682,9 +682,9 @@ def plot_trig_speed(params=params, expt_type='standard', v1_data=None, m2_data=N
     sem_v1   = v1_data['trig_speed_iqr']
     sem_m2   = m2_data['trig_speed_iqr']
     
-    ax.fill_between(xaxis_v1,mean_v1-sem_v1,mean_v1+sem_v1,color=[.7, .7, .7, .5])
+    ax.fill_between(xaxis_v1,mean_v1-sem_v1,mean_v1+sem_v1,color=params['general_params']['V1_sh'])
     ax.plot(xaxis_v1,mean_v1,'-',color=params['general_params']['V1_cl'],label=params['general_params']['V1_lbl'])
-    ax.fill_between(xaxis_m2,mean_m2-sem_m2,mean_m2+sem_m2,color=[.7, .7, .7, .5])
+    ax.fill_between(xaxis_m2,mean_m2-sem_m2,mean_m2+sem_m2,color=params['general_params']['M2_sh'])
     ax.plot(xaxis_m2,mean_m2,'-',color=params['general_params']['M2_cl'],label=params['general_params']['M2_lbl'])
     yl = ax.get_ylim()
     ax.plot([0,0],yl,'--',color=[.8,.8,.8])

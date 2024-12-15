@@ -84,6 +84,10 @@ cax = analyzeSpont2P.plot_clustering_comp(v1_clust=clust_stats_v1,m2_clust=clust
 
 # >>>>>> try just long or short timescale cells for clusetring
 
+# === Fig S3: taus controls ===
+tau_stats_noregr, _ = analyzeSpont2P.plot_area_tau_comp(axis_handle = ax, params = tau_params, dff_type = 'noGlm_dff')
+tau_stats_deconv, _ = analyzeSpont2P.plot_area_tau_comp(axis_handle = ax, params = tau_params, dff_type = 'residuals_deconv')
+
 # %% ===========================================
 # == Fig 3: overall evoked 2p-opto comparison ==
 # ==============================================

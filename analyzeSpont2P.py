@@ -35,6 +35,8 @@ params['general_params'] = {
         'M2_mice'     : ['jec822_NCCR32','jec822_NCCR72','jec822_NCCR73','jec822_NCCR77'] ,
         'V1_cl'       : np.array([180, 137, 50])/255 ,#np.array([120, 120, 120])/255 ,
         'M2_cl'       : np.array([43, 67, 121])/255 ,#np.array([90, 60, 172])/255 ,
+        'V1_sh'       : np.array([200, 147, 60, 128])/255 ,
+        'M2_sh'       : np.array([53, 47, 141, 128])/255 ,
         'V1_lbl'      : 'VISp' ,
         'M2_lbl'      : 'MOs' ,
         'corr_param_id_noGlm_dff'        : 2, 
