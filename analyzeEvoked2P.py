@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import scipy.stats
 import pingouin as pg
 import pandas as pd
+import statsmodels.api as sm
 from copy import deepcopy
 from schemas import spont_timescales
 from schemas import twop_opto_analysis
@@ -26,13 +27,14 @@ VM     = connect_to_dj.get_virtual_modules()
 params = {
         'trigdff_param_set_id_dff'       : 4, 
         'trigdff_param_set_id_deconv'    : 5, 
-        'trigdff_inclusion_param_set_id' : 4,
+        'trigdff_inclusion_param_set_id' : 3,
         'trigdff_inclusion_param_set_id_notiming' : 4, # for inhibition, we may want to relax trough timing constraint
         'trigspeed_param_set_id'         : 1,
         'prop_resp_bins'                 : np.arange(0,.41,.01),
         'dist_bins_resp_prob'            : np.arange(30,480,50),
         'response_magnitude_bins'        : np.arange(-2.5,7.75,.25),
         'response_time_bins'             : np.arange(0,10.1,.1),
+        'expression_level_type'          : 'intensity_zscore_stimdcells'
         }
 
 params['general_params'] = deepcopy(tau_params['general_params'])
@@ -41,9 +43,8 @@ params['general_params'] = deepcopy(tau_params['general_params'])
 # =============== METHODS ================
 # ========================================
 
-# %%
 # ---------------
-# get list of dj keys for sessions of a certain type
+# %% get list of dj keys for sessions of a certain type
 # 'standard' is single neurons with <= 10 trials & 5 spirals, 'short_stim' is single neurons <= 10 trials & < 5 spirals, 
 # 'high_trial_count' is single neurons with > 10 trials, 'multi_cell' has at least one group with mutiple stim'd neurons
 def get_keys_for_expt_types(area, params=params, expt_type='standard'):
@@ -55,7 +56,8 @@ def get_keys_for_expt_types(area, params=params, expt_type='standard'):
     keys = list()
     for mouse in mice:
         opto_data = (twop_opto_analysis.Opto2PSummary & {'subject_fullname': mouse}).fetch(as_dict=True)
-        for this_sess in opto_data:
+        opto_keys = (twop_opto_analysis.Opto2PSummary & {'subject_fullname': mouse}).fetch("KEY",as_dict=True)
+        for ct, this_sess in enumerate(opto_data):
             has_multicell_stim = bool(np.sum(np.array(this_sess['num_cells_per_stim'])>1)>1)
             max_num_trials     = np.max(np.array(this_sess['num_trials_per_stim']))
             max_dur            = np.max(np.array(this_sess['dur_sec_per_stim']))
@@ -63,24 +65,24 @@ def get_keys_for_expt_types(area, params=params, expt_type='standard'):
             # choose experiments that match type
             if expt_type == 'standard':
                 if np.logical_and((not has_multicell_stim), np.logical_and(max_num_trials <= 10 , max_dur >= 0.2)):
-                    keys.append(this_sess)
+                    keys.append(opto_keys[ct])
             elif expt_type == 'short_stim':
                 if np.logical_and((not has_multicell_stim), np.logical_and(max_num_trials <= 10 , max_dur < 0.2)):
-                    keys.append(this_sess)
+                    keys.append(opto_keys[ct])
             elif expt_type == 'high_trial_count':
                 if np.logical_and((not has_multicell_stim) , max_num_trials > 10):
-                    keys.append(this_sess)
+                    keys.append(opto_keys[ct])
             elif expt_type == 'multi_cell':
                 if has_multicell_stim:
-                    keys.append(this_sess)
+                    keys.append(opto_keys[ct])
             else:
                 print('Unknown experiment type, doing nothing')
                 return
     
     return keys
 
-# %%
-# get proportion of significantly responding neurons for an area and experiment type
+# ---------------
+# %% get proportion of significantly responding neurons for an area and experiment type
 def get_prop_responding_neurons(area, params=params, expt_type='standard', resp_type='dff'):
     
     # get all keys
@@ -121,9 +123,9 @@ def get_prop_responding_neurons(area, params=params, expt_type='standard', resp_
                     }
     
     return summary_data
-        
-# %%
-# plot comparison of overall proportion of significantly responding neurons
+     
+# ---------------   
+# %% plot comparison of overall proportion of significantly responding neurons
 def plot_prop_response_comparison(params=params, expt_type='standard', resp_type='dff', axis_handle=None):
     
     # get data
@@ -164,8 +166,8 @@ def plot_prop_response_comparison(params=params, expt_type='standard', resp_type
     return response_stats, ax 
     
 
-# %%
-# get average opto-triiggered responses for an area and experiment type
+# ---------------
+# %% get average opto-triiggered responses for an area and experiment type
 def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', as_matrix=True):
     
     start_time      = time.time()
@@ -294,8 +296,8 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
     
     return summary_data
 
-# %%
-# get response stats (peak, dist from stim etc) for an area and experiment type
+# ---------------
+# %% get response stats (peak, dist from stim etc) for an area and experiment type
 def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='dff', eg_ids=None, which_neurons='non_stimd'):
     
     start_time      = time.time()
@@ -420,8 +422,8 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
     
     return summary_data
 
-# %%
-# compare general responses stats between areas
+# ---------------
+# %% compare general responses stats between areas
 def compare_response_stats(params=params, expt_type='standard', resp_type='dff', which_neurons='non_stimd', v1_data=None, m2_data=None):
     
     # get data
@@ -473,8 +475,8 @@ def compare_response_stats(params=params, expt_type='standard', resp_type='dff',
 
     return response_stats
 
-# %%
-# plot comparison of overall proportion of significantly responding neurons
+# ---------------
+# %% plot comparison of overall proportion of significantly responding neurons
 def plot_response_stats_comparison(params=params, expt_type='standard', resp_type='dff', which_neurons='non_stimd', response_stats=None, axis_handle=None, plot_what='response_magnitude'):
     
     # call this one dedicated function if it's just overall proportion (there for historical reasons)
@@ -576,9 +578,9 @@ def plot_response_stats_comparison(params=params, expt_type='standard', resp_typ
 
     return response_stats, ax 
 
-# %%
-# get opto-triggered running  data
-def get_trig_speed(area, params=params, expt_type='standard',as_matrix=True):
+# ---------------
+# %% get opto-triggered running  data
+def get_trig_speed(area, params=params, expt_type='standard', as_matrix=True):
     
     start_time      = time.time()
     print('Fetching opto-triggered running...')
@@ -641,8 +643,8 @@ def get_trig_speed(area, params=params, expt_type='standard',as_matrix=True):
                 
     return trig_speed_data
 
-# %%
-# get opto-triggered running  data
+# -----------------------
+# %% get opto-triggered running  data
 def plot_trig_speed(params=params, expt_type='standard', v1_data=None, m2_data=None, axis_handle=None):
     
     # get data if necessary
@@ -690,7 +692,6 @@ def plot_trig_speed(params=params, expt_type='standard', v1_data=None, m2_data=N
     ax.plot([0,0],yl,'--',color=[.8,.8,.8])
     ax.text(-2.5,yl[0]*.9,'p({}) = {:1.2g}'.format(params['general_params']['V1_lbl'],trig_speed_stats['pval_v1']),horizontalalignment='left')
     ax.text(-2.5,yl[0]*.82,'p({}) = {:1.2g}'.format(params['general_params']['M2_lbl'],trig_speed_stats['pval_m2']),horizontalalignment='left')
-    # ax.text(-2.5,yl[0]*.98,'p({} vs {}) = {:1.2g}'.format(params['general_params']['M2_lbl'],params['general_params']['V1_lbl'],trig_speed_stats['pval_m2_vs_v1']),horizontalalignment='left')
     
     ax.set_xlabel('Time from stim (sec)')
     ax.set_ylabel('Running speed (z-score)')
@@ -700,21 +701,169 @@ def plot_trig_speed(params=params, expt_type='standard', v1_data=None, m2_data=N
     ax.spines['top'].set_visible(False)
     
     return trig_speed_stats, ax     
- 
+
+# ---------------
+# %% get opsin expression for stimd cells and correlate with response magnitude
+def get_opsin_expression_vs_response(area, params=params, expt_type='standard', resp_type='dff'):
+    
+    start_time      = time.time()
+    print('Running expression level analysis...')
+    
+    # get relevant keys
+    expt_keys = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
+    num_expt  = len(expt_keys)
+    
+    expr_lvls    = list()
+    stimd_resp   = list()
+    network_resp = list()
+    # for each experiment, get opsin expression levels for every stim'd neuron
+    for expt_ct, key in enumerate(expt_keys):
+        print('     {} of {}...'.format(expt_ct+1,num_expt))
+        
+        ids_list, stim_ids    = (twop_opto_analysis.Opto2PSummary & key).fetch1('roi_id_per_stim','stim_ids')
+        del key['scan_number']
+        seg_key      = twop_opto_analysis.get_single_segmentation_key(key)
+        key['trigdff_param_set_id']           = params['trigdff_param_set_id_{}'.format('dff')]
+        key['trigdff_inclusion_param_set_id'] = params['trigdff_inclusion_param_set_id']
+                    
+        # because some experiments have multiple simulatenous neurons, we'll just take the average
+        # for each stim_id group. Will be equivalent to single-neuron  in most cases
+        for ct, roi_ids in enumerate(ids_list):
+            key['stim_id'] = int(stim_ids[ct])
+            roi_ids = [int(rid[0][0]) for rid in roi_ids]
+            expr    = list()
+            st_resp = list()
+            for rid in roi_ids:
+                expr.append((twop_opto_analysis.OpsinExpression & seg_key & {'roi_id': rid}).fetch1(params['expression_level_type']))
+                # get peak abs response of stim'd ensample
+                st_resp.append((twop_opto_analysis.TrigDffTrialAvg & key & {'roi_id': rid}).fetch1('max_or_min_dff'))
+                
+            expr_lvls.append(np.median(np.array(expr)))
+            stimd_resp.append(np.median(np.abs(np.array(st_resp))))
+            
+            # get peak abs response of stim'd ensample, and of the rest of significantly responding cells
+            nonstimd_keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & key & 'is_included=1' & 'is_significant=1').fetch('KEY')
+            if len(nonstimd_keys) > 0:
+                nt_resp       = (twop_opto_analysis.TrigDffTrialAvg &  nonstimd_keys).fetch('max_or_min_dff')
+                network_resp.append(np.nanmedian(np.abs(np.array(nt_resp))))
+            else:
+                network_resp.append(np.nan)
+            
+    # condition, collect data and run stats
+    expr_lvls    = np.array(expr_lvls).flatten()
+    stimd_resp   = np.array(stimd_resp).flatten()
+    network_resp = np.array(network_resp).flatten()
+    corr_stimd, p_stimd = scipy.stats.pearsonr(expr_lvls[~np.isnan(stimd_resp)],stimd_resp[~np.isnan(stimd_resp)])
+    corr_netw, p_netw   = scipy.stats.pearsonr(expr_lvls[~np.isnan(network_resp)],network_resp[~np.isnan(network_resp)])
+    
+    expression_data = {
+                    'num_stimd_groups'               : np.size(expr_lvls),
+                    'expression_level_type'          : params['expression_level_type'],
+                    'expression_levels'              : expr_lvls,
+                    'abs_resp_stimd'                 : stimd_resp,
+                    'abs_resp_non_stimd'             : network_resp,
+                    'cc_express_vs_stimd_resp'       : corr_stimd,
+                    'pval_express_vs_stimd_resp'     : p_stimd,
+                    'cc_express_vs_non_stimd_resp'   : corr_netw,
+                    'pval_express_vs_non_stimd_resp' : p_netw,
+                    }
+    
+    end_time = time.time()
+    print("     done after {: 1.2f} min".format((end_time-start_time)/60))
+    
+    return expression_data
+
+# ---------------
+# %% plot correlation between opsin expression for stimd cells and response magnitude
+def plot_opsin_expression_vs_response(params=params, expt_type='standard', resp_type='dff', v1_data=None, m2_data=None, plot_what='stimd', axis_handle=None):
+    
+    # get data if necessary
+    if v1_data is None:
+        v1_data = get_opsin_expression_vs_response('V1', params=params, expt_type=expt_type, resp_type=resp_type)
+    if m2_data is None:
+        m2_data = get_opsin_expression_vs_response('M2', params=params, expt_type=expt_type, resp_type=resp_type)
+    
+    # stats
+    expression_stats = dict()
+    expression_stats['V1_summary'] = v1_data
+    expression_stats['M2_summary'] = m2_data
+    
+    if plot_what != 'stimd' and plot_what != 'non_stimd':
+        print('Unknown plot_what, returning analysis without plot')
+        return expression_stats, None
+    
+    # plot
+    if axis_handle is None:
+        plt.figure()
+        ax = plt.gca()
+    else:
+        ax = axis_handle
+        
+    # easy access variables
+    x_v1  = v1_data['expression_levels']
+    x_m2  = m2_data['expression_levels']
+    y_v1  = v1_data['abs_resp_'+plot_what]
+    cc_v1 = v1_data['cc_express_vs_'+plot_what+'_resp']
+    p_v1  = v1_data['pval_express_vs_'+plot_what+'_resp']
+    y_m2  = m2_data['abs_resp_'+plot_what]
+    cc_m2 = m2_data['cc_express_vs_'+plot_what+'_resp']
+    p_m2  = m2_data['pval_express_vs_'+plot_what+'_resp']
+    x_v1  = x_v1[~np.isnan(y_v1)]
+    y_v1  = y_v1[~np.isnan(y_v1)]
+    x_m2  = x_m2[~np.isnan(y_m2)]
+    y_m2  = y_m2[~np.isnan(y_m2)]
+    
+    # fit for display only
+    olsfit_v1 = sm.OLS(y_v1,sm.add_constant(x_v1)).fit()
+    x_hat_v1  = np.arange(np.min(np.concatenate((x_v1,x_m2))),np.max(np.concatenate((x_v1,x_m2)))+.1,.1)
+    y_hat_v1  = olsfit_v1.predict(sm.add_constant(x_hat_v1))
+    predci    = olsfit_v1.get_prediction(sm.add_constant(x_hat_v1)).summary_frame()
+    ci_up_v1  = predci.loc[:,'mean_ci_upper']
+    ci_low_v1 = predci.loc[:,'mean_ci_lower']
+    
+    olsfit_m2 = sm.OLS(y_m2,sm.add_constant(x_m2)).fit()
+    x_hat_m2  = x_hat_v1
+    y_hat_m2  = olsfit_m2.predict(sm.add_constant(x_hat_m2))
+    predci    = olsfit_m2.get_prediction(sm.add_constant(x_hat_m2)).summary_frame()
+    ci_up_m2  = predci.loc[:,'mean_ci_upper']
+    ci_low_m2 = predci.loc[:,'mean_ci_lower']
+
+    # finally plot everything
+    ax.plot(x_v1,y_v1,'o',color=params['general_params']['V1_sh'],mew=0)
+    ax.plot(x_hat_v1,y_hat_v1,'-',color=params['general_params']['V1_cl'],label=params['general_params']['V1_lbl'])
+    ax.plot(x_hat_v1,ci_up_v1,'--',color=params['general_params']['V1_cl'],lw=.4)
+    ax.plot(x_hat_v1,ci_low_v1,'--',color=params['general_params']['V1_cl'],lw=.4)
+    
+    ax.plot(x_m2,y_m2,'o',color=params['general_params']['M2_sh'],mew=0)
+    ax.plot(x_hat_m2,y_hat_m2,'-',color=params['general_params']['M2_cl'],label=params['general_params']['M2_lbl'])
+    ax.plot(x_hat_m2,ci_up_m2,'--',color=params['general_params']['M2_cl'],lw=.4)
+    ax.plot(x_hat_m2,ci_low_m2,'--',color=params['general_params']['M2_cl'],lw=.4)
+
+    xl = ax.get_xlim()
+    yl = ax.get_ylim()
+    ax.text(xl[0]+.05,yl[1]*.9,'{}: r = {:1.2f}, p = {:1.2g}'.format(params['general_params']['V1_lbl'],cc_v1,p_v1),horizontalalignment='left',color=params['general_params']['V1_cl'])
+    ax.text(xl[0]+.05,yl[1]*.82,'{}: r = {:1.2f}, p = {:1.2g}'.format(params['general_params']['M2_lbl'],cc_m2,p_m2),horizontalalignment='left',color=params['general_params']['M2_cl'])
+    
+    if 'zscore' in v1_data['expression_level_type']:
+        ax.set_xlabel('Opsin expression level (z-score)')
+    else:
+        ax.set_xlabel('Opsin expression level (a.u.)')
+    if plot_what == 'stimd':
+        ax.set_ylabel("Max abs(response), stim''d cells (z-score)")
+    else:
+        ax.set_ylabel("Max abs(response), non-stim''d cells (z-score)")
+
+    ax.legend()
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    
+    return expression_stats, ax     
+    
 # ====================
 # SANDBOX
 # =====================
 
-# %%
-v1_speed = get_trig_speed('V1', params=params)
-m2_speed = get_trig_speed('M2', params=params)
-#%%
-plot_trig_speed(params=params,v1_data=v1_speed,m2_data=m2_speed)
-# %%
-ax = plt.gca()
-ax.plot(v1_speed['trig_speed'][0],'-',color='gray')
-yl = ax.get_ylim()
-yl
+
 # %%
 v1_avgs = get_avg_trig_responses('V1', params=params, expt_type='standard', resp_type='dff',signif_only=False)
 m2_avgs = get_avg_trig_responses('M2', params=params, expt_type='standard', resp_type='dff',signif_only=False)
@@ -762,12 +911,7 @@ plt.plot(t_axis_m2,m2_avg,'-',color=params['general_params']['M2_cl'],label=para
 plot_prop_response_comparison(resp_type='deconv')
     
 # TO DO
-# basic triggered stats -- incidence, magnitude, fov egs, by space etc
-# eg avg trig responses. all time courses in a field of view + peak + time of peak
-# time course -- summary and fov sequence heatmaps
-# for each fov, Compare tau of post stim decay to predicted tau from eigenvalue of xcorr mat
-# trig running
-# opsin expression
+
 # seuqence xval
 # PCA
 # opto vs tau, including dyanmics of that

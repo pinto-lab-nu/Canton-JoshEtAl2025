@@ -39,45 +39,49 @@ import analyzeEvoked2P
 # fig 1e tau area summary
 
 # fig 1f regression schematics
+# [LYN INSERT HERE]
 
 # fig 1g regression results 
+# [LYN INSERT HERE]
 
 # === Fig S1: tau regression simulations ===
+# [LYN INSERT HERE]
 
 # === Fig S2: merfish regression controls ===
+# [LYN INSERT HERE]
 
 # %% =========================================
 # ===== Fig 2: spontaneous 2p timescales =====
 # ============================================
 
-fig2 = plt.plot()
+# fig2_handle, fig2_data = plot_spont_tau(params=tau_params)
+
+fig_handle = plt.plot()
 
 # fig 2a: FOV and cranial window egs with raw traces
-plt.subplot(231)
+ax1 = plt.subplot(231)
 
 # fig 2b: 2p tau summary
-plt.subplot(232)
-
-ax = plt.gca()
+ax2 = plt.subplot(232)
 v1_taus, v1_keys, v1_total = analyzeSpont2P.get_all_tau('V1', params = tau_params, dff_type = 'residuals_dff')
 m2_taus, m2_keys, m2_total = analyzeSpont2P.get_all_tau('M2', params = tau_params, dff_type = 'residuals_dff')
-tau_stats, ax_tau = analyzeSpont2P.plot_area_tau_comp(v1_taus=v1_taus, m2_taus=m2_taus, axis_handle = ax, params = tau_params)
+tau_stats, ax_tau = analyzeSpont2P.plot_area_tau_comp(v1_taus=v1_taus, m2_taus=m2_taus, axis_handle = ax2, params = tau_params)
 tau_stats['V1_total_num_cells'] = v1_total
 tau_stats['M2_total_num_cells'] = m2_total
 
-# fig 2c, d: x-corr?
-plt.subplot(233)
-
-
-# fig 2e: clustering FOV example
+# fig 2c: clustering FOV example
+ax3a = plt.subplot(223)
+ax3b = plt.subplot(223)
 v1_centr, v1_rec_ids = analyzeSpont2P.get_centroids_by_rec(v1_keys)
 m2_centr, m2_rec_ids = analyzeSpont2P.get_centroids_by_rec(m2_keys)
-fov_v1 = analyzeSpont2P.plot_tau_fov(v1_keys, v1_rec_ids, which_sess=2, do_zscore=False, prctile_cap=[0,95])
-fov_m2 = analyzeSpont2P.plot_tau_fov(v1_keys, v1_rec_ids, which_sess=17, do_zscore=False, prctile_cap=[0,95])
+
+fov_v1 = analyzeSpont2P.plot_tau_fov(v1_keys, v1_rec_ids, which_sess=2, do_zscore=False, prctile_cap=[0,95], axis_handle = ax3a)
+fov_m2 = analyzeSpont2P.plot_tau_fov(v1_keys, v1_rec_ids, which_sess=17, do_zscore=False, prctile_cap=[0,95], axis_handle = ax3b)
 # good ones m2: 0, 4, 5, 10 (95th prct), 17, 22
 # good ones v1: 0 , 2 
 
-# fig 2f: clustering
+# fig 2d: clustering
+ax4 = plt.subplot(224)
 clust_stats_v1 , tau_diff_mat_v1 = analyzeSpont2P.clustering_by_tau(v1_taus, v1_centr, v1_rec_ids, params = tau_params)
 clust_stats_m2 , tau_diff_mat_m2 = analyzeSpont2P.clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, params = tau_params)
 cax = analyzeSpont2P.plot_clustering_comp(v1_clust=clust_stats_v1,m2_clust=clust_stats_m2, params = tau_params)
@@ -120,12 +124,38 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
                                                       response_stats=full_resp_stats, 
                                                       axis_handle=None, 
                                                       plot_what='prop_by_dist_of_sig')
-# >>>>>> Suppl fig ctrls:
-#           x-y-z psf estimates + laser power controls
-#           single-spiral controls
-#           trig running
+
+# === Fig S4: 2p opto controls ===
+
+# x-y-z psf estimates
+# [NETO INSERT HERE]
+
+# laser power controls
+# [NETO INSERT HERE]
+
+# single-spiral controls
+resp_prob_summary_short_stim, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
+                                                                                expt_type='short_stim', 
+                                                                                resp_type='dff', 
+                                                                                axis_handle=None, 
+                                                                                plot_what='response_probability')
+
+# trig running
 speed_stats, _ = analyzeEvoked2P.plot_trig_speed(params=opto_params, expt_type='standard')
-#           opsin expression
+
+# opsin expression
+expression_stats, _ = analyzeEvoked2P.plot_opsin_expression_vs_response(params=opto_params, 
+                                                                         expt_type='standard', 
+                                                                         resp_type='dff',
+                                                                         plot_what='stimd', 
+                                                                         axis_handle=None)
+_, _ = analyzeEvoked2P.plot_opsin_expression_vs_response(params=opto_params, 
+                                                        expt_type='standard', 
+                                                        resp_type='dff',
+                                                        plot_what='non_stimd', 
+                                                        v1_data=expression_stats['V1_summary'],
+                                                        m2_data=expression_stats['M2_summary'],
+                                                        axis_handle=None)
 
 # %% ===========================================
 # ===== Fig 4: evoked timecourse comparison ====
@@ -137,7 +167,7 @@ m2_avgs = analyzeEvoked2P.get_avg_trig_responses('M2', params=opto_params, expt_
 
 # fig 4b average timecourse
 
-# fig 4c neuron heatmaps
+# fig 4c neuron heatmaps over time
 
 # fig 4d response time distributions
 _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
@@ -149,9 +179,10 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
                                                       plot_what='response_time')
 
 
-# fig 4e? : for each fov, Compare tau of post stim decay to predicted tau from eigenvalue of xcorr mat
+# fig 4e: sequence xval
 
-# fig 4f: sequence xval
+# === Fig S6: timing with deconvolved traces ===
+
 
 # %% ======================================
 # ===== Fig 5: PCA trial trajectories =====
@@ -163,3 +194,12 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
 # =================================================
 
 # >>>>>> opto vs tau, including dyanmics of that
+
+
+# %% ==============================================
+# =================================================
+# FIGURE SOURCE CODE
+
+# def plot_spont_tau(params=tau_params):
+    
+#     return fig_handle, fig_data

@@ -25,6 +25,7 @@ params = {
         'max_tau'                   : None,
         'tau_hist_bins'             : np.arange(0,10.2,.2),
         'tau_hist_bins_xcorr'       : np.arange(0,20.2,.2),
+        'tau_hist_bins_eigen'       : np.arange(0,101,1),
         'clustering_dist_bins'      : np.arange(0,350,50),
         'clustering_num_boot_iter'  : 10000,
         'clustering_num_shuffles'   : 1000,
@@ -33,10 +34,10 @@ params = {
 params['general_params'] = {
         'V1_mice'     : ['jec822_NCCR62','jec822_NCCR63','jec822_NCCR66','jec822_NCCR86'] ,
         'M2_mice'     : ['jec822_NCCR32','jec822_NCCR72','jec822_NCCR73','jec822_NCCR77'] ,
-        'V1_cl'       : np.array([180, 137, 50])/255 ,#np.array([120, 120, 120])/255 ,
-        'M2_cl'       : np.array([43, 67, 121])/255 ,#np.array([90, 60, 172])/255 ,
-        'V1_sh'       : np.array([200, 147, 60, 128])/255 ,
-        'M2_sh'       : np.array([53, 47, 141, 128])/255 ,
+        'V1_cl'       : np.array([180, 137, 50])/255 ,
+        'M2_cl'       : np.array([43, 67, 121])/255 ,
+        'V1_sh'       : np.array([200, 147, 60, 90])/255 ,
+        'M2_sh'       : np.array([53, 47, 141, 90])/255 ,
         'V1_lbl'      : 'VISp' ,
         'M2_lbl'      : 'MOs' ,
         'corr_param_id_noGlm_dff'        : 2, 
@@ -49,9 +50,9 @@ params['general_params'] = {
 # ========================================
 # =============== METHODS ================
 # ========================================
-# %%
+
 # ---------------
-# retrieve dj keys for unique experimental sessions given area and set of parameters
+# %% retrieve dj keys for unique experimental sessions given area and set of parameters
 def get_single_sess_keys(area, params=params, dff_type='residuals_dff'):
     
     # get primary keys for query
@@ -80,9 +81,8 @@ def get_single_sess_keys(area, params=params, dff_type='residuals_dff'):
     
     return sess_keys
 
-# %%
 # ---------------
-# retrieve all taus for a given area and set of parameters, from dj database
+# %% retrieve all taus for a given area and set of parameters, from dj database
 def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
     
     start_time      = time.time()
@@ -114,9 +114,8 @@ def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
     
     return taus, keys, total_soma
 
-# %%
 # ---------------
-# retrieve all x-corr taus for a given area and set of parameters, from dj database
+# %% retrieve all x-corr taus for a given area and set of parameters, from dj database
 def get_all_tau_xcorr(area, params = params, dff_type = 'residuals_dff'):
     
     start_time      = time.time()
@@ -143,13 +142,12 @@ def get_all_tau_xcorr(area, params = params, dff_type = 'residuals_dff'):
     
     return taus, keys
 
-# %%
 # ---------------
-# statistically compare taus across areas and plot
-def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None, v1_taus=None, m2_taus=None, tau_type='autocorr'):
+# %% statistically compare taus across areas and plot
+def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None, v1_taus=None, m2_taus=None, corr_type='autocorr'):
 
     # get taus
-    if tau_type == 'autocorr':
+    if corr_type == 'autocorr':
         if v1_taus is None:
             v1_taus, _ , _ = get_all_tau('V1',params=params,dff_type=dff_type)
         if m2_taus is None:
@@ -157,7 +155,7 @@ def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None
         histbins = params['tau_hist_bins']
         n_is     = 'neurons'
         
-    elif tau_type == 'xcorr':
+    elif corr_type == 'xcorr':
         if v1_taus is None:
             v1_taus, _ = get_all_tau_xcorr('V1',params=params,dff_type=dff_type)
         if m2_taus is None:
@@ -165,12 +163,12 @@ def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None
         histbins = params['tau_hist_bins_xcorr']
         n_is     = 'pairs'
        
-    elif tau_type == 'eigen':
+    elif corr_type == 'eigen':
         if v1_taus is None:
             v1_taus, _ = get_rec_xcorr_eigen_taus('V1',params=params,dff_type=dff_type)
         if m2_taus is None:
             m2_taus, _ = get_rec_xcorr_eigen_taus('M2',params=params,dff_type=dff_type)
-        histbins = params['tau_hist_bins_xcorr']
+        histbins = params['tau_hist_bins_eigen']
         n_is     = 'fovs'
          
     else:    
@@ -181,12 +179,12 @@ def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None
     tau_stats = dict()
     tau_stats['V1_num_'+ n_is] = np.size(v1_taus)
     tau_stats['V1_mean']       = np.mean(v1_taus)
-    tau_stats['V1_sem']        = np.std(v1_taus,ddof=1) / np.sqrt(tau_stats['V1_num_cells']-1)
+    tau_stats['V1_sem']        = np.std(v1_taus,ddof=1) / np.sqrt(tau_stats['V1_num_'+ n_is]-1)
     tau_stats['V1_median']     = np.median(v1_taus)
     tau_stats['V1_iqr']        = scipy.stats.iqr(v1_taus)
     tau_stats['M2_num_'+ n_is] = np.size(m2_taus)
     tau_stats['M2_mean']       = np.mean(m2_taus)
-    tau_stats['M2_sem']        = np.std(m2_taus,ddof=1) / np.sqrt(tau_stats['M2_num_cells']-1)
+    tau_stats['M2_sem']        = np.std(m2_taus,ddof=1) / np.sqrt(tau_stats['M2_num_'+ n_is]-1)
     tau_stats['M2_median']     = np.median(m2_taus)
     tau_stats['M2_iqr']        = scipy.stats.iqr(m2_taus)
     tau_stats['pval'], tau_stats['test_name'] = general_stats.two_group_comparison(v1_taus, m2_taus, is_paired=False, tail="two-sided")
@@ -216,9 +214,8 @@ def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None
 
     return tau_stats, ax 
 
-# %%
 # ---------------
-# get centroid and sess info for a list of tau keys
+# %% get centroid and sess info for a list of tau keys
 def get_centroids_by_rec(tau_keys):
 
     # find unique sessions 
@@ -236,9 +233,8 @@ def get_centroids_by_rec(tau_keys):
     
     return np.array(centroids), np.array(sess_ids) 
 
-# %%
 # ---------------
-# statistically compare taus across areas and plot
+# %% statistically compare taus across areas and plot
 def clustering_by_tau(taus, centroids, rec_ids, params=params, rng=None):
 
     # set random seed and delete very high tau values if applicable
@@ -334,9 +330,8 @@ def clustering_by_tau(taus, centroids, rec_ids, params=params, rng=None):
             
     return clust_results, tau_mat
 
-# %%
 # ---------------
-# statistically compare taus across areas and plot
+# %% statistically compare taus across areas and plot
 def plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axis_handle=None):
 
     # plot
@@ -373,9 +368,8 @@ def plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axis_handl
 
     return ax 
 
-# %%
 # ---------------
-# statistically compare taus across areas and plot
+# %% plot taus on FOV
 def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_zscore_taus'], prctile_cap=[0,95], axis_handle=None, fig_handle=None):
 
     # fetch roi coordinates for desired session
@@ -401,9 +395,8 @@ def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_
     
     return ax, fig
 
-# %%
 # ---------------
-# retrieve all x-corr taus for a given area and set of parameters using matrix eigenvalues
+# %% retrieve all x-corr taus for a given area and set of parameters using matrix eigenvalues
 def get_rec_xcorr_eigen_taus(area, params = params, dff_type = 'residuals_dff'):
     
     start_time      = time.time()
@@ -437,9 +430,8 @@ def get_rec_xcorr_eigen_taus(area, params = params, dff_type = 'residuals_dff'):
     
     return np.array(taus), xcorr_mats
 
-# %%
 # ---------------
-# build a symmetrical x-corr matrix from dj keys
+# %% build a symmetrical x-corr matrix from dj keys
 def xcorr_mat_from_keys(xcorr_keys, is_neuron):
         
     neuron_idx  = np.argwhere(is_neuron==1)
@@ -460,9 +452,8 @@ def xcorr_mat_from_keys(xcorr_keys, is_neuron):
 
     return xcorr_mat
 
-# %%
 # ---------------
-# timescale from eigenvalue of the x-corr matrix
+# %% timescale from eigenvalue of the x-corr matrix
 def tau_from_eigenval(xcorr_mat,frame_period):
   
     # tau will be defined by the longest timescale, 
@@ -472,9 +463,3 @@ def tau_from_eigenval(xcorr_mat,frame_period):
     tau     = 1/np.abs(np.max(eigvals))
     
     return tau*frame_period
-
-# %%
-# v1_eigen_taus, v1_xcorr_mats = get_rec_xcorr_eigen_taus('V1', params = params, dff_type = 'residuals_dff')
-# m2_eigen_taus, m2_xcorr_mats = get_rec_xcorr_eigen_taus('M2', params = params, dff_type = 'residuals_dff')
-# eigen_tau_stats, _ = plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None, v1_taus=v1_eigen_taus, m2_taus=m2_eigen_taus, corr_type='eigen')
-# %%
