@@ -23,6 +23,7 @@ VM     = connect_to_dj.get_virtual_modules()
 params = {
         'random_seed'               : 42, 
         'max_tau'                   : None,
+        'min_tau'                   : None,
         'tau_hist_bins'             : np.arange(0,10.2,.2),
         'tau_hist_bins_xcorr'       : np.arange(0,20.2,.2),
         'tau_hist_bins_eigen'       : np.arange(0,101,1),
@@ -55,6 +56,20 @@ params['general_params'] = {
 # %% retrieve dj keys for unique experimental sessions given area and set of parameters
 def get_single_sess_keys(area, params=params, dff_type='residuals_dff'):
     
+    """
+    get_single_sess_keys(area, params=params, dff_type='residuals_dff')
+    returns a list of dj session keys for an area
+    
+    INPUT:
+    area: 'V1' or 'M2'
+    params: dictionary as the one on top of this file, used to determine
+            mice to look for and which parameter sets correspond to desired
+            dff_type
+    dff_type: 'residuals_dff' for residuals of running linear regression (default)
+              'residuals_deconv' for residuals of running Poisson GLM on deconvolved traces
+              'noGlm_dff' for plain dff traces
+    """
+    
     # get primary keys for query
     mice              = params['general_params']['{}_mice'.format(area)]
     corr_param_set_id = params['general_params']['corr_param_id_{}'.format(dff_type)]
@@ -84,6 +99,26 @@ def get_single_sess_keys(area, params=params, dff_type='residuals_dff'):
 # ---------------
 # %% retrieve all taus for a given area and set of parameters, from dj database
 def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
+    
+    """
+    get_all_tau(area, params=params, dff_type='residuals_dff')
+    fetches timescales for every neuron in a given area
+    
+    INPUT:
+    area: 'V1' or 'M2'
+    params: dictionary as the one on top of this file, used to determine
+            mice to look for and which parameter sets correspond to desired
+            dff_type
+    dff_type: 'residuals_dff' for residuals of running linear regression (default)
+              'residuals_deconv' for residuals of running Poisson GLM on deconvolved traces
+              'noGlm_dff' for plain dff traces
+              
+    OUTPUT:
+    taus: vector with taus that pass inclusion criteria 
+          in params['general_params']['twop_inclusion_param_set_id']
+    keys: list of keys corresponding to each tau
+    total_soma: total number of somas regardless of inclusion criteria
+    """
     
     start_time      = time.time()
     print('Fetching all taus for {}...'.format(area))
@@ -238,7 +273,7 @@ def get_centroids_by_rec(tau_keys):
 # %% statistically compare taus across areas and plot
 def clustering_by_tau(taus, centroids, rec_ids, params=params, rng=None):
 
-    # set random seed and delete very high tau values if applicable
+    # set random seed and delete low /  high tau values if applicable
     start_time      = time.time()
     print('Performing clustering analysis...')
     if rng is None:
@@ -246,6 +281,11 @@ def clustering_by_tau(taus, centroids, rec_ids, params=params, rng=None):
     
     if params['max_tau'] is not None:
         del_idx   = np.argwhere(taus>params['max_tau'])
+        taus      = np.delete(taus,del_idx)
+        centroids = np.delete(centroids,del_idx,axis=0)
+        rec_ids   = np.delete(rec_ids,del_idx)
+    if params['min_tau'] is not None:
+        del_idx   = np.argwhere(taus<params['min_tau'])
         taus      = np.delete(taus,del_idx)
         centroids = np.delete(centroids,del_idx,axis=0)
         rec_ids   = np.delete(rec_ids,del_idx)
