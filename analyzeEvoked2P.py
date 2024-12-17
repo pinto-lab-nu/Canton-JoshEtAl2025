@@ -35,7 +35,11 @@ params = {
         'dist_bins_resp_prob'            : np.arange(30,480,50),
         'response_magnitude_bins'        : np.arange(-2.5,7.75,.25),
         'response_time_bins'             : np.arange(0,10.1,.1),
-        'expression_level_type'          : 'intensity_zscore_stimdcells'
+        'expression_level_type'          : 'intensity_zscore_stimdcells',
+        'xval_relax_timing_criteria'     : True, # set to true will select inclusion criteria that do not enforce peak timing
+        'xval_recompute_timing'          : False, # set to true will recompute peak (com) for every xval iteration, false just averages existing peak times
+        'xval_timing_metric'             : 'peak', # 'peak' or 'com'. peak is time of peak or trough
+        'xval_num_iter'                  : 1000,
         }
 
 params['general_params'] = deepcopy(tau_params['general_params'])
@@ -78,7 +82,7 @@ def get_keys_for_expt_types(area, params=params, expt_type='standard'):
                     keys.append(opto_keys[ct])
             else:
                 print('Unknown experiment type, doing nothing')
-                return
+                return None
     
     return keys
 
@@ -223,7 +227,7 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
                 avgs, sems, ts, stimd, com, peak = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall')
             else:
                 print('Unknown category of which_neurons, returning nothing')
-                return
+                return None
 
         # flatten list
         [avg_resps.append(avg) for avg in avgs]
@@ -359,7 +363,7 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
                 stimd, com, maxmin, peakt, trought, dist, sid = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id')
             else:
                 print('Unknown category of which_neurons, returning nothing')
-                return
+                return None
 
         # pick trough or peak time, whichever is higher magnitude
         maxmin_t = list()
@@ -855,16 +859,246 @@ def plot_opsin_expression_vs_response(params=params, expt_type='standard', resp_
     else:
         ax.set_xlabel('Opsin expression level (a.u.)')
     if plot_what == 'stimd':
-        ax.set_ylabel("Max abs(response), stim''d cells (z-score)")
+        ax.set_ylabel("Max abs(response), stim'd cells (z-score)")
     else:
-        ax.set_ylabel("Max abs(response), non-stim''d cells (z-score)")
+        ax.set_ylabel("Max abs(response), non-stim'd cells (z-score)")
 
     ax.legend()
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     
     return expression_stats, ax     
+
+# ---------------
+# %% get single-trial opto-triggered responses for an area and experiment type
+def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', relax_timing_criteria=params['xval_relax_timing_criteria']):
     
+    start_time      = time.time()
+    print('Fetching opto-triggered trials...')
+    
+    # get relevant keys
+    expt_keys = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
+    
+    # restrict to only desired rec/stim if applicable
+    if eg_ids is not None:
+        expt_keys = list(np.array(expt_keys)[np.array(eg_ids).astype(int)])
+    
+    # loop through keys to fetch the responses
+    trigdff_param_set_id = params['trigdff_param_set_id_{}'.format(resp_type)]
+    if relax_timing_criteria:
+        trigdff_inclusion_param_set_id = params['trigdff_inclusion_param_set_id_notiming']
+    else:
+        trigdff_inclusion_param_set_id = params['trigdff_inclusion_param_set_id']
+    
+    trial_resps = list()
+    trial_ids   = list()
+    stim_ids    = list()
+    roi_ids     = list()
+    peak_ts     = list()
+    coms        = list()
+    t_axes      = list()
+    num_expt    = len(expt_keys)
+    for ct, ikey in enumerate(expt_keys):
+        print('     {} of {}...'.format(ct+1,num_expt))
+        this_key = {'subject_fullname' : ikey['subject_fullname'], 
+                    'session_date': ikey['session_date'], 
+                    'trigdff_param_set_id': trigdff_param_set_id, 
+                    'trigdff_inclusion_param_set_id': trigdff_inclusion_param_set_id
+                    }
+        
+        # do selecion at the fetching level for speed
+        if which_neurons == 'stimd':
+            # stimd neurons bypass inclusion criteria
+            tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & this_key & 'is_stimd=1').fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
+        elif which_neurons == 'non_stimd':
+            sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
+            idx  = np.argwhere(np.array(incl)==1).flatten()
+            keys = list(np.array(keys)[idx])
+            sig  = list(np.array(sig)[idx])
+            
+            if signif_only:
+                idx  = np.argwhere(np.array(sig)==1).flatten()
+                keys = list(np.array(keys)[idx])
+                sig  = list(np.array(sig)[idx]) 
+            
+            tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & keys & 'is_stimd=0').fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
+        else:
+            print('code not implemented for this category of which_neurons, returning nothing')
+            return None
+
+        # pick trough or peak time, whichever is higher magnitude
+        maxmin_t = list()
+        for iNeuron in range(len(trought)):
+            if maxmin[iNeuron] < 0:
+                maxmin_t.append(trought[iNeuron])
+            else:
+                maxmin_t.append(peakt[iNeuron])
+                
+        # flatten lists
+        [trial_resps.append(trial) for trial in trials]
+        [trial_ids.append(int(tid)) for tid in tids]
+        [stim_ids.append(int(sid)) for sid in sids]
+        [roi_ids.append(int(rid+(ct*10000))) for rid in rids] # 10000 is arbitrary experiment increment to make roi_ids unique
+        [t_axes.append(t) for t in ts]
+        [coms.append(co) for co in com]
+        [peak_ts.append(pt) for pt in maxmin_t]
+            
+    # convert to arrays for easy indexing, trial and time vectors remain lists
+    trial_ids = np.array(trial_ids)
+    stim_ids  = np.array(stim_ids)
+    roi_ids   = np.array(roi_ids)
+    coms      = np.array(coms)
+    peak_ts   = np.array(peak_ts)
+        
+    # collect summary data   
+    trial_data = {
+                'trig_dff_trials'         : trial_resps, 
+                'trial_ids'               : trial_ids, 
+                'time_axis_sec'           : t_axes,
+                'signif_only'             : signif_only,
+                'stim_ids'                : stim_ids, 
+                'roi_ids'                 : roi_ids, 
+                'com_sec'                 : coms, 
+                'peak_or_trough_time_sec' : peak_ts, 
+                'relax_timing_criteria'   : relax_timing_criteria,
+                'which_neurons'           : which_neurons,
+                'analysis_params'         : deepcopy(params)
+                }
+    
+    end_time = time.time()
+    print("     done after {: 1.2f} min".format((end_time-start_time)/60))
+    
+    return trial_data
+
+# ---------------
+# %% get single-trial opto-triggered responses for an area and experiment type
+def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', signif_only=True, which_neurons='non_stimd', trial_data=None, rng=None):
+
+    # set random seed and delete low /  high tau values if applicable
+    start_time      = time.time()
+    print('Cross-validating reponse timing...')
+    if rng is None:
+        rng = np.random.default_rng(seed=params['random_seed'])
+        
+    # get data if necessary
+    if trial_data is None:    
+        trial_data = get_single_trial_data(area=area, params=params, expt_type=expt_type, resp_type=resp_type, signif_only=signif_only, which_neurons=which_neurons, relax_timing_criteria=params['xval_relax_timing_criteria'])
+        
+    # loop through rois and stims    
+    roi_halves_r = list()
+    roi_halves_p = list()
+    median_half1 = list()
+    median_half2 = list()
+    unique_rois  = list(np.unique(trial_data['roi_ids']))
+    for roi in unique_rois:
+        ridx         = trial_data['roi_ids']==roi
+        these_trials = trial_data['trial_ids'][ridx]
+        these_stims  = trial_data['stim_ids'][ridx]
+        coms         = trial_data['com_sec'][ridx]
+        peaks        = trial_data['peak_or_trough_time_sec'][ridx]
+        trial_dffs   = trial_data['trig_dff_trials'][ridx]
+        t_axes       = trial_data['time_axis_sec'][ridx]
+        unique_stims = list(np.unique(these_stims))
+        
+        # take random halves of trials and compare timing stats for each 
+        for stim in unique_stims:
+            print('double check indexing in inner loop')
+            tidx        = these_trials[these_stims==stim] ### this is probably wrong move subvec seelction inside this loop
+            tidx_shuff  = np.deepcopy(tidx)
+            ntrials     = np.size(tidx)
+            timing_set1 = np.zeros(params['xval_num_iter'])
+            timing_set2 = np.zeros(params['xval_num_iter'])
+            taxis       = t_axes[tidx[0]]
+            frame_int   = np.diff(taxis)[0]
+            
+            # randomly permute trials 
+            for iShuff in range(params['xval_num_iter']):
+                rng.shuffle(tidx_shuff)
+                half1 = tidx_shuff[:np.floor(ntrials/2).astype(int)]
+                half2 = tidx_shuff[np.floor(ntrials/2).astype(int)+1:]
+                
+                # get averages of peak (com), or compute avgs for each trial split and peak from there
+                if params['xval_recompute_timing']:
+                    # trial avgs
+                    trial_avg1 = np.zeros(np.size(t_axes[tidx[0]]))
+                    for idx in list(half1):
+                        trial_avg1 += trial_dffs[idx]
+                    trial_avg1 = trial_avg1 / len(half1)
+                    
+                    trial_avg2 = np.zeros(np.size(t_axes[tidx[0]]))
+                    for idx in list(half2):
+                        trial_avg2 += trial_dffs[idx]
+                    trial_avg2 = trial_avg2 / len(half2)
+                    
+                    # smooth for peak (com), extract that
+                    smoothed1 = general_stats.moving_average(trial_avg1,num_points=np.round(0.2/frame_int).astype(int)).flatten()
+                    if np.sum(np.isnan(smoothed1)) > 0:
+                        post_idx = int(np.argwhere(np.isnan(smoothed1))[-1]+1)
+                    else:
+                        post_idx = int(np.argwhere(taxis>0)[0])
+                    com1, peak1, trough1 = twop_opto_analysis.response_time_stats(smoothed1[post_idx:],taxis[post_idx:])
+                    
+                    smoothed2 = general_stats.moving_average(trial_avg2,num_points=np.round(0.2/frame_int).astype(int)).flatten()
+                    com2, peak2, trough2 = twop_opto_analysis.response_time_stats(smoothed2[post_idx:],taxis[post_idx:])
+                    
+                    # collect relevant stat
+                    if params['xval_timing_metric'] == 'peak':
+                        # take peak or trough, whichever is larger
+                        if np.max(smoothed1+smoothed2) > np.abs(np.min(smoothed1+smoothed2)):
+                            timing_set1[iShuff] = peak1
+                            timing_set2[iShuff] = peak2
+                        else:
+                            timing_set1[iShuff] = trough1
+                            timing_set2[iShuff] = trough2
+                        
+                    elif params['xval_timing_metric'] == 'com':
+                        timing_set1[iShuff] = com1
+                        timing_set2[iShuff] = com2
+                        
+                    else:
+                        print('unknown parameter value for timing metric, returning nothing')
+                        return None
+                
+                # or just take a median of pre-computed trial-by-trial features    
+                else:
+                    if params['xval_timing_metric'] == 'peak':
+                        timing_set1[iShuff] = np.nanmedian(peaks[half1])
+                        timing_set2[iShuff] = np.nanmedian(peaks[half2])
+                        
+                    elif params['xval_timing_metric'] == 'com':
+                        timing_set1[iShuff] = np.nanmedian(coms[half1])
+                        timing_set2[iShuff] = np.nanmedian(coms[half2])
+                        
+                    else:
+                        print('unknown parameter value for timing metric, returning nothing')
+                        return None
+            
+            # collect correlation between metrics on halves and median metric
+            cc, pval = scipy.stats.pearsonr(timing_set1, timing_set2) 
+            roi_halves_r.append(cc)
+            roi_halves_p.append(pval)
+            median_half1.append(np.nanmedian(timing_set1))
+            median_half2.append(np.nanmedian(timing_set2))
+            
+    end_time = time.time()
+    print("     done after {: 1.2f} min".format((end_time-start_time)/60))
+    
+    # xval_results = {
+    #             'trig_dff_trials'         : trial_resps, 
+    #             'trial_ids'               : trial_ids, 
+    #             'time_axis_sec'           : t_axes,
+    #             'signif_only'             : signif_only,
+    #             'stim_ids'                : stim_ids, 
+    #             'roi_ids'                 : roi_ids, 
+    #             'com_sec'                 : coms, 
+    #             'peak_or_trough_time_sec' : peak_ts, 
+    #             'relax_timing_criteria'   : relax_timing_criteria,
+    #             'which_neurons'           : which_neurons,
+    #             'analysis_params'         : deepcopy(params)
+    #             }
+    
+    
+    return xval_results
 # ====================
 # SANDBOX
 # =====================

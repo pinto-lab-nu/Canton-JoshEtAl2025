@@ -86,7 +86,13 @@ clust_stats_v1 , tau_diff_mat_v1 = analyzeSpont2P.clustering_by_tau(v1_taus, v1_
 clust_stats_m2 , tau_diff_mat_m2 = analyzeSpont2P.clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, params = tau_params)
 cax = analyzeSpont2P.plot_clustering_comp(v1_clust=clust_stats_v1,m2_clust=clust_stats_m2, params = tau_params)
 
-# >>>>>> try just long or short timescale cells for clusetring
+
+# === Fig S3: taus controls ===
+# taus without glm and on deconvolved data
+tau_stats_noregr, _ = analyzeSpont2P.plot_area_tau_comp(axis_handle = ax, params = tau_params, dff_type = 'noGlm_dff')
+tau_stats_deconv, _ = analyzeSpont2P.plot_area_tau_comp(axis_handle = ax, params = tau_params, dff_type = 'residuals_deconv')
+
+# clustering just on low or high tau cells
 low_tau_params  = deepcopy(tau_params)
 high_tau_params = deepcopy(tau_params)
 low_tau_params['max_tau']  = np.median(v1_taus)
@@ -97,10 +103,6 @@ low_tau_params['max_tau']  = np.median(m2_taus)
 high_tau_params['min_tau'] = np.median(m2_taus)
 clust_stats_m2_lowtau,_  = analyzeSpont2P.clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, params = low_tau_params)
 clust_stats_m2_hightau,_ = analyzeSpont2P.clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, params = high_tau_params)
-
-# === Fig S3: taus controls ===
-tau_stats_noregr, _ = analyzeSpont2P.plot_area_tau_comp(axis_handle = ax, params = tau_params, dff_type = 'noGlm_dff')
-tau_stats_deconv, _ = analyzeSpont2P.plot_area_tau_comp(axis_handle = ax, params = tau_params, dff_type = 'residuals_deconv')
 
 # %% ===========================================
 # == Fig 3: overall evoked 2p-opto comparison ==
