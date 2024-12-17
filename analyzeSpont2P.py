@@ -177,16 +177,17 @@ def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None
     
     # compute stats
     tau_stats = dict()
-    tau_stats['V1_num_'+ n_is] = np.size(v1_taus)
-    tau_stats['V1_mean']       = np.mean(v1_taus)
-    tau_stats['V1_sem']        = np.std(v1_taus,ddof=1) / np.sqrt(tau_stats['V1_num_'+ n_is]-1)
-    tau_stats['V1_median']     = np.median(v1_taus)
-    tau_stats['V1_iqr']        = scipy.stats.iqr(v1_taus)
-    tau_stats['M2_num_'+ n_is] = np.size(m2_taus)
-    tau_stats['M2_mean']       = np.mean(m2_taus)
-    tau_stats['M2_sem']        = np.std(m2_taus,ddof=1) / np.sqrt(tau_stats['M2_num_'+ n_is]-1)
-    tau_stats['M2_median']     = np.median(m2_taus)
-    tau_stats['M2_iqr']        = scipy.stats.iqr(m2_taus)
+    tau_stats['analysis_params'] = deepcopy(params)
+    tau_stats['V1_num_'+ n_is]   = np.size(v1_taus)
+    tau_stats['V1_mean']         = np.mean(v1_taus)
+    tau_stats['V1_sem']          = np.std(v1_taus,ddof=1) / np.sqrt(tau_stats['V1_num_'+ n_is]-1)
+    tau_stats['V1_median']       = np.median(v1_taus)
+    tau_stats['V1_iqr']          = scipy.stats.iqr(v1_taus)
+    tau_stats['M2_num_'+ n_is]   = np.size(m2_taus)
+    tau_stats['M2_mean']         = np.mean(m2_taus)
+    tau_stats['M2_sem']          = np.std(m2_taus,ddof=1) / np.sqrt(tau_stats['M2_num_'+ n_is]-1)
+    tau_stats['M2_median']       = np.median(m2_taus)
+    tau_stats['M2_iqr']          = scipy.stats.iqr(m2_taus)
     tau_stats['pval'], tau_stats['test_name'] = general_stats.two_group_comparison(v1_taus, m2_taus, is_paired=False, tail="two-sided")
 
     # plot
@@ -293,8 +294,9 @@ def clustering_by_tau(taus, centroids, rec_ids, params=params, rng=None):
                 tau_mat[iBoot,iBin] = np.mean(this_tau[sub_idx])
 
     # collect some results
-    clust_results['dist_um']       = bins[:-1]+np.diff(bins)[0]/2
-    clust_results['num_boot_iter'] = num_iter  
+    clust_results['analysis_params']      = deepcopy(params)
+    clust_results['dist_um']              = bins[:-1]+np.diff(bins)[0]/2
+    clust_results['num_boot_iter']        = num_iter  
     clust_results['tau_diff_bydist_mean'] = np.nanmean(tau_mat,axis=0).flatten()
     clust_results['tau_diff_bydist_std']  = np.nanstd(tau_mat,axis=0,ddof=1).flatten()
     

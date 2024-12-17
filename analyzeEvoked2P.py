@@ -25,6 +25,7 @@ VM     = connect_to_dj.get_virtual_modules()
 
 # %% declare default params, inherit general params from tau_params
 params = {
+        'random_seed'                    : 42, 
         'trigdff_param_set_id_dff'       : 4, 
         'trigdff_param_set_id_deconv'    : 5, 
         'trigdff_inclusion_param_set_id' : 3,
@@ -120,6 +121,7 @@ def get_prop_responding_neurons(area, params=params, expt_type='standard', resp_
                     'prop_sem'              : np.std(prop_neurons,ddof=1) / np.sqrt(np.size(prop_neurons)-1),
                     'prop_median'           : np.median(prop_neurons),
                     'prop_iqr'              : scipy.stats.iqr(prop_neurons),
+                    'analysis_params'       : deepcopy(params)
                     }
     
     return summary_data
@@ -289,6 +291,7 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
                     'is_sig'         : is_sig,
                     'peak_times_sec' : peak_ts,
                     'com_sec'        : coms,
+                    'analysis_params': deepcopy(params)
                     }
     
     end_time = time.time()
@@ -415,6 +418,7 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
                     'dist_axis'             : dist_bins[:-1]+np.diff(dist_bins)[0]/2,
                     'prop_by_dist_vs_total' : prop_vs_total,
                     'prop_by_dist_of_sig'   : prop_of_sig,
+                    'analysis_params'       : deepcopy(params)
                     }
     
     end_time = time.time()
@@ -639,6 +643,7 @@ def get_trig_speed(area, params=params, expt_type='standard', as_matrix=True):
                     'trig_speed_median' : np.nanmedian(avgs,axis=0),
                     'trig_speed_sem'    : np.nanstd(avgs,axis=0)/np.sqrt(len(t_axes)-1),
                     'trig_speed_iqr'    : scipy.stats.iqr(avgs,axis=0),
+                    'analysis_params'   : deepcopy(params)
                     }
                 
     return trig_speed_data
@@ -766,6 +771,7 @@ def get_opsin_expression_vs_response(area, params=params, expt_type='standard', 
                     'pval_express_vs_stimd_resp'     : p_stimd,
                     'cc_express_vs_non_stimd_resp'   : corr_netw,
                     'pval_express_vs_non_stimd_resp' : p_netw,
+                    'analysis_params'                : deepcopy(params)
                     }
     
     end_time = time.time()

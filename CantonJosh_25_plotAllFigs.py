@@ -108,6 +108,8 @@ resp_prob_summary, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opt
                                                                       plot_what='response_probability')
 
 # fig 3d response magnitude
+# >>>>> Plot sig and non sig mag together 
+# (could edit this function to take an additional dictionary, and plot with shade colors if so)
 full_resp_stats, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
                                                                     expt_type='standard', 
                                                                     resp_type='dff', 
