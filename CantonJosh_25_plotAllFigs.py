@@ -42,6 +42,7 @@ import analyzeEvoked2P
 # [LYN INSERT HERE]
 
 # fig 1g regression results 
+# calling this method will either run or save, but not recommended. for bash script see /[path]
 # [LYN INSERT HERE]
 
 # === Fig S1: tau regression simulations ===

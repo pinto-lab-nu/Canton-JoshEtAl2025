@@ -1002,8 +1002,7 @@ def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp
         
         # take random halves of trials and compare timing stats for each 
         for stim in unique_stims:
-            print('double check indexing in inner loop')
-            tidx        = these_trials[these_stims==stim] ### this is probably wrong move subvec seelction inside this loop
+            tidx        = these_trials[these_stims==stim] 
             tidx_shuff  = np.deepcopy(tidx)
             ntrials     = np.size(tidx)
             timing_set1 = np.zeros(params['xval_num_iter'])
@@ -1083,22 +1082,22 @@ def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp
     end_time = time.time()
     print("     done after {: 1.2f} min".format((end_time-start_time)/60))
     
-    # xval_results = {
-    #             'trig_dff_trials'         : trial_resps, 
-    #             'trial_ids'               : trial_ids, 
-    #             'time_axis_sec'           : t_axes,
-    #             'signif_only'             : signif_only,
-    #             'stim_ids'                : stim_ids, 
-    #             'roi_ids'                 : roi_ids, 
-    #             'com_sec'                 : coms, 
-    #             'peak_or_trough_time_sec' : peak_ts, 
-    #             'relax_timing_criteria'   : relax_timing_criteria,
-    #             'which_neurons'           : which_neurons,
-    #             'analysis_params'         : deepcopy(params)
-    #             }
+    xval_results = {
+                'timing_metric'         : params['xval_timing_metric'], 
+                'trial_halves_cc'               : roi_halves_r, 
+                'trial_halves_pval'           : t_axes,
+                'median_half1'             : median_half1,
+                'median_half2'                : median_half2, 
+                'roi_ids'                 : roi_ids, 
+                'com_sec'                 : coms, 
+                'peak_or_trough_time_sec' : peak_ts, 
+                'relax_timing_criteria'   : relax_timing_criteria,
+                'which_neurons'           : which_neurons,
+                'analysis_params'         : deepcopy(params)
+                }
     
     
-    return xval_results
+    return xval_results, trial_data
 # ====================
 # SANDBOX
 # =====================
