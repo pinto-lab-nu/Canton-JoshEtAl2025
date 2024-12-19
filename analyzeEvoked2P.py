@@ -1111,7 +1111,7 @@ def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp
 
 # ---------------
 # %% get single-trial opto-triggered responses for an area and experiment type
-def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', signif_only=True, which_neurons='non_stimd', xval_results=None, rng=None, axis_handle=None):
+def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', signif_only=True, which_neurons='non_stimd', xval_results=None, rng=None, axis_handle=None, fig_handle=None):
 
     # run analysis if necessary
     if xval_results is None:
@@ -1119,25 +1119,38 @@ def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp
         
     # plot
     if axis_handle is None:
-        plt.figure()
-        ax = plt.gca()
+        fig = plt.figure()
+        ax  = plt.gca()
     else:
-        ax = axis_handle
+        ax  = axis_handle
+        fig = fig_handle
         
     half1  = xval_results['median_trialset1']  
     half2  = xval_results['median_trialset2']    
     cc     = xval_results['trial_haves_cc']
     pval   = xval_results['trial_haves_pval']  
     
-    xy_lim = [np.min(np.concatenate((half1,half2)))-.1, np.max(np.concatenate((half1,half2)))-.1]  
+    xy_lim       = [np.min(np.concatenate((half1,half2)))-.1, np.max(np.concatenate((half1,half2)))-.1]  
     cc[pval>.05] = np.nan
-    this_cmap = plt.cm.get_cmap('grays')
+    this_cmap    = plt.cm.get_cmap('grays')
     this_cmap.set_bad(color='w')
     
+    ax.plt(xy_lim,xy_lim,'--',color=[.8,.8,.8])
     ax.scatter(x=half1,y=half2,c=cc,cmap=this_cmap)
     
+    if 'peak' in xval_results['timing_metric']:
+        ax.set_xlabel('Median peak time, half 1 (sec)')
+        ax.set_ylabel('Median peak time, half 2 (sec)')
+    else:
+        ax.set_xlabel('Median COM time, half 1 (sec)')
+        ax.set_ylabel('Median COM time, half 2 (sec)')
         
-    return ax, xval_results
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    
+    fig.colorbar(ax.scatter(x=half1,y=half2,c=cc,cmap=this_cmap),label='Corr. coef.')
+        
+    return ax, fig, xval_results
         
 # ====================
 # SANDBOX
