@@ -1096,10 +1096,10 @@ def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp
     
     xval_results = {
                 'timing_metric'     : params['xval_timing_metric'], 
-                'trial_halves_cc'   : roi_halves_r, 
-                'trial_halves_pval' : t_axes,
-                'median_trialset1'  : median_half1,
-                'median_trialset2'  : median_half2, 
+                'trial_halves_cc'   : np.array(roi_halves_r).flatten(), 
+                'trial_halves_pval' : np.array(roi_halves_p).flatten(), 
+                'median_trialset1'  : np.array(median_half1).flatten(),
+                'median_trialset2'  : np.array(median_half2).flatten(), 
                 'response_type'     : resp_type, 
                 'experiment_type'   : expt_type, 
                 'which_neurons'     : which_neurons,
@@ -1108,6 +1108,37 @@ def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp
     
     
     return xval_results, trial_data
+
+# ---------------
+# %% get single-trial opto-triggered responses for an area and experiment type
+def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', signif_only=True, which_neurons='non_stimd', xval_results=None, rng=None, axis_handle=None):
+
+    # run analysis if necessary
+    if xval_results is None:
+        xval_results, _ = xval_trial_data(area=area, params=params, expt_type=expt_type, resp_type=resp_type, signif_only=signif_only, which_neurons=which_neurons, rng=rng)
+        
+    # plot
+    if axis_handle is None:
+        plt.figure()
+        ax = plt.gca()
+    else:
+        ax = axis_handle
+        
+    half1  = xval_results['median_trialset1']  
+    half2  = xval_results['median_trialset2']    
+    cc     = xval_results['trial_haves_cc']
+    pval   = xval_results['trial_haves_pval']  
+    
+    xy_lim = [np.min(np.concatenate((half1,half2)))-.1, np.max(np.concatenate((half1,half2)))-.1]  
+    cc[pval>.05] = np.nan
+    this_cmap = plt.cm.get_cmap('grays')
+    this_cmap.set_bad(color='w')
+    
+    ax.scatter(x=half1,y=half2,c=cc,cmap=this_cmap)
+    
+        
+    return ax, xval_results
+        
 # ====================
 # SANDBOX
 # =====================
@@ -1116,7 +1147,7 @@ def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp
 # %%
 v1_avgs = get_avg_trig_responses('V1', params=params, expt_type='standard', resp_type='dff',signif_only=False)
 m2_avgs = get_avg_trig_responses('M2', params=params, expt_type='standard', resp_type='dff',signif_only=False)
-
+# %%
 idx = np.argsort(v1_avgs['peak_times_sec']).flatten()
 resp_mat_v1 = v1_avgs['trig_dff_avgs'][idx,:]
 idx = np.argsort(m2_avgs['peak_times_sec'])
