@@ -153,6 +153,20 @@ def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
 # %% retrieve all x-corr taus for a given area and set of parameters, from dj database
 def get_all_tau_xcorr(area, params = params, dff_type = 'residuals_dff'):
     
+    """
+    get_all_tau_xcorr(area, params=params, dff_type='residuals_dff')
+    fetches timescales of x-corr for every neuron pair in a given area
+    
+    INPUT:
+    area: 'V1' or 'M2'
+    params: dictionary as the one on top of this file
+    
+    OUTPUT:
+    taus: vector with taus that pass inclusion criteria 
+          in params['general_params']['twop_inclusion_param_set_id']
+    keys: list of dj keys corresponding to each tau
+    """
+    
     start_time      = time.time()
     print('Fetching all x-corr taus for {}...'.format(area))
         
@@ -181,6 +195,27 @@ def get_all_tau_xcorr(area, params = params, dff_type = 'residuals_dff'):
 # %% statistically compare taus across areas and plot
 def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None, v1_taus=None, m2_taus=None, corr_type='autocorr'):
 
+    """
+    plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None, v1_taus=None, m2_taus=None, corr_type='autocorr')
+    compares taus across areas and plots them
+    
+    INPUT:
+    params: dictionary as the one on top of this file
+    dff_type: 'residuals_dff' for residuals of running linear regression (default)
+              'residuals_deconv' for residuals of running Poisson GLM on deconvolved traces
+              'noGlm_dff' for plain dff traces
+    axis_handle: optional axis handle to plot on
+    v1_taus: optional vector of taus for V1 (default is to fetch them using get_all_tau)
+    m2_taus: optional vector of taus for M2 (default is to fetch them using get_all_tau)
+    corr_type: 'autocorr' for single neuron autocorrelation (default)
+               'xcorr' for pairwise x-corr
+               'eigen' for estimates from eigenvalues from x-corr matrix
+               
+    OUTPUT:
+    tau_stats: dictionary with stats of taus
+    ax: axis handle of plot
+    """
+    
     # get taus
     if corr_type == 'autocorr':
         if v1_taus is None:
@@ -254,6 +289,17 @@ def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None
 # %% get centroid and sess info for a list of tau keys
 def get_centroids_by_rec(tau_keys):
 
+    """
+    get_centroids_by_rec(tau_keys)
+    returns centroids and session ids for a list of tau keys
+    
+    INPUT:
+    tau_keys: list of dj keys for tau table
+    
+    OUTPUT:
+    centroids: numpy array with [x,y] centroids of each roi in um
+    """
+    
     # find unique sessions 
     subj_date_list = ['{}-{}'.format(this_key['subject_fullname'],this_key['session_date']) for this_key in tau_keys] 
     unique_sess    = np.unique(subj_date_list).tolist()
@@ -270,9 +316,25 @@ def get_centroids_by_rec(tau_keys):
     return np.array(centroids), np.array(sess_ids) 
 
 # ---------------
-# %% statistically compare taus across areas and plot
+# %% spatial clustering analysis by tau differences
 def clustering_by_tau(taus, centroids, rec_ids, params=params, rng=None):
 
+    """
+    clustering_by_tau(taus, centroids, rec_ids, params=params, rng=None)
+    performs spatial clustering analysis by tau differences 
+    
+    INPUT:
+    taus: vector of tau values
+    centroids: numpy array with [x,y] centroids of each roi in um
+    rec_ids: vector of session ids for each roi
+    params: dictionary as the one on top of this file
+    rng: random number generator
+    
+    OUTPUT:
+    clust_results: dictionary with clustering results
+    tau_mat: matrix with tau differences for each bootstrapped iteration
+    """
+    
     # set random seed and delete low /  high tau values if applicable
     start_time      = time.time()
     print('Performing clustering analysis...')
@@ -373,8 +435,22 @@ def clustering_by_tau(taus, centroids, rec_ids, params=params, rng=None):
     return clust_results, tau_mat
 
 # ---------------
-# %% statistically compare taus across areas and plot
+# %% statistically compare tau clustering across areas and plot
 def plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axis_handle=None):
+    
+    """
+    plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axis_handle=None)
+    compares clustering results across areas and plots them
+    
+    INPUT:
+    v1_clust: dictionary with clustering results for V1 (default is to fetch them using clustering_by_tau)
+    m2_clust: dictionary with clustering results for M2 (default is to fetch them using clustering_by_tau)
+    params: dictionary as the one on top of this file
+    axis_handle: optional axis handle to plot on
+    
+    OUTPUT:
+    ax: axis handle of plot
+    """
 
     # plot
     if axis_handle is None:
@@ -414,6 +490,24 @@ def plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axis_handl
 # %% plot taus on FOV
 def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_zscore_taus'], prctile_cap=[0,95], axis_handle=None, fig_handle=None):
 
+    """
+    plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_zscore_taus'], prctile_cap=[0,95], axis_handle=None, fig_handle=None)
+    plots taus as a heatmap on FOV
+    
+    INPUT:
+    tau_keys: list of dj keys for tau table
+    sess_ids: vector of session ids for each roi
+    which_sess: session id to plot (default is 0)
+    do_zscore: whether to z-score taus (default is params['clustering_zscore_taus'])
+    prctile_cap: bottom and top percentile cap for color scale (default is [0,95])
+    axis_handle: optional axis handle to plot on
+    fig_handle: optional figure handle to plot on
+    
+    OUTPUT:
+    ax: axis handle of plot
+    fig: figure handle of plot
+    """
+    
     # fetch roi coordinates for desired session
     idx  = np.argwhere(sess_ids == which_sess)
     keys = np.array(tau_keys)[idx].tolist()
@@ -440,6 +534,22 @@ def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_
 # ---------------
 # %% retrieve all x-corr taus for a given area and set of parameters using matrix eigenvalues
 def get_rec_xcorr_eigen_taus(area, params = params, dff_type = 'residuals_dff'):
+    
+    """
+    get_rec_xcorr_eigen_taus(area, params=params, dff_type='residuals_dff')
+    estimates timescales of an fov using eigenvalues of the symmetrical max(x-corr) matrix
+    
+    INPUT:
+    area: 'V1' or 'M2'
+    params: dictionary as the one on top of this file
+    dff_type: 'residuals_dff' for residuals of running linear regression (default)
+              'residuals_deconv' for residuals of running Poisson GLM on deconvolved traces
+              'noGlm_dff' for plain dff traces
+              
+    OUTPUT:
+    taus: vector with single tau per session 
+    xcorr_mats: list of x-corr matrices
+    """
     
     start_time      = time.time()
     print('Fetching all xcorr mats for {}...'.format(area))
@@ -475,7 +585,17 @@ def get_rec_xcorr_eigen_taus(area, params = params, dff_type = 'residuals_dff'):
 # ---------------
 # %% build a symmetrical x-corr matrix from dj keys
 def xcorr_mat_from_keys(xcorr_keys, is_neuron):
-        
+    """
+    xcorr_mat_from_keys(xcorr_keys, is_neuron)
+    builds a symmetrical x-corr matrix from dj keys, called by get_rec_xcorr_eigen_taus
+    
+    INPUT:
+    xcorr_keys: list of dj keys for x-corr table
+    is_neuron: boolean vector with whether each roi is a neuron
+    
+    OUTPUT:
+    xcorr_mat: symmetrical x-corr matrix
+    """
     neuron_idx  = np.argwhere(is_neuron==1)
     num_neurons = np.size(neuron_idx)    
     xcorr_mat   = np.zeros((num_neurons,num_neurons))
@@ -498,6 +618,19 @@ def xcorr_mat_from_keys(xcorr_keys, is_neuron):
 # %% timescale from eigenvalue of the x-corr matrix
 def tau_from_eigenval(xcorr_mat,frame_period):
   
+    """
+    tau_from_eigenval(xcorr_mat,frame_period)
+    estimates timescale from the eigenvalues of the x-corr matrix
+    called by get_rec_xcorr_eigen_taus
+    
+    INPUT:
+    xcorr_mat: symmetrical x-corr matrix
+    frame_period: frame period in seconds
+    
+    OUTPUT:
+    tau: estimated timescale
+    """
+    
     # tau will be defined by the longest timescale, 
     # given by the reciprocal of the smallest-magnitude negative eigenvalue
     eigvals = np.real(np.linalg.eigvals(xcorr_mat))  

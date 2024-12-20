@@ -37,7 +37,7 @@ params = {
         'response_time_bins'             : np.arange(0,10.1,.1),
         'expression_level_type'          : 'intensity_zscore_stimdcells',
         'xval_relax_timing_criteria'     : True, # set to true will select inclusion criteria that do not enforce peak timing
-        'xval_recompute_timing'          : False, # set to true will recompute peak (com) for every xval iteration, false just averages existing peak times
+        'xval_recompute_timing'          : True, # set to true will recompute peak (com) for every xval iteration, false just averages existing peak times
         'xval_timing_metric'             : 'peak', # 'peak' or 'com'. peak is time of peak or trough
         'xval_num_iter'                  : 1000,
         }
@@ -53,6 +53,19 @@ params['general_params'] = deepcopy(tau_params['general_params'])
 # 'standard' is single neurons with <= 10 trials & 5 spirals, 'short_stim' is single neurons <= 10 trials & < 5 spirals, 
 # 'high_trial_count' is single neurons with > 10 trials, 'multi_cell' has at least one group with mutiple stim'd neurons
 def get_keys_for_expt_types(area, params=params, expt_type='standard'):
+    
+    """
+    get_keys_for_expt_types(area, params=params, expt_type='standard')
+    retrieves dj keys for experiments of a certain type for a given area
+    
+    INPUTS:
+        area      : str, 'V1' or 'M2'
+        params    : dict, analysis parameters (default is params from top of this script)
+        expt_type : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+    
+    OUTPUTS:
+        keys : list of dj keys for experiments of the desired type
+    """
     
     # get primary keys for query
     mice              = params['general_params']['{}_mice'.format(area)]
@@ -89,6 +102,20 @@ def get_keys_for_expt_types(area, params=params, expt_type='standard'):
 # ---------------
 # %% get proportion of significantly responding neurons for an area and experiment type
 def get_prop_responding_neurons(area, params=params, expt_type='standard', resp_type='dff'):
+    
+    """
+    get_prop_responding_neurons(area, params=params, expt_type='standard', resp_type='dff')
+    retrieves proportion of significantly responding neurons for a given area and experiment type
+    
+    INPUTS: 
+        area      : str, 'V1' or 'M2'
+        params    : dict, analysis parameters (default is params from top of this script)
+        expt_type : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+        resp_type : str, 'dff' (default) or 'deconv'
+        
+    OUTPUTS:       
+        summary_data : dict with summary stats
+    """
     
     # get all keys
     expt_keys = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
@@ -136,6 +163,21 @@ def get_prop_responding_neurons(area, params=params, expt_type='standard', resp_
 # %% plot comparison of overall proportion of significantly responding neurons
 def plot_prop_response_comparison(params=params, expt_type='standard', resp_type='dff', axis_handle=None):
     
+    """
+    plot_prop_response_comparison(params=params, expt_type='standard', resp_type='dff', axis_handle=None)
+    plots comparison of overall proportion of significantly responding neurons between V1 and M2
+    
+    INPUTS: 
+        params     : dict, analysis parameters (default is params from top of this script)  
+        expt_type  : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+        resp_type  : str, 'dff' (default) or 'deconv'
+        axis_handle: axis handle for plotting (optional)
+        
+    OUTPUTS:
+        response_stats : dict with summary stats
+        ax             : axis handle
+    """
+    
     # get data
     v1_data = get_prop_responding_neurons('V1', params=params, expt_type=expt_type, resp_type=resp_type)
     m2_data = get_prop_responding_neurons('M2', params=params, expt_type=expt_type, resp_type=resp_type)
@@ -177,6 +219,24 @@ def plot_prop_response_comparison(params=params, expt_type='standard', resp_type
 # ---------------
 # %% get average opto-triiggered responses for an area and experiment type
 def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', as_matrix=True):
+    
+    """
+    get_avg_trig_responses(area, params=params, expt_type='standard', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', as_matrix=True)
+    retrieves opto-triggered average responses for a given area and experiment type
+    
+    INPUTS:
+        area         : str, 'V1' or 'M2'
+        params       : dict, analysis parameters (default is params from top of this script)
+        expt_type    : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+        resp_type    : str, 'dff' (default) or 'deconv'
+        eg_ids       : list of integers, indices of experiments to include (optional)
+        signif_only  : bool, if True only include neurons that are significant (default is True)
+        which_neurons: str, 'non_stimd' (default), 'all', 'stimd'
+        as_matrix    : bool, if True return as matrix, if False return as list of arrays (default is True)
+        
+    OUTPUTS:
+        summary_data : dict with summary stats and triggered averages
+    """
     
     start_time      = time.time()
     print('Fetching opto-triggered averages...')
@@ -251,9 +311,9 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
     nt_post = list()
     fdur    = list()
     for taxis in t_axes:
-        nt_pre.append(np.size(taxis[taxis<0]))
-        nt_post.append(np.size(taxis[taxis>=0]))
-        fdur.append(scipy.stats.mode(np.diff(taxis)))
+        nt_pre.append(np.sum(taxis<0))
+        nt_post.append(np.sum(taxis>=0))
+        fdur.append(np.diff(taxis)[0])
     
     # base time axis making sure to include t = 0
     fdur, _    = scipy.stats.mode(np.array(fdur).flatten())
@@ -265,8 +325,12 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
     
     # convert all axes to base (mostly expected to be unchanged)
     for iResp in range(len(t_axes)):
-        avg_resps[iResp] = np.interp(base_taxis,t_axes[iResp],avg_resps[iResp])  
-        sem_resps[iResp] = np.interp(base_taxis,t_axes[iResp],sem_resps[iResp])    
+        this_avg = deepcopy(avg_resps[iResp])
+        this_avg[this_avg < -10] = np.nan
+        this_sem = deepcopy(sem_resps[iResp])
+        this_sem[this_sem < -10] = np.nan
+        avg_resps[iResp] = np.interp(base_taxis,t_axes[iResp],this_avg)  
+        sem_resps[iResp] = np.interp(base_taxis,t_axes[iResp],this_sem)    
         
     # convert from list to matrix if desired    
     if as_matrix:
@@ -278,11 +342,12 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
             
         # make sure NaN frames for shuttered pmt are the same
         nan_idx1    = np.argwhere(np.isnan(np.sum(avgs,axis=0))).flatten()
-        nan_idx     = np.zeros(np.size(nan_idx1)+1)
-        nan_idx[0]  = nan_idx1[0]-1
-        nan_idx[1:] = nan_idx1
-        avgs[:,nan_idx.astype(int)] = np.nan
-        sems[:,nan_idx.astype(int)] = np.nan
+        if np.size(nan_idx1) > 0:
+            nan_idx     = np.zeros(np.size(nan_idx1)+1)
+            nan_idx[0]  = nan_idx1[0]-1
+            nan_idx[1:] = nan_idx1
+            avgs[:,nan_idx.astype(int)] = np.nan
+            sems[:,nan_idx.astype(int)] = np.nan
     else:
         avgs = avg_resps
         sems = sem_resps
@@ -311,6 +376,22 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
 # ---------------
 # %% get response stats (peak, dist from stim etc) for an area and experiment type
 def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='dff', eg_ids=None, which_neurons='non_stimd'):
+    
+    """
+    get_full_resp_stats(area, params=params, expt_type='standard', resp_type='dff', eg_ids=None, which_neurons='non_stimd')
+    retrieves opto-triggered response stats for a given area and experiment type
+    
+    INPUTS:
+        area         : str, 'V1' or 'M2'
+        params       : dict, analysis parameters (default is params from top of this script)
+        expt_type    : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+        resp_type    : str, 'dff' (default) or 'deconv'
+        eg_ids       : list of integers, indices of experiments to include (optional)
+        which_neurons: str, 'non_stimd' (default), 'all', 'stimd'
+        
+    OUTPUTS:
+        summary_data : dict with summary stats 
+    """
     
     start_time      = time.time()
     print('Fetching opto-triggered response stats...')
@@ -440,7 +521,24 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
 
 # ---------------
 # %% compare general responses stats between areas
-def compare_response_stats(params=params, expt_type='standard', resp_type='dff', which_neurons='non_stimd', v1_data=None, m2_data=None):
+def compare_response_stats(params=params, expt_type='standard', resp_type='dff', which_neurons='non_stimd', v1_data=None, m2_data=None, signif_only=True):
+    
+    """
+    compare_response_stats(params=params, expt_type='standard', resp_type='dff', which_neurons='non_stimd', v1_data=None, m2_data=None)
+    compares general response stats between V1 and M2
+    
+    INPUTS: 
+        params       : dict, analysis parameters (default is params from top of this script)
+        expt_type    : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+        resp_type    : str, 'dff' (default) or 'deconv'
+        which_neurons: str, 'non_stimd' (default), 'all', 'stimd'
+        v1_data      : dict with V1 response stats, output of get_full_resp_stats (optional, if not provided will call that method)
+        m2_data      : dict with M2 response stats, get_full_resp_stats (optional, if not provided will call that method)
+        signif_only  : bool, if True only include neurons that are significant (default is True)
+        
+    OUTPUTS:
+        response_stats : dict with summary stats
+    """
     
     # get data
     if v1_data is None:
@@ -454,12 +552,18 @@ def compare_response_stats(params=params, expt_type='standard', resp_type='dff',
     response_stats['M2_stats'] = m2_data
     
     # two-group comparisons
+    if signif_only:
+        idx_v1 = np.argwhere(v1_data['is_sig']==1).flatten()
+        idx_m2 = np.argwhere(m2_data['is_sig']==1).flatten()
+    else:
+        idx_v1 = np.arange(len(v1_data['is_sig']))
+        idx_m2 = np.arange(len(m2_data['is_sig']))
     response_stats['response_magnitude_pval'], response_stats['response_magnitude_test_name'] = \
-        general_stats.two_group_comparison(v1_data['max_or_min_vals'], m2_data['max_or_min_vals'], is_paired=False, tail="two-sided")
+        general_stats.two_group_comparison(v1_data['max_or_min_vals'][idx_v1], m2_data['max_or_min_vals'][idx_m2], is_paired=False, tail="two-sided")
     response_stats['response_time_pval'], response_stats['response_time_test_name'] = \
-        general_stats.two_group_comparison(v1_data['max_or_min_times_sec'], m2_data['max_or_min_times_sec'], is_paired=False, tail="two-sided")
+        general_stats.two_group_comparison(v1_data['max_or_min_times_sec'][idx_v1], m2_data['max_or_min_times_sec'][idx_m2], is_paired=False, tail="two-sided")
     response_stats['response_com_pval'], response_stats['response_com_test_name'] = \
-        general_stats.two_group_comparison(v1_data['com_sec'], m2_data['com_sec'], is_paired=False, tail="two-sided")
+        general_stats.two_group_comparison(v1_data['com_sec'][idx_v1], m2_data['com_sec'][idx_m2], is_paired=False, tail="two-sided")
 
     # two-way RM ANOVAs for the space-dependent metrics 
     # make it flattened lists for dataframe conversion first
@@ -492,8 +596,28 @@ def compare_response_stats(params=params, expt_type='standard', resp_type='dff',
     return response_stats
 
 # ---------------
-# %% plot comparison of overall proportion of significantly responding neurons
-def plot_response_stats_comparison(params=params, expt_type='standard', resp_type='dff', which_neurons='non_stimd', response_stats=None, axis_handle=None, plot_what='response_magnitude'):
+# %% plot comparison of different response stats between areas
+def plot_response_stats_comparison(params=params, expt_type='standard', resp_type='dff', which_neurons='non_stimd', response_stats=None, axis_handle=None, plot_what='response_magnitude', signif_only=True, overlay_non_sig=False):
+    
+    """
+    plot_response_stats_comparison(params=params, expt_type='standard', resp_type='dff', which_neurons='non_stimd', response_stats=None, axis_handle=None, plot_what='response_magnitude')
+    plots comparison of response stats between V1 and M2
+    
+    INPUTS:
+        params         : dict, analysis parameters (default is params from top of this script)
+        expt_type      : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+        resp_type      : str, 'dff' (default) or 'deconv'
+        which_neurons  : str, 'non_stimd' (default), 'all', 'stimd'
+        response_stats : dict with response stats, output of compare_response_stats (optional, if not provided will call that method)
+        axis_handle    : axis handle for plotting (optional)
+        plot_what      : str, 'response_magnitude' (default), 'response_time', 'prop_by_dist_vs_total' (i.e. overall prop.), 'prop_by_dist_of_sig' (i.e. prop. of significant)
+        signif_only    : bool, if True only include neurons that are significant (default is True)
+        overlay_non_sig: bool, if True overlay non-significant neurons (default is False)
+        
+    OUTPUTS:
+        response_stats : dict with summary stats
+        ax             : axis handle
+    """
     
     # call this one dedicated function if it's just overall proportion (there for historical reasons)
     if plot_what == 'response_probability':
@@ -502,12 +626,22 @@ def plot_response_stats_comparison(params=params, expt_type='standard', resp_typ
     
     # get data
     if response_stats is None:
-        response_stats = compare_response_stats(params=params, expt_type=expt_type, resp_type=resp_type, which_neurons=which_neurons)
+        response_stats = compare_response_stats(params=params, expt_type=expt_type, resp_type=resp_type, which_neurons=which_neurons,signif_only=signif_only)
             
+    # indices for significant neurons
+    if signif_only:
+        idx_v1 = np.argwhere(response_stats['V1_stats']['is_sig']==1).flatten()
+        idx_m2 = np.argwhere(response_stats['M2_stats']['is_sig']==1).flatten()
+    else:
+        idx_v1 = np.arange(len(response_stats['V1_stats']['is_sig']))
+        idx_m2 = np.arange(len(response_stats['M2_stats']['is_sig']))
+        
     # isolate desired variables    
     if plot_what == 'response_magnitude':
-        v1_data  = response_stats['V1_stats']['max_or_min_vals']
-        m2_data  = response_stats['M2_stats']['max_or_min_vals']
+        v1_data  = response_stats['V1_stats']['max_or_min_vals'][idx_v1]
+        m2_data  = response_stats['M2_stats']['max_or_min_vals'][idx_m2]
+        full_v1  = response_stats['V1_stats']['max_or_min_vals']
+        full_m2  = response_stats['M2_stats']['max_or_min_vals']
         pval     = response_stats[plot_what+'_pval']
         stats    = None
         histbins = params[plot_what+'_bins']
@@ -515,8 +649,10 @@ def plot_response_stats_comparison(params=params, expt_type='standard', resp_typ
         ylbl     = 'Prop. of responding neurons'
         
     elif plot_what == 'response_time':
-        v1_data  = response_stats['V1_stats']['max_or_min_times_sec']
-        m2_data  = response_stats['M2_stats']['max_or_min_times_sec']
+        v1_data  = response_stats['V1_stats']['max_or_min_times_sec'][idx_v1]
+        m2_data  = response_stats['M2_stats']['max_or_min_times_sec'][idx_m2]
+        full_v1  = response_stats['V1_stats']['max_or_min_times_sec']
+        full_m2  = response_stats['M2_stats']['max_or_min_times_sec']
         pval     = response_stats[plot_what+'_pval']
         stats    = None
         histbins = params[plot_what+'_bins']
@@ -577,6 +713,15 @@ def plot_response_stats_comparison(params=params, expt_type='standard', resp_typ
         
     else:
         # cumulative histograms
+        if overlay_non_sig:
+            v1_counts, _ = np.histogram(full_v1,bins=histbins,density=False)
+            m2_counts, _ = np.histogram(full_m2,bins=histbins,density=False)
+            xaxis        = histbins[:-1]+np.diff(histbins)[0]
+            ax.plot(xaxis,np.cumsum(v1_counts)/np.sum(v1_counts),color=params['general_params']['V1_sh'],label=params['general_params']['V1_lbl']+'(all)')
+            ax.plot(xaxis,np.cumsum(m2_counts)/np.sum(m2_counts),color=params['general_params']['M2_sh'],label=params['general_params']['M2_lbl']+'(all)')
+            ax.plot(np.median(full_v1),0.03,'v',color=params['general_params']['V1_sh'])
+            ax.plot(np.median(full_m2),0.03,'v',color=params['general_params']['M2_sh'])
+            
         v1_counts, _ = np.histogram(v1_data,bins=histbins,density=False)
         m2_counts, _ = np.histogram(m2_data,bins=histbins,density=False)
         xaxis        = histbins[:-1]+np.diff(histbins)[0]
@@ -598,6 +743,19 @@ def plot_response_stats_comparison(params=params, expt_type='standard', resp_typ
 # %% get opto-triggered running  data
 def get_trig_speed(area, params=params, expt_type='standard', as_matrix=True):
     
+    """
+    get_trig_speed(area, params=params, expt_type='standard', as_matrix=True)
+    retrieves opto-triggered running data for a given area and experiment type
+    
+    INPUTS:
+        area         : str, 'V1' or 'M2'
+        params       : dict, analysis parameters (default is params from top of this script)
+        expt_type    : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+        as_matrix    : bool, if True return as matrix, if False return as list of arrays (default is True)
+        
+    OUTPUTS:
+        trig_speed_data : dict with summary stats and triggered averages
+    """
     start_time      = time.time()
     print('Fetching opto-triggered running...')
     
@@ -665,6 +823,22 @@ def get_trig_speed(area, params=params, expt_type='standard', as_matrix=True):
 # %% get opto-triggered running  data
 def plot_trig_speed(params=params, expt_type='standard', v1_data=None, m2_data=None, axis_handle=None):
     
+    """
+    plot_trig_speed(params=params, expt_type='standard', v1_data=None, m2_data=None, axis_handle=None)
+    plots opto-triggered running data for V1 and M2
+    
+    INPUTS:
+        params       : dict, analysis parameters (default is params from top of this script)
+        expt_type    : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+        v1_data      : dict with V1 running stats, output of get_trig_speed (optional, if not provided will call that method)
+        m2_data      : dict with M2 running stats, get_trig_speed (optional, if not provided will call that method)
+        axis_handle  : axis handle for plotting (optional)
+        
+    OUTPUTS:
+        trig_speed_stats : dict with summary stats
+        ax               : axis handle
+    """
+    
     # get data if necessary
     if v1_data is None:
         v1_data = get_trig_speed('V1', params=params, expt_type=expt_type)
@@ -723,6 +897,19 @@ def plot_trig_speed(params=params, expt_type='standard', v1_data=None, m2_data=N
 # ---------------
 # %% get opsin expression for stimd cells and correlate with response magnitude
 def get_opsin_expression_vs_response(area, params=params, expt_type='standard'):
+    
+    """
+    get_opsin_expression_vs_response(area, params=params, expt_type='standard')
+    retrieves opsin expression levels for stim'd cells and correlates with response magnitude
+    
+    INPUTS:
+        area         : str, 'V1' or 'M2'
+        params       : dict, analysis parameters (default is params from top of this script)
+        expt_type    : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+        
+    OUTPUTS:
+        expression_data : dict with summary data
+    """
     
     start_time      = time.time()
     print('Running expression level analysis...')
@@ -796,6 +983,24 @@ def get_opsin_expression_vs_response(area, params=params, expt_type='standard'):
 # ---------------
 # %% plot correlation between opsin expression for stimd cells and response magnitude
 def plot_opsin_expression_vs_response(params=params, expt_type='standard', resp_type='dff', v1_data=None, m2_data=None, plot_what='stimd', axis_handle=None):
+    
+    """
+    plot_opsin_expression_vs_response(params=params, expt_type='standard', resp_type='dff', v1_data=None, m2_data=None, plot_what='stimd', axis_handle=None)
+    plots correlation between opsin expression and response magnitude for V1 and M2
+    
+    INPUTS:
+        params       : dict, analysis parameters (default is params from top of this script)
+        expt_type    : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+        resp_type    : str, 'dff' (default) or 'deconv'
+        v1_data      : dict with V1 expression stats, output of get_opsin_expression_vs_response (optional, if not provided will call that method)
+        m2_data      : dict with M2 expression stats, get_opsin_expression_vs_response (optional, if not provided will call that method)
+        plot_what    : str, 'stimd' (default) or 'non_stimd'
+        axis_handle  : axis handle for plotting (optional)
+        
+    OUTPUTS:
+        expression_stats : dict with summary stats
+        ax               : axis handle
+    """
     
     # get data if necessary
     if v1_data is None:
@@ -883,6 +1088,25 @@ def plot_opsin_expression_vs_response(params=params, expt_type='standard', resp_
 # %% get single-trial opto-triggered responses for an area and experiment type
 def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', relax_timing_criteria=params['xval_relax_timing_criteria']):
     
+    """
+    get_single_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', relax_timing_criteria=params['xval_relax_timing_criteria'])
+    retrieves single-trial opto-triggered responses for a given area and experiment type
+    
+    INPUTS:
+        area                  : str, 'V1' or 'M2' (default is 'M2')
+        params                : dict, analysis parameters (default is params from top of this script)
+        expt_type             : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+        resp_type             : str, 'dff' (default) or 'deconv'
+        eg_ids                : list of int, experiment group ids to restrict to (optional, default is None)
+        signif_only           : bool, if True only include significant neurons (default is True)
+        which_neurons         : str, 'non_stimd' (default), 'all', 'stimd'
+        relax_timing_criteria : bool, if True relax timing criteria (default is in params['xval_relax_timing_criteria']). 
+                                This will fetch from a different param set that doesn't require the timing criteria
+        
+    OUTPUTS:
+        trial_data : dict with summary data and single-trial responses
+    """
+    
     start_time      = time.time()
     print('Fetching opto-triggered trials...')
     
@@ -919,9 +1143,11 @@ def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count'
         # do selecion at the fetching level for speed
         if which_neurons == 'stimd':
             # stimd neurons bypass inclusion criteria
-            tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & this_key & 'is_stimd=1').fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
+            avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('KEY')
+            tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & avg_keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
         elif which_neurons == 'non_stimd':
-            sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
+            avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=0').fetch('KEY')
+            sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & avg_keys).fetch('is_significant', 'is_included', 'KEY')
             idx  = np.argwhere(np.array(incl)==1).flatten()
             keys = list(np.array(keys)[idx])
             sig  = list(np.array(sig)[idx])
@@ -931,7 +1157,7 @@ def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count'
                 keys = list(np.array(keys)[idx])
                 sig  = list(np.array(sig)[idx]) 
             
-            tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & keys & 'is_stimd=0').fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
+            tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
         else:
             print('code not implemented for this category of which_neurons, returning nothing')
             return None
@@ -983,9 +1209,26 @@ def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count'
     return trial_data
 
 # ---------------
-# %% get single-trial opto-triggered responses for an area and experiment type
+# %% cross-validate response timing
 def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', signif_only=True, which_neurons='non_stimd', trial_data=None, rng=None):
 
+    """
+    xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', signif_only=True, which_neurons='non_stimd', trial_data=None, rng=None)
+    cross-validates response timing for a given area and experiment type
+    
+    INPUTS:
+        area         : str, 'V1' or 'M2' (default is 'M2')
+        params       : dict, analysis parameters (default is params from top of this script)
+        expt_type    : str, 'standard', 'short_stim', 'high_trial_count' (default), 'multi_cell'
+        resp_type    : str, 'dff' (default) or 'deconv'
+        signif_only  : bool, if True only include significant neurons (default is True)
+        which_neurons: str, 'non_stimd' (default), 'all', 'stimd'
+        trial_data   : dict with trial data, output of get_single_trial_data (optional, if not provided will call that method)
+        rng          : numpy random number generator (optional)
+        
+    OUTPUTS:
+        timing_stats : dict with summary stats and analysis results
+    """
     # set random seed and delete low /  high tau values if applicable
     start_time      = time.time()
     print('Cross-validating reponse timing...')
@@ -997,8 +1240,7 @@ def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp
         trial_data = get_single_trial_data(area=area, params=params, expt_type=expt_type, resp_type=resp_type, signif_only=signif_only, which_neurons=which_neurons, relax_timing_criteria=params['xval_relax_timing_criteria'])
         
     # loop through rois and stims    
-    roi_halves_r = list()
-    roi_halves_p = list()
+    sem_overall  = list()
     median_half1 = list()
     median_half2 = list()
     unique_rois  = list(np.unique(trial_data['roi_ids']))
@@ -1008,14 +1250,14 @@ def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp
         these_stims  = trial_data['stim_ids'][ridx]
         coms         = trial_data['com_sec'][ridx]
         peaks        = trial_data['peak_or_trough_time_sec'][ridx]
-        trial_dffs   = trial_data['trig_dff_trials'][ridx]
-        t_axes       = trial_data['time_axis_sec'][ridx]
+        trial_dffs   = list(np.array(trial_data['trig_dff_trials'])[ridx])
+        t_axes       = list(np.array(trial_data['time_axis_sec'])[ridx])
         unique_stims = list(np.unique(these_stims))
         
         # take random halves of trials and compare timing stats for each 
         for stim in unique_stims:
-            tidx        = these_trials[these_stims==stim] 
-            tidx_shuff  = np.deepcopy(tidx)
+            tidx        = these_trials[these_stims==stim]-1
+            tidx_shuff  = deepcopy(tidx)
             ntrials     = np.size(tidx)
             timing_set1 = np.zeros(params['xval_num_iter'])
             timing_set2 = np.zeros(params['xval_num_iter'])
@@ -1058,13 +1300,19 @@ def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp
                         if np.max(smoothed1+smoothed2) > np.abs(np.min(smoothed1+smoothed2)):
                             timing_set1[iShuff] = peak1
                             timing_set2[iShuff] = peak2
+                            if iShuff == 0:
+                                sem_overall.append(np.std([peak1,peak2])/np.sqrt(len(tidx)-1))
                         else:
                             timing_set1[iShuff] = trough1
                             timing_set2[iShuff] = trough2
+                            if iShuff == 0:
+                                sem_overall.append(np.std([trough1,trough2])/np.sqrt(len(tidx)-1))
                         
                     elif params['xval_timing_metric'] == 'com':
                         timing_set1[iShuff] = com1
                         timing_set2[iShuff] = com2
+                        if iShuff == 0:
+                            sem_overall.append(np.std([com1,com2])/np.sqrt(len(tidx)-1))
                         
                     else:
                         print('unknown parameter value for timing metric, returning nothing')
@@ -1075,19 +1323,20 @@ def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp
                     if params['xval_timing_metric'] == 'peak':
                         timing_set1[iShuff] = np.nanmedian(peaks[half1])
                         timing_set2[iShuff] = np.nanmedian(peaks[half2])
+                        if iShuff == 0:
+                            sem_overall.append(np.std(peaks)/np.sqrt(len(tidx)-1))
                         
                     elif params['xval_timing_metric'] == 'com':
                         timing_set1[iShuff] = np.nanmedian(coms[half1])
                         timing_set2[iShuff] = np.nanmedian(coms[half2])
+                        if iShuff == 0:
+                            sem_overall.append(np.std(coms)/np.sqrt(len(tidx)-1))
                         
                     else:
                         print('unknown parameter value for timing metric, returning nothing')
                         return None
             
-            # collect correlation between metrics on halves and median metric
-            cc, pval = scipy.stats.pearsonr(timing_set1, timing_set2) 
-            roi_halves_r.append(cc)
-            roi_halves_p.append(pval)
+            # collect median metric for each half
             median_half1.append(np.nanmedian(timing_set1))
             median_half2.append(np.nanmedian(timing_set2))
             
@@ -1096,8 +1345,7 @@ def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp
     
     xval_results = {
                 'timing_metric'     : params['xval_timing_metric'], 
-                'trial_halves_cc'   : np.array(roi_halves_r).flatten(), 
-                'trial_halves_pval' : np.array(roi_halves_p).flatten(), 
+                'trial_sem'         : np.array(sem_overall).flatten(), 
                 'median_trialset1'  : np.array(median_half1).flatten(),
                 'median_trialset2'  : np.array(median_half2).flatten(), 
                 'response_type'     : resp_type, 
@@ -1110,12 +1358,35 @@ def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp
     return xval_results, trial_data
 
 # ---------------
-# %% get single-trial opto-triggered responses for an area and experiment type
-def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', signif_only=True, which_neurons='non_stimd', xval_results=None, rng=None, axis_handle=None, fig_handle=None):
+# %% plot response timing cross-validation results
+def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', signif_only=True, which_neurons='non_stimd', xval_results=None, rng=None, axis_handle=None, fig_handle=None, trial_data=None):
 
+    """
+    plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', signif_only=True, which_neurons='non_stimd', xval_results=None, rng=None, axis_handle=None, fig_handle=None, trial_data=None)
+    plots response timing cross-validation results
+    
+    INPUTS:
+        area         : str, 'V1' or 'M2' (default)
+        params       : dict, analysis parameters (default is params from top of this script)
+        expt_type    : str, 'standard', 'short_stim', 'high_trial_count' (default), 'multi_cell'
+        resp_type    : str, 'dff' (default) or 'deconv'
+        signif_only  : bool, if True only include significant neurons (default is True)
+        which_neurons: str, 'non_stimd' (default), 'all', 'stimd'
+        xval_results : dict with xval results, output of xval_trial_data (optional, if not provided will call that method)
+        rng          : numpy random number generator (optional)
+        axis_handle  : axis handle for plotting (optional)
+        fig_handle   : figure handle for plotting (optional)
+        trial_data   : dict with trial data, output of get_single_trial_data (optional, if not provided will call that method)
+        
+    OUTPUTS:
+        ax           : axis handle
+        fig          : figure handle
+        xval_results : dict with xval results
+    """
+    
     # run analysis if necessary
     if xval_results is None:
-        xval_results, _ = xval_trial_data(area=area, params=params, expt_type=expt_type, resp_type=resp_type, signif_only=signif_only, which_neurons=which_neurons, rng=rng)
+        xval_results, _ = xval_trial_data(area=area, params=params, expt_type=expt_type, resp_type=resp_type, signif_only=signif_only, which_neurons=which_neurons, rng=rng, trial_data=trial_data)
         
     # plot
     if axis_handle is None:
@@ -1127,16 +1398,15 @@ def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp
         
     half1  = xval_results['median_trialset1']  
     half2  = xval_results['median_trialset2']    
-    cc     = xval_results['trial_haves_cc']
-    pval   = xval_results['trial_haves_pval']  
+    sem    = xval_results['trial_sem']
     
-    xy_lim       = [np.min(np.concatenate((half1,half2)))-.1, np.max(np.concatenate((half1,half2)))-.1]  
-    cc[pval>.05] = np.nan
-    this_cmap    = plt.cm.get_cmap('grays')
+    xy_lim       = [np.min(np.concatenate((half1,half2)))-.5, np.max(np.concatenate((half1,half2)))+.5]  
+    this_cmap    = plt.colormaps.get_cmap('copper')
     this_cmap.set_bad(color='w')
     
-    ax.plt(xy_lim,xy_lim,'--',color=[.8,.8,.8])
-    ax.scatter(x=half1,y=half2,c=cc,cmap=this_cmap)
+    ax.plot(xy_lim,xy_lim,'--',color=[.8,.8,.8])
+    ax.scatter(x=half1,y=half2,c=sem,cmap=this_cmap,edgecolors=[.5,.5,.5],linewidths=.5)
+    ax.set_xlim(xy_lim)
     
     if 'peak' in xval_results['timing_metric']:
         ax.set_xlabel('Median peak time, half 1 (sec)')
@@ -1148,66 +1418,193 @@ def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     
-    fig.colorbar(ax.scatter(x=half1,y=half2,c=cc,cmap=this_cmap),label='Corr. coef.')
+    fig.colorbar(ax.scatter(x=half1,y=half2,c=sem,cmap=this_cmap),label='S.E.M. (sec)')
         
     return ax, fig, xval_results
         
+# ---------------
+# %% plot average response heatmap
+def plot_avg_response_heatmap(area, params=params, expt_type='standard', resp_type='dff', signif_only=True, which_neurons='non_stimd', avg_data=None, axis_handle=None, fig_handle=None, norm_type='minmax'):
+
+    """
+    plot_avg_response_heatmap(area, params=params, expt_type='standard', resp_type='dff', signif_only=True, which_neurons='non_stimd', avg_data=None, axis_handle=None, fig_handle=None, norm_type='minmax')
+    Plots average response heatmap for an area for each roi, sorted by peak time.
+    
+    INPUTS:
+    area: str, 'V1' or 'M2'
+    params: dict, parameters dictionary
+    expt_type: str, 'standard', 'high_trial_count', 'short_stim', 'multi_cell'
+    """
+    if avg_data is None:
+        avg_data = get_avg_trig_responses(area, params=params, expt_type=expt_type, resp_type=resp_type, signif_only=signif_only, which_neurons=which_neurons)
+        
+    # sort by peak time
+    idx         = np.argsort(avg_data['peak_times_sec']).flatten()
+    resp_mat    = deepcopy(avg_data['trig_dff_avgs'])[idx,:]
+    idx         = np.argsort(avg_data['peak_times_sec'])
+    num_neurons = np.size(resp_mat,axis=0)
+    
+    # normalize
+    if norm_type == 'minmax':
+        for iNeuron in range(num_neurons):
+            resp_mat[iNeuron,:] = resp_mat[iNeuron,:] - np.nanmin(resp_mat[iNeuron,:]) 
+            resp_mat[iNeuron,:] = resp_mat[iNeuron,:] / np.nanmax(resp_mat[iNeuron,:])
+        cm_name = 'bone'
+        lbl     = 'Normalized response'
+    elif norm_type == 'absmax':
+        for iNeuron in range(num_neurons):
+            resp_mat[iNeuron,:] = resp_mat[iNeuron,:] / np.nanmax(np.abs(resp_mat[iNeuron,:]))
+        cm_name = 'coolwarm'
+        lbl     = 'Normalized response'
+    elif norm_type == 'none':
+        cm_name = 'bone'
+        lbl     = 'Response (z-score)'
+    else:
+        print('unknown normalization type, returning nothing')
+        return None, None, None
+    
+    # time axis
+    t_axis = avg_data['time_axis_sec']
+    xticks = range(-2,np.ceil(t_axis[-1]).astype(int),2)
+    xpos = list()
+    for x in xticks:
+        xpos.append(np.argwhere(t_axis>=x).flatten()[0])
+        
+    # plot
+    if axis_handle is None:
+        fig = plt.figure()
+        ax  = plt.gca()
+    else:
+        ax  = axis_handle
+        fig = fig_handle
+
+    fig.colorbar(ax.imshow(resp_mat,cmap=cm_name,aspect='auto'),label=lbl)
+    ax.set_xticks(np.array(xpos).astype(int))
+    ax.set_xticklabels(xticks)
+    ax.set_xlabel('Time from stim (sec)')
+    ax.set_ylabel('Significant responses (neurons*stim)')
+    
+    ax.title(params['general_params']['{}_lbl'.format(area)])
+    
+    return ax, fig, avg_data
+
+# ---------------
+# %% plot grand average of response time course
+def plot_response_grand_average(params=params, expt_type='standard', resp_type='dff', signif_only=True, which_neurons='non_stimd', v1_data=None, m2_data=None, axis_handle=None, norm_type='peak'):
+
+    """
+    plot_response_grand_average(area, params=params, expt_type='standard', resp_type='dff', signif_only=True, which_neurons='non_stimd', avg_data=None, axis_handle=None, fig_handle=None)
+    Plots grand average response time course for both areas on the same axis
+    
+    INPUTS:
+        params        : dict, parameters dictionary
+        expt_type     : str, 'standard' (default), 'high_trial_count', 'short_stim', 'multi_cell'
+        resp_type     : str, 'dff' (default) or 'deconv'
+        signif_only   : bool, if True only include significant neurons (default is True)
+        which_neurons : str, 'non_stimd' (default), 'all', 'stimd'
+        v1_data       : dict with average data, output of get_avg_trig_responses (optional, if not provided will call that method)
+        m2_data       : dict with average data, output of get_avg_trig_responses (optional, if not provided will call that method)
+        axis_handle   : axis handle for plotting (optional)
+        norm_type     : str, 'peak' (default), 't0', 'minmax', 'absmax' , 'none'
+        
+    OUTPUTS:
+        ax            : axis handle
+        v1_data       : dict with average data
+        m2_data       : dict with average data
+    """
+    
+    # get data if necessary (takes a while)
+    if v1_data is None:
+        v1_data = get_avg_trig_responses('V1', params=params, expt_type=expt_type, resp_type=resp_type, signif_only=signif_only, which_neurons=which_neurons)
+    if m2_data is None:
+        m2_data = get_avg_trig_responses('M2', params=params, expt_type=expt_type, resp_type=resp_type, signif_only=signif_only, which_neurons=which_neurons) 
+    
+    # normalize
+    resp_mat_v1 = deepcopy(v1_data['trig_dff_avgs'])
+    resp_mat_m2 = deepcopy(m2_data['trig_dff_avgs'])
+    num_v1      = np.size(resp_mat_v1,axis=0)
+    num_m2      = np.size(resp_mat_m2,axis=0)
+    t_axis_v1   = v1_avgs['time_axis_sec']
+    t_axis_m2   = m2_avgs['time_axis_sec']
+    
+    if norm_type == 'minmax': # between 0 and 1
+        for iNeuron in range(num_v1):
+            resp_mat_v1[iNeuron,:] = resp_mat_v1[iNeuron,:] - np.nanmin(resp_mat_v1[iNeuron,:]) 
+            resp_mat_v1[iNeuron,:] = resp_mat_v1[iNeuron,:] / np.nanmax(resp_mat_v1[iNeuron,:])
+        for iNeuron in range(num_m2):
+            resp_mat_m2[iNeuron,:] = resp_mat_m2[iNeuron,:] - np.nanmin(resp_mat_m2[iNeuron,:]) 
+            resp_mat_m2[iNeuron,:] = resp_mat_m2[iNeuron,:] / np.nanmax(resp_mat_m2[iNeuron,:])
+        lbl     = 'Average normalized response'
+        
+    elif norm_type == 'absmax': # to max abs response
+        for iNeuron in range(num_v1):
+            resp_mat_v1[iNeuron,:] = resp_mat_v1[iNeuron,:] / np.nanmax(np.abs(resp_mat_v1[iNeuron,:]))
+        for iNeuron in range(num_m2):
+            resp_mat_m2[iNeuron,:] = resp_mat_m2[iNeuron,:] / np.nanmax(np.abs(resp_mat_m2[iNeuron,:]))
+        lbl     = 'Average normalized response'
+        
+    elif norm_type == 'peak': # max response
+        for iNeuron in range(num_v1):
+            resp_mat_v1[iNeuron,:] = resp_mat_v1[iNeuron,:] / np.nanmax(resp_mat_v1[iNeuron,:])
+        for iNeuron in range(num_m2):
+            resp_mat_m2[iNeuron,:] = resp_mat_m2[iNeuron,:] / np.nanmax(resp_mat_m2[iNeuron,:])
+        lbl     = 'Average normalized response'
+        
+    elif norm_type == 't0': # to first datapoint after shutter opens
+        t0idx_v1 = np.argwhere(np.isnan(np.sum(resp_mat_v1,axis=0))).flatten()[-1]+1
+        t0idx_m2 = np.argwhere(np.isnan(np.sum(resp_mat_m2,axis=0))).flatten()[-1]+1
+        for iNeuron in range(num_v1):
+            resp_mat_v1[iNeuron,:] = resp_mat_v1[iNeuron,:] / resp_mat_v1[iNeuron,t0idx_v1]
+        for iNeuron in range(num_m2):
+            resp_mat_m2[iNeuron,:] = resp_mat_m2[iNeuron,:] / resp_mat_m2[iNeuron,t0idx_m2]
+        lbl     = 'Average normalized response'
+        
+    elif norm_type == 'none':
+        lbl     = 'Average response (z-score)'
+        
+    else:
+        print('unknown normalization type, returning nothing')
+        return None, None, None
+        
+    # grand average
+    v1_avg = np.nanmean(resp_mat_v1 / np.nanmax(resp_mat_v1),axis=0)
+    v1_sem = np.nanstd(resp_mat_v1 / np.nanmax(resp_mat_v1),axis=0)/np.sqrt(num_v1-1)
+    m2_avg = np.nanmean(resp_mat_m2 / np.nanmax(resp_mat_m2),axis=0)
+    m2_sem = np.nanstd(resp_mat_m2/ np.nanmax(resp_mat_m2),axis=0)/np.sqrt(num_m2-1)
+        
+    # plot
+    if axis_handle is None:
+        plt.figure()
+        ax = plt.gca()
+    else:
+        ax = axis_handle
+
+    ax.fill_between(t_axis_v1,v1_avg-v1_sem,v1_avg+v1_sem,color=params['general_params']['V1_sh'])
+    ax.plot(t_axis_v1,v1_avg,'-',color=params['general_params']['V1_cl'],label=params['general_params']['V1_lbl'])
+    ax.fill_between(t_axis_m2,m2_avg-m2_sem,m2_avg+m2_sem,color=params['general_params']['M2_sh']) 
+    ax.plot(t_axis_m2,m2_avg,'-',color=params['general_params']['M2_cl'],label=params['general_params']['M2_lbl'])
+    
+    ax.legend()
+    ax.set_xlabel('Time from stim (sec)')
+    ax.set_ylabel(lbl)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    
+    return ax, v1_data, m2_data
+
 # ====================
 # SANDBOX
 # =====================
 
-
 # %%
-v1_avgs = get_avg_trig_responses('V1', params=params, expt_type='standard', resp_type='dff',signif_only=False)
-m2_avgs = get_avg_trig_responses('M2', params=params, expt_type='standard', resp_type='dff',signif_only=False)
+v1_avgs = get_avg_trig_responses('V1', params=params, expt_type='standard', resp_type='dff',signif_only=True)
+m2_avgs = get_avg_trig_responses('M2', params=params, expt_type='standard', resp_type='dff',signif_only=True)
 # %%
-idx = np.argsort(v1_avgs['peak_times_sec']).flatten()
-resp_mat_v1 = v1_avgs['trig_dff_avgs'][idx,:]
-idx = np.argsort(m2_avgs['peak_times_sec'])
-resp_mat_m2 = m2_avgs['trig_dff_avgs'][idx,:]
-maxval = np.nanmax(np.abs(resp_mat_m2))
-num_v1 = np.size(resp_mat_v1,axis=0)
-num_m2 = np.size(resp_mat_m2,axis=0)
-
-for iNeuron in range(num_v1):
-    resp_mat_v1[iNeuron,:] = resp_mat_v1[iNeuron,:]/np.nanmax(resp_mat_v1[iNeuron,:]) #v1_mat[iNeuron,idx_v1]
-for iNeuron in range(num_m2):
-    resp_mat_m2[iNeuron,:] = resp_mat_m2[iNeuron,:]/np.nanmax(resp_mat_m2[iNeuron,:]) #m2_mat[iNeuron,idx_m2]    
-    
-t_axis_v1   = v1_avgs['time_axis_sec']
-t_axis_m2   = m2_avgs['time_axis_sec']
-# 
-plt.matshow(resp_mat_v1,cmap='coolwarm',vmin=-1,vmax=1)
-plt.colorbar()
-plt.matshow(resp_mat_m2,cmap='coolwarm',vmin=-1,vmax=1)
-plt.colorbar()
-# %%
-# v1_mat = v1_avgs['trig_dff_avgs']
-# m2_mat = m2_avgs['trig_dff_avgs']
-
-# idx_v1 = np.argwhere(np.isnan(np.sum(v1_mat,axis=0)))[-1]+1
-# idx_m2 = np.argwhere(np.isnan(np.sum(m2_mat,axis=0)))[-1]+1
-
-
-
-# %%
-v1_avg = np.nanmean(resp_mat_v1,axis=0)
-v1_sem = np.nanstd(resp_mat_v1,axis=0)/np.sqrt(num_v1-1)
-m2_avg = np.nanmean(resp_mat_m2,axis=0)
-m2_sem = np.nanstd(resp_mat_m2,axis=0)/np.sqrt(num_m2-1)
-t_axis_v1   = v1_avgs['time_axis_sec']
-t_axis_m2   = m2_avgs['time_axis_sec']
-
-plt.plot(t_axis_v1,v1_avg,'-',color=params['general_params']['V1_cl'],label=params['general_params']['V1_lbl'])
-plt.plot(t_axis_m2,m2_avg,'-',color=params['general_params']['M2_cl'],label=params['general_params']['M2_lbl'])
-# %%
-plot_prop_response_comparison(resp_type='deconv')
-    
-# TO DO
-
-# seuqence xval
-# PCA
-# opto vs tau, including dyanmics of that
-# %%
-
+v1_avgs_all = get_avg_trig_responses('V1', params=params, expt_type='standard', resp_type='dff',signif_only=False)
+m2_avgs_all = get_avg_trig_responses('M2', params=params, expt_type='standard', resp_type='dff',signif_only=False)
+# %
+plot_avg_response_heatmap('V1', avg_data=m2_avgs_all, norm_type='minmax')
+plot_avg_response_heatmap('M2', avg_data=m2_avgs_all, norm_type='minmax')
+# %
+plot_response_grand_average(v1_data=v1_avgs_all, m2_data=m2_avgs_all, norm_type='t0')
 # %%

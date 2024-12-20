@@ -31,12 +31,16 @@ import analyzeEvoked2P
 # fig 1a widefield schematics
 
 # fig 1b Cux2 histology (or maybe suppl)
+# >>> TO DO
 
 # fig 1c raw data with running plus exponential egs
+# >>> TO DO
 
 # fig 1d widefield tau map
+# >>> TO DO
 
 # fig 1e tau area summary
+# >>> TO DO
 
 # fig 1f regression schematics
 # [LYN INSERT HERE]
@@ -55,12 +59,15 @@ import analyzeEvoked2P
 # ===== Fig 2: spontaneous 2p timescales =====
 # ============================================
 
+# we should preferably create methods at the bottom for each figure and call them from here
+# makes it a lot easier to follow what's going on
 # fig2_handle, fig2_data = plot_spont_tau(params=tau_params)
 
 fig_handle = plt.plot()
 
-# fig 2a: FOV and cranial window egs with raw traces
+# fig 2a: FOV and cranial window egs with raw traces for each area
 ax1 = plt.subplot(231)
+# >>> TO DO
 
 # fig 2b: 2p tau summary
 ax2 = plt.subplot(232)
@@ -110,8 +117,10 @@ clust_stats_m2_hightau,_ = analyzeSpont2P.clustering_by_tau(m2_taus, m2_centr, m
 # ==============================================
 
 # fig 3a raw evoked traces and/or pixel-wise dff example (or suppl movie)
+# >>> TO DO
 
 # fig 3b area eg response map
+# >>> TO DO
 
 # fig 3c overall response probability
 resp_prob_summary, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
@@ -121,15 +130,15 @@ resp_prob_summary, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opt
                                                                       plot_what='response_probability')
 
 # fig 3d response magnitude
-# >>>>> Plot sig and non sig mag together 
-# (could edit this function to take an additional dictionary, and plot with shade colors if so)
 full_resp_stats, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
                                                                     expt_type='standard', 
                                                                     resp_type='dff', 
                                                                     which_neurons='non_stimd', 
                                                                     response_stats=None, 
                                                                     axis_handle=None, 
-                                                                    plot_what='response_magnitude')
+                                                                    plot_what='response_magnitude',
+                                                                    signif_only=True, 
+                                                                    overlay_non_sig=True)
 
 # fig 3e response vs distance
 _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
@@ -138,7 +147,9 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
                                                       which_neurons='non_stimd', 
                                                       response_stats=full_resp_stats, 
                                                       axis_handle=None, 
-                                                      plot_what='prop_by_dist_of_sig')
+                                                      plot_what='prop_by_dist_of_sig',
+                                                      signif_only=True, 
+                                                      overlay_non_sig=False)
 
 # === Fig S4: 2p opto controls ===
 
@@ -176,13 +187,49 @@ _, _ = analyzeEvoked2P.plot_opsin_expression_vs_response(params=opto_params,
 # ===== Fig 4: evoked timecourse comparison ====
 # ==============================================
 
-# fig 4a roi-wise dff timecourse heatmaps
+# get data
 v1_avgs = analyzeEvoked2P.get_avg_trig_responses('V1', params=opto_params, expt_type='standard', resp_type='dff')
 m2_avgs = analyzeEvoked2P.get_avg_trig_responses('M2', params=opto_params, expt_type='standard', resp_type='dff')
 
-# fig 4b average timecourse
 
-# fig 4c neuron heatmaps over time
+# fig 4a roi-wise dff timecourse heatmaps
+# >>> TO DO
+
+# fig 4b average timecourse
+# these look different than Neto's need to figure out why. 
+# maybe here we should plot the grand average regardless of significance
+_, _, _, = analyzeEvoked2P.plot_response_grand_average(params=opto_params, 
+                                                       expt_type='standard', 
+                                                       resp_type='dff', 
+                                                       signif_only=True, 
+                                                       which_neurons='non_stimd', 
+                                                       v1_data=v1_avgs, 
+                                                       m2_data=m2_avgs, 
+                                                       axis_handle=None, 
+                                                       norm_type='peak')
+    
+# fig 4c neuron heatmaps over time. 
+# these look different than Neto's need to figure out why
+_, _, _, = analyzeEvoked2P.plot_avg_response_heatmap('V1', 
+                                                     params=opto_params, 
+                                                     expt_type='standard', 
+                                                     resp_type='dff', 
+                                                     signif_only=True, 
+                                                     which_neurons='non_stimd', 
+                                                     avg_data=v1_avgs, 
+                                                     axis_handle=None, 
+                                                     fig_handle=None, 
+                                                     norm_type='minmax')
+_, _, _, = analyzeEvoked2P.plot_avg_response_heatmap('M2', 
+                                                     params=opto_params, 
+                                                     expt_type='standard', 
+                                                     resp_type='dff', 
+                                                     signif_only=True, 
+                                                     which_neurons='non_stimd', 
+                                                     avg_data=m2_avgs, 
+                                                     axis_handle=None, 
+                                                     fig_handle=None, 
+                                                     norm_type='minmax')
 
 # fig 4d response time distributions
 _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
@@ -191,30 +238,38 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
                                                       which_neurons='non_stimd', 
                                                       response_stats=full_resp_stats, 
                                                       axis_handle=None, 
-                                                      plot_what='response_time')
+                                                      plot_what='response_time',
+                                                      signif_only=True)
 
 
 # fig 4e: sequence xval
+_, _, xval_results = analyzeEvoked2P.plot_trial_xval(area='M2', 
+                                                     params=opto_params, 
+                                                     expt_type='high_trial_count', 
+                                                     resp_type='dff', 
+                                                     signif_only=True, 
+                                                     which_neurons='non_stimd', 
+                                                     axis_handle=None, 
+                                                     fig_handle=None)
 
 # === Fig S6: timing with deconvolved traces ===
-
+# >>> TO DO
 
 # %% ======================================
 # ===== Fig 5: PCA trial trajectories =====
 # =========================================
-
+# >>> TO DO
 
 # %% ==============================================
 # ===== Fig 6: responses vs. spont timescales =====
 # =================================================
-
-# >>>>>> opto vs tau, including dyanmics of that
+# >>> TO DO: opto vs tau, including dyanmics of that
 
 
 # %% ==============================================
 # =================================================
 # FIGURE SOURCE CODE
-
+# >>> TO DO: move scripts from top under fig-specific methods
 # def plot_spont_tau(params=tau_params):
     
 #     return fig_handle, fig_data
