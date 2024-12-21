@@ -17,6 +17,7 @@ from utils.stats import general_stats
 from utils.plotting import plot_pval_circles
 from utils.plotting import plot_fov_heatmap
 from analyzeSpont2P import params as tau_params
+import analyzeSpont2P
 
 import time
 
@@ -259,6 +260,7 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
     is_sig    = list()
     coms      = list()
     peak_ts   = list()
+    roi_keys  = list()
     num_expt  = len(expt_keys)
     for ct, ikey in enumerate(expt_keys):
         print('     {} of {}...'.format(ct+1,num_expt))
@@ -271,7 +273,7 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
         # do selecion at the fetching level for speed
         if which_neurons == 'stimd':
             # stimd neurons bypass inclusion criteria
-            avgs, sems, ts, stimd, com, peak = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall')
+            avgs, sems, ts, stimd, com, peak, nkeys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall', 'KEY')
         else:
             sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
             idx  = np.argwhere(np.array(incl)==1).flatten()
@@ -284,12 +286,15 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
                 sig  = list(np.array(sig)[idx]) 
             
             if which_neurons == 'all':
-                avgs, sems, ts, stimd, com, peak = (twop_opto_analysis.TrigDffTrialAvg & keys).fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall')
+                avgs, sems, ts, stimd, com, peak, nkeys = (twop_opto_analysis.TrigDffTrialAvg & keys).fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall', 'KEY')
             elif which_neurons == 'non_stimd':
-                avgs, sems, ts, stimd, com, peak = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall')
+                avgs, sems, ts, stimd, com, peak, nkeys = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall', 'KEY')
             else:
                 print('Unknown category of which_neurons, returning nothing')
                 return None
+            
+        # get roi keys for fetching from other tables (eg tau)
+        rkeys = (VM['twophoton'].Roi2P & nkeys).fetch('KEY')
 
         # flatten list
         [avg_resps.append(avg) for avg in avgs]
@@ -299,6 +304,7 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
         [is_sig.append(sg) for sg in sig]
         [coms.append(co) for co in com]
         [peak_ts.append(pt) for pt in peak]
+        [roi_keys.append(rr) for rr in rkeys]
             
     is_stimd = np.array(is_stimd).flatten()
     is_sig   = np.array(is_sig).flatten()
@@ -365,6 +371,7 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
                     'response_type'  : resp_type, 
                     'experiment_type': expt_type, 
                     'which_neurons'  : which_neurons,
+                    'roi_keys'       : roi_keys,
                     'analysis_params': deepcopy(params)
                     }
     
@@ -1524,8 +1531,8 @@ def plot_response_grand_average(params=params, expt_type='standard', resp_type='
     resp_mat_m2 = deepcopy(m2_data['trig_dff_avgs'])
     num_v1      = np.size(resp_mat_v1,axis=0)
     num_m2      = np.size(resp_mat_m2,axis=0)
-    t_axis_v1   = v1_avgs['time_axis_sec']
-    t_axis_m2   = m2_avgs['time_axis_sec']
+    t_axis_v1   = v1_data['time_axis_sec']
+    t_axis_m2   = m2_data['time_axis_sec']
     
     if norm_type == 'minmax': # between 0 and 1
         for iNeuron in range(num_v1):
@@ -1591,6 +1598,11 @@ def plot_response_grand_average(params=params, expt_type='standard', resp_type='
     ax.spines['top'].set_visible(False)
     
     return ax, v1_data, m2_data
+
+# ---------------
+# %% analyze response probability vs tau
+# analyzeSpont2P.get_tau_from_roi_keys(roi_keys, params = params, dff_type = 'residuals_dff')
+# modify get_full_resp_stats method to also spit out roi keys, careful with segmentation key
 
 # ====================
 # SANDBOX

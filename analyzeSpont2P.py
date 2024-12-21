@@ -150,6 +150,53 @@ def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
     return taus, keys, total_soma
 
 # ---------------
+# %% retrieve all taus for a full list of roi keys, from dj database
+def get_tau_from_roi_keys(roi_keys, params = params, dff_type = 'residuals_dff'):
+    
+    """
+    get_tau_from_roi_keys(roi_keys, params=params, dff_type='residuals_dff')
+    fetches timescales for every neuron for a list of roi keys
+    
+    INPUT:
+    roi_keys: list of roi segmentation keys
+    params: dictionary as the one on top of this file, used to determine
+            mice to look for and which parameter sets correspond to desired
+            dff_type
+    dff_type: 'residuals_dff' for residuals of running linear regression (default)
+              'residuals_deconv' for residuals of running Poisson GLM on deconvolved traces
+              'noGlm_dff' for plain dff traces
+              
+    OUTPUT:
+    taus_dict: dictionary with taus and inclusion for each roi
+    """
+    
+    start_time      = time.time()
+    print('Fetching all taus from roi keys...')
+        
+    # get primary keys for query
+    corr_param_set_id = params['general_params']['corr_param_id_{}'.format(dff_type)]
+    tau_param_set_id  = params['general_params']['tau_param_set_id']
+    incl_set_id       = params['general_params']['twop_inclusion_param_set_id']
+    param_key         = {'corr_param_set_id': corr_param_set_id, 'tau_param_set_id': tau_param_set_id, 'twop_inclusion_param_set_id': incl_set_id}
+ 
+    # retrieve taus and inclusion
+    taus    = np.array((spont_timescales.TwopTau & roi_keys & param_key).fetch('tau'))
+    is_good = np.array((spont_timescales.TwopTauInclusion & roi_keys & param_key).fetch('is_good_tau_roi'))
+
+    taus_dict = {
+                'roi_keys'    : roi_keys,
+                'taus'        : taus,
+                'is_good_tau' : is_good,
+                'params'      : deepcopy(params),
+                'dff_type'    : dff_type
+                 }
+    
+    end_time = time.time()
+    print("     done after {: 1.1f} min".format((end_time-start_time)/60))
+    
+    return taus_dict
+
+# ---------------
 # %% retrieve all x-corr taus for a given area and set of parameters, from dj database
 def get_all_tau_xcorr(area, params = params, dff_type = 'residuals_dff'):
     
