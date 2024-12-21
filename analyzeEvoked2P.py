@@ -1484,7 +1484,7 @@ def plot_avg_response_heatmap(area, params=params, expt_type='standard', resp_ty
     ax.set_xlabel('Time from stim (sec)')
     ax.set_ylabel('Significant responses (neurons*stim)')
     
-    ax.title(params['general_params']['{}_lbl'.format(area)])
+    ax.set_title(params['general_params']['{}_lbl'.format(area)])
     
     return ax, fig, avg_data
 
@@ -1596,15 +1596,4 @@ def plot_response_grand_average(params=params, expt_type='standard', resp_type='
 # SANDBOX
 # =====================
 
-# %%
-v1_avgs = get_avg_trig_responses('V1', params=params, expt_type='standard', resp_type='dff',signif_only=True)
-m2_avgs = get_avg_trig_responses('M2', params=params, expt_type='standard', resp_type='dff',signif_only=True)
-# %%
-v1_avgs_all = get_avg_trig_responses('V1', params=params, expt_type='standard', resp_type='dff',signif_only=False)
-m2_avgs_all = get_avg_trig_responses('M2', params=params, expt_type='standard', resp_type='dff',signif_only=False)
-# %
-plot_avg_response_heatmap('V1', avg_data=m2_avgs_all, norm_type='minmax')
-plot_avg_response_heatmap('M2', avg_data=m2_avgs_all, norm_type='minmax')
-# %
-plot_response_grand_average(v1_data=v1_avgs_all, m2_data=m2_avgs_all, norm_type='t0')
 # %%
