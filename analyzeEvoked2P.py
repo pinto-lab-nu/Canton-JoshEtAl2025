@@ -35,6 +35,8 @@ params = {
         'prop_resp_bins'                 : np.arange(0,.41,.01),
         'dist_bins_resp_prob'            : np.arange(30,480,50),
         'response_magnitude_bins'        : np.arange(-2.5,7.75,.25),
+        'tau_bins'                       : np.arange(0,10.25,.25),
+        'tau_by_time_bins'               : np.arange(0,11,1),
         'response_time_bins'             : np.arange(0,10.1,.1),
         'expression_level_type'          : 'intensity_zscore_stimdcells',
         'xval_relax_timing_criteria'     : True, # set to true will select inclusion criteria that do not enforce peak timing
@@ -427,6 +429,8 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
     n_sig_by_expt  = list()
     prop_vs_total  = list()
     prop_of_sig    = list()
+    roi_keys       = list()
+    stim_ids       = list()
     dist_bins      = params['dist_bins_resp_prob']
     num_bins       = len(dist_bins)-1
     
@@ -441,7 +445,7 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
         # do selecion at the fetching level for speed
         if which_neurons == 'stimd':
             # stimd neurons bypass inclusion criteria
-            stimd, com, maxmin, peakt, trought, dist, sid = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id')
+            stimd, com, maxmin, peakt, trought, dist, sid, nkeys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
             n    = len(stimd)
         else:
             sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
@@ -451,9 +455,9 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
             sig  = list(np.array(sig)[idx])
 
             if which_neurons == 'all':
-                stimd, com, maxmin, peakt, trought, dist, sid = (twop_opto_analysis.TrigDffTrialAvg & keys).fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id')
+                stimd, com, maxmin, peakt, trought, dist, sid, nkeys = (twop_opto_analysis.TrigDffTrialAvg & keys).fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
             elif which_neurons == 'non_stimd':
-                stimd, com, maxmin, peakt, trought, dist, sid = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id')
+                stimd, com, maxmin, peakt, trought, dist, sid, nkeys = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
             else:
                 print('Unknown category of which_neurons, returning nothing')
                 return None
@@ -465,6 +469,9 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
                 maxmin_t.append(trought[iNeuron])
             else:
                 maxmin_t.append(peakt[iNeuron])
+                
+        # get roi keys for fetching from other tables (eg tau)
+        rkeys = (VM['twophoton'].Roi2P & nkeys).fetch('KEY')
 
         # flatten list
         [is_stimd.append(st) for st in stimd]
@@ -473,6 +480,8 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
         [maxmins.append(mm) for mm in maxmin]
         [maxmins_ts.append(mmt) for mmt in maxmin_t]
         [dists.append(ds) for ds in dist]
+        [roi_keys.append(rk) for rk in rkeys]
+        [stim_ids.append(ss) for ss in sid]
 
         # response prob by dist per experiment
         dist        = np.array(dist).flatten()
@@ -507,6 +516,7 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
                     'num_experiments'       : len(prop_vs_total),
                     'num_sig_by_expt'       : np.array(n_sig_by_expt).flatten(),
                     'is_stimd'              : np.array(is_stimd).flatten(),
+                    'stim_ids'              : np.array(stim_ids).flatten(),
                     'is_sig'                : np.array(is_sig).flatten(),
                     'max_or_min_times_sec'  : np.array(maxmins_ts).flatten(),
                     'max_or_min_vals'       : np.array(maxmins).flatten(),
@@ -518,6 +528,7 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
                     'response_type'         : resp_type, 
                     'experiment_type'       : expt_type, 
                     'which_neurons'         : which_neurons,
+                    'roi_keys'              : roi_keys,
                     'analysis_params'       : deepcopy(params)
                     }
     
@@ -1600,10 +1611,125 @@ def plot_response_grand_average(params=params, expt_type='standard', resp_type='
     return ax, v1_data, m2_data
 
 # ---------------
-# %% analyze response probability vs tau
-# analyzeSpont2P.get_tau_from_roi_keys(roi_keys, params = params, dff_type = 'residuals_dff')
-# modify get_full_resp_stats method to also spit out roi keys, careful with segmentation key
+# %% analyze opto response probability vs tau
+def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_type='residuals_dff', opto_data=None, tau_data=None):
+    
+    """
+    opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_type = 'residuals_dff', opto_data=None, tau_data=None)
+    plots response timing cross-validation results
+    
+    INPUTS:
+        area       : str, 'V1' or 'M2' 
+        params     : dict, analysis parameters (default is params from top of this script)
+        expt_type  : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+        resp_type  : str, 'dff' (default) or 'deconv'
+        dff_type   : str, 'residuals_dff' (default), 'noGlm_dff', 'residuals_deconv'. Type use to calculate tau
+        opto_data  : dict with response stats, output of get_full_resp_stats (optional, if not provided will call that method)
+        tau_data   : dict with tau stats, output of analyzeSpont2P.get_tau_from_roi_keys (optional, if not provided will call that method)
+                     note that rois of opto_data and tau_data need to match exactly, enforced within this method
+        
+    OUTPUT:
+        analsys_results : dict with results of tau vs opto analysis
+    """
+    
+    # get data for opto. this must contain both stimd and non-stimd cells
+    if opto_data is None:
+        opto_data = get_full_resp_stats(area=area, params=params, expt_type=expt_type, resp_type=resp_type, which_neurons='all')
+    # tau data nees to receive the roi keys to ensure consistency
+    if tau_data is None:
+        tau_data = analyzeSpont2P.get_tau_from_roi_keys(opto_data['roi_keys'], params = params, dff_type = dff_type)
+        
+    # divide into stimd and non-stimd   
+    sess_ids    = analyzeSpont2P.sess_ids_from_tau_keys(opto_data['roi_keys']) 
+    stim_ids    = deepcopy(opto_data['stim_ids'])
+    is_stimd    = deepcopy(opto_data['is_stimd'])
+    is_sig      = deepcopy(opto_data['is_sig'])
+    peak_ts     = deepcopy(opto_data['max_or_min_times_sec'])
+    peak_mag    = deepcopy(opto_data['max_or_min_vals'])
+    tau         = deepcopy(tau_data['taus'])
+    is_good_tau = deepcopy(tau_data['is_good_tau'])
+    tau_th      = np.median(tau[is_good_tau==1])
+    is_short    = tau < tau_th
+    
+    # response properties by tau (need to implement peak width)
+    bins     = params['tau_bins']
+    num_bins = np.size(bins)-1
+    peakt_by_tau_avg = np.zeros(num_bins)
+    peakt_by_tau_sem = np.zeros(num_bins)
+    peakm_by_tau_avg = np.zeros(num_bins)
+    peakm_by_tau_sem = np.zeros(num_bins)
+    for iBin in range(num_bins):
+        idx     = np.logical_and(is_good_tau==1,np.logical_and(tau>bins[iBin], tau<=bins[iBin+1]))
+        sem_den = np.sqrt(np.sum(idx==1)-1)
+        peakt_by_tau_avg[iBin] = np.mean(peak_ts[idx])
+        peakt_by_tau_sem[iBin] = (np.std(peak_ts[idx],ddof=1))/sem_den
+        peakm_by_tau_avg[iBin] = np.mean(peak_mag[idx])
+        peakm_by_tau_sem[iBin] = (np.std(peak_mag[idx],ddof=1))/sem_den
+    
+    # for each session and stim, get responding stats overall and across time
+    unique_sess = list(np.unique(sess_ids))
+    ct_short    = 0
+    ct_long     = 0
+    tau_t_bins  = params['tau_by_time_bins']
+    tau_mat     = np.zeros((2,2))
+    tau_mat_t   = [np.zeros((2,2))]*(len(tau_t_bins)-1)
+    for sess in unique_sess:
+        unique_stim = list(np.unique(stim_ids[sess_ids==sess]))
+        for stim in unique_stim:
+            stimd_idx       = np.logical_and(is_stimd==1, np.logical_and(sess_ids==sess, stim_ids==stim))
+            non_stimd_idx   = np.logical_and(is_stimd==0, np.logical_and(sess_ids==sess, stim_ids==stim))
+            total_non_stimd = np.sum(non_stimd_idx)
+            
+            # just include good tau fits in this analysis
+            if is_good_tau[stimd_idx] == 0:
+                continue
+            
+            # divide by tau median and compute response prob
+            if is_short[stimd_idx]:
+                ct_short += 1
+                mat_row   = 0
+            else:
+                ct_long += 1
+                mat_row  = 1
+            
+            # overall resp prob by tau
+            short_idx = np.logical_and(is_sig[non_stimd_idx]==1,np.logical_and(is_short[non_stimd_idx]==1,is_good_tau[non_stimd_idx]==1))
+            long_idx  = np.logical_and(is_sig[non_stimd_idx]==1,np.logical_and(is_short[non_stimd_idx]==0,is_good_tau[non_stimd_idx]==1))
+            tau_mat[mat_row,0] += np.sum(short_idx) / total_non_stimd
+            tau_mat[mat_row,1] += np.sum(long_idx) / total_non_stimd
+            
+            # now do it by time by restricting by peak time
+            for iBin in range(len(tau_mat_t)):
+                peak_idx  = np.logical_and(peak_ts[non_stimd_idx]>tau_t_bins[iBin], peak_ts[non_stimd_idx]<=tau_t_bins[iBin+1])
+                short_idx = np.logical_and(peak_idx,short_idx)
+                long_idx  = np.logical_and(peak_idx,long_idx)
+                
+                tau_mat_t[iBin][mat_row,0] += np.sum(short_idx) / np.sum(peak_idx)
+                tau_mat_t[iBin][mat_row,1] += np.sum(long_idx) / np.sum(peak_idx)
+                
+    # divide by counts to get average
+    tau_mat[0,:] = tau_mat[0,:] / ct_short
+    tau_mat[1,:] = tau_mat[1,:] / ct_long
+    for iBin in range(len(tau_mat_t)):
+        tau_mat_t[iBin][0,:] = tau_mat_t[iBin][0,:] / ct_short
+        tau_mat_t[iBin][1,:] = tau_mat_t[iBin][1,:] / ct_long
+    
+    # collect analysis results
+    analysis_results = {
+                        'tau_xaxis_sec'             : bins+np.diff(bins)[0]/2,
+                        'peak_time_by_tau_mean'     : peakt_by_tau_avg,
+                        'peak_time_by_tau_sem'      : peakt_by_tau_sem,
+                        'peak_mag_by_tau_mean'      : peakm_by_tau_avg,
+                        'peak_mag_by_tau_sem'       : peakm_by_tau_sem,
+                        'resp_prob_by_tau'          : tau_mat,
+                        'tau_over_time_axis_sec'    : tau_t_bins+np.diff(tau_t_bins)[0]/2,
+                        'resp_prob_by_tau_over_time': tau_mat_t,
+                        'params'                    : deepcopy(params)
+                        }
+            
+    return analysis_results
 
+                    
 # ====================
 # SANDBOX
 # =====================

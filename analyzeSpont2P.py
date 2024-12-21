@@ -345,22 +345,42 @@ def get_centroids_by_rec(tau_keys):
     
     OUTPUT:
     centroids: numpy array with [x,y] centroids of each roi in um
+    sess_ids : array with arbitrary session id integers
+    """
+    
+    # find unique sessions 
+    sess_ids = sess_ids_from_tau_keys(tau_keys)
+
+    # get centroids and assign numeric session ids
+    centroids = list()
+    for this_key in tau_keys:
+        centr    = (VM['twophoton'].Roi2P & this_key).fetch1('centroid_pxls')
+        xs, ys   = (VM['twophoton'].Scan & this_key).fetch1('microns_per_pxl_x','microns_per_pxl_y')
+        centroids.append(np.array([centr[0,0]*ys, centr[0,1]*xs]))
+    
+    return np.array(centroids), np.array(sess_ids) 
+
+# ---------------
+# %% get centroid and sess info for a list of tau keys
+def sess_ids_from_tau_keys(tau_keys):
+
+    """
+    sess_ids_from_tau_keys(tau_keys)
+    returns session ids for a list of tau keys
+    
+    INPUT:
+    tau_keys: list of dj keys for tau table (or other tables with roi info)
+    
+    OUTPUT:
+    sess_ids : array with arbitrary session id integers
     """
     
     # find unique sessions 
     subj_date_list = ['{}-{}'.format(this_key['subject_fullname'],this_key['session_date']) for this_key in tau_keys] 
     unique_sess    = np.unique(subj_date_list).tolist()
-
-    # get centroids and assign numeric session ids
-    centroids = list()
-    sess_ids  = list()
-    for idx, this_key in enumerate(tau_keys):
-        centr    = (VM['twophoton'].Roi2P & this_key).fetch1('centroid_pxls')
-        xs, ys   = (VM['twophoton'].Scan & this_key).fetch1('microns_per_pxl_x','microns_per_pxl_y')
-        centroids.append(np.array([centr[0,0]*ys, centr[0,1]*xs]))
-        sess_ids.append(unique_sess.index(subj_date_list[idx]))
+    sess_ids       = [sess_ids.append(unique_sess.index([sess])) for sess in subj_date_list]
     
-    return np.array(centroids), np.array(sess_ids) 
+    return np.array(sess_ids) 
 
 # ---------------
 # %% spatial clustering analysis by tau differences
