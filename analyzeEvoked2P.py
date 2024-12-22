@@ -1778,7 +1778,7 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
         # tau_vs_opto_comp_summary['V1_vs_M2']['resp_prob'] = stats.ttest_ind(analysis_results_v1['resp_prob_by_tau'],analysis_results_m2['resp_prob_by_tau'])
         # tbc
     
-    # plot  
+    # plot (either two areas or one, lots of contingencies)
     if plot_what == 'prob': # plot overall response probability by tau
         if area is None:
             if axis_handles is None:
@@ -1792,9 +1792,11 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
                 fig = axis_handles[0].get_figure()
                 
         if area is None:
-            ax[0].imshow(analysis_results_v1['resp_prob_by_tau'],aspect='auto',cmap='bone')
+            vmax = np.max([np.max(analysis_results_v1['resp_prob_by_tau']),np.max(analysis_results_m2['resp_prob_by_tau'])])
+            vmin = np.min([np.min(analysis_results_v1['resp_prob_by_tau']),np.min(analysis_results_m2['resp_prob_by_tau'])])
+            plt.colorbar(ax[0].imshow(analysis_results_v1['resp_prob_by_tau'],aspect='auto',cmap='bone',vmax=vmax,vmin=vmin),label='Response probability')
+            plt.colorbar(ax[1].imshow(analysis_results_m2['resp_prob_by_tau'],aspect='auto',cmap='bone',vmax=vmax,vmin=vmin),label='Response probability')
             ax[0].set_title(params['general_params']['V1_lbl'])
-            ax[1].imshow(analysis_results_m2['resp_prob_by_tau'],aspect='auto',cmap='bone')
             ax[1].set_title(params['general_params']['M2_lbl'])
             for iPlot in range(2):
                 ax[iPlot].set_xticklabels(['short $\\tau$','long $\\tau$'])
@@ -1802,14 +1804,51 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
                 ax[iPlot].set_xlabel('Responding neurons')
                 ax[iPlot].set_ylabel("Stim'd neurons")
         else:
-            ax.imshow(analysis_results_v1['resp_prob_by_tau'],aspect='auto',cmap='bone')
+            plt.colorbar(ax.imshow(analysis_results_v1['resp_prob_by_tau'],aspect='auto',cmap='bone'))
             ax.set_title(params['general_params'][area+'_lbl'])
             ax.set_xticklabels(['short $\\tau$','long $\\tau$'])
             ax.set_yticklabels(['short $\\tau$','long $\\tau$'])
             ax.set_xlabel('Responding neurons')
             ax.set_ylabel("Stim'd neurons")
         
-    elif plot_what == 'prob_by_time':
+    elif plot_what == 'prob_by_time': # plot response probability by tau over time
+        num_plots = len(analysis_results_v1['resp_prob_by_tau_over_time'])
+        time_lbls = analysis_results_v1['tau_over_time_axis_sec']
+        if area is None:
+            if axis_handles is None:
+                fig = plt.figure()
+                ax  = list()
+                for iPlot in range(num_plots):
+                    ax.append(fig.subplots(2,num_plots,iPlot+1))
+                    ax.append(fig.subplots(2,num_plots,iPlot+1+num_plots))
+                    
+            else:
+                if len(axis_handles) != 2*len(analysis_results_v1['resp_prob_by_tau_over_time']):
+                    print('need two axis handles for this plot, returning just the stats')
+                    return None, None, tau_vs_opto_comp_summary
+                ax  = axis_handles
+                fig = axis_handles[0].get_figure()
+                
+            for iTime in range(num_plots):
+                ### stopped here need to add colorbars and improve layout
+                ax[0,iTime].imshow(analysis_results_v1['resp_prob_by_tau_over_time'][iTime],aspect='auto',cmap='bone')
+                ax[0,iTime].set_title(params['general_params']['V1_lbl']+str(time_lbls[iTime]))
+                ax[1,iTime].imshow(analysis_results_m2['resp_prob_by_tau_over_time'][iTime],aspect='auto',cmap='bone')
+                ax[1,iTime].set_title(params['general_params']['M2_lbl']+str(time_lbls[iTime]))
+                for iPlot in range(2):
+                    ax[iPlot,iTime].set_xticklabels(['short $\\tau$','long $\\tau$'])
+                    ax[iPlot,iTime].set_yticklabels(['short $\\tau$','long $\\tau$'])
+                    ax[iPlot,iTime].set_xlabel('Responding neurons')
+                    ax[iPlot,iTime].set_ylabel("Stim'd neurons")
+        else:
+            if axis_handles is None:
+                fig = plt.figure()
+                ax  = list()
+                for iPlot in range(num_plots):
+                    ax.append(fig.subplots(1,num_plots,iPlot+1))
+            else:
+                ax  = axis_handles
+                fig = axis_handles[0].get_figure()    
         # tbc
         
     elif plot_what == 'peak_time' or plot_what == 'peak_mag': # plot peak time or magnitude by tau
