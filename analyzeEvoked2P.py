@@ -1729,6 +1729,142 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
             
     return analysis_results
 
+# ---------------
+# %% plot opto response properties vs tau
+def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt_type='standard', resp_type='dff', dff_type='residuals_dff', analysis_results_v1=None, analysis_results_m2=None, axis_handles=None):
+    
+    """
+    plot_opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_type = 'residuals_dff', opto_data=None, tau_data=None, axis_handle=None)
+    plots response timing cross-validation results
+    
+    INPUTS:
+        area       : str,  None (default), 'V1' or 'M2'. None will plot both areas 
+        plot_what  : str, 'prob' (default), 'prob_by_time', 'peak_time', 'peak_mag'
+        params     : dict, analysis parameters (default is params from top of this script)
+        expt_type  : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+        resp_type  : str, 'dff' (default) or 'deconv'
+        dff_type   : str, 'residuals_dff' (default), 'noGlm_dff', 'residuals_deconv'. Type use to calculate tau
+        analysis_results_v1 : dict with results of tau vs opto analysis (optional, if not provided will call that method)
+        analysis_results_m2 : dict with results of tau vs opto analysis (optional, if not provided will call that method)
+        axis_handles: axis handle for plotting (optional). Certain plots require a list of multiple axis handles
+        
+    OUTPUT:
+        ax               : axis handle(s)
+        fig              : figure handle
+        tau_vs_opto_comp_summary : dict with results of tau vs opto analysis and area comparisons thereof
+    """
+    
+    # get data if necessary
+    if area is None:
+        if analysis_results_v1 is None:
+            analysis_results_v1 = opto_vs_tau('V1', params=params, expt_type=expt_type, resp_type=resp_type, dff_type=dff_type, opto_data=opto_data, tau_data=tau_data)
+        if analysis_results_m2 is None:
+            analysis_results_m2 = opto_vs_tau('M2', params=params, expt_type=expt_type, resp_type=resp_type, dff_type=dff_type, opto_data=opto_data, tau_data=tau_data)
+    elif area == 'V1':
+        if analysis_results_v1 is None:
+            analysis_results_v1 = opto_vs_tau('V1', params=params, expt_type=expt_type, resp_type=resp_type, dff_type=dff_type, opto_data=opto_data, tau_data=tau_data)
+    elif area == 'M2':
+        if analysis_results_m2 is None:
+            analysis_results_m2 = opto_vs_tau('M2', params=params, expt_type=expt_type, resp_type=resp_type, dff_type=dff_type, opto_data=opto_data, tau_data=tau_data)
+         
+    # do area comparison
+    tau_vs_opto_comp_summary = dict()
+    tau_vs_opto_comp_summary['V1_results'] = analysis_results_v1
+    tau_vs_opto_comp_summary['M2_results'] = analysis_results_m2
+    if area is None:
+        tau_vs_opto_comp_summary['V1_vs_M2'] = dict()
+        # tau_vs_opto_comp_summary['V1_vs_M2']['peak_time'] = stats.ttest_ind(analysis_results_v1['peak_time_by_tau_mean'],analysis_results_m2['peak_time_by_tau_mean'])
+        # tau_vs_opto_comp_summary['V1_vs_M2']['peak_mag']  = stats.ttest_ind(analysis_results_v1['peak_mag_by_tau_mean'],analysis_results_m2['peak_mag_by_tau_mean'])
+        # tau_vs_opto_comp_summary['V1_vs_M2']['resp_prob'] = stats.ttest_ind(analysis_results_v1['resp_prob_by_tau'],analysis_results_m2['resp_prob_by_tau'])
+        # tbc
+    
+    # plot  
+    if plot_what == 'prob': # plot overall response probability by tau
+        if area is None:
+            if axis_handles is None:
+                fig = plt.figure()
+                ax  = [fig.subplots(121), fig.subplots(122)]
+            else:
+                if len(axis_handles) != 2:
+                    print('need two axis handles for this plot, returning just the stats')
+                    return None, None, tau_vs_opto_comp_summary
+                ax  = axis_handles
+                fig = axis_handles[0].get_figure()
+                
+        if area is None:
+            ax[0].imshow(analysis_results_v1['resp_prob_by_tau'],aspect='auto',cmap='bone')
+            ax[0].set_title(params['general_params']['V1_lbl'])
+            ax[1].imshow(analysis_results_m2['resp_prob_by_tau'],aspect='auto',cmap='bone')
+            ax[1].set_title(params['general_params']['M2_lbl'])
+            for iPlot in range(2):
+                ax[iPlot].set_xticklabels(['short $\\tau$','long $\\tau$'])
+                ax[iPlot].set_yticklabels(['short $\\tau$','long $\\tau$'])
+                ax[iPlot].set_xlabel('Responding neurons')
+                ax[iPlot].set_ylabel("Stim'd neurons")
+        else:
+            ax.imshow(analysis_results_v1['resp_prob_by_tau'],aspect='auto',cmap='bone')
+            ax.set_title(params['general_params'][area+'_lbl'])
+            ax.set_xticklabels(['short $\\tau$','long $\\tau$'])
+            ax.set_yticklabels(['short $\\tau$','long $\\tau$'])
+            ax.set_xlabel('Responding neurons')
+            ax.set_ylabel("Stim'd neurons")
+        
+    elif plot_what == 'prob_by_time':
+        # tbc
+        
+    elif plot_what == 'peak_time' or plot_what == 'peak_mag': # plot peak time or magnitude by tau
+        
+        if axis_handles is None:
+            fig = plt.figure()
+            ax  = fig.gca()
+                
+        if area is None:
+            if plot_what == 'peak_time':
+                yvals_v1 = analysis_results_v1['peak_time_by_tau_mean']
+                sem_v1   = analysis_results_v1['peak_time_by_tau_sem']
+                yvals_m2 = analysis_results_m2['peak_time_by_tau_mean']
+                sem_m2   = analysis_results_m2['peak_time_by_tau_sem']
+                lbl      = 'Peak time (sec)'
+            else:
+                yvals_v1 = analysis_results_v1['peak_mag_by_tau_mean']
+                sem_v1   = analysis_results_v1['peak_mag_by_tau_sem']
+                yvals_m2 = analysis_results_m2['peak_mag_by_tau_mean']
+                sem_m2   = analysis_results_m2['peak_mag_by_tau_sem']
+                lbl      = 'Peak magnitude (z-score)'
+            
+            ax.errorbar(analysis_results_v1['tau_xaxis_sec'],yvals_v1,yerr=sem_v1,color=params['general_params']['V1_cl'],label=params['general_params']['V1_lbl'])
+            ax.errorbar(analysis_results_m2['tau_xaxis_sec'],yvals_m2,yerr=sem_m2,color=params['general_params']['M2_cl'],label=params['general_params']['M2_lbl'])
+            ax.set_xlabel('$\\tau$ (sec)')
+            ax.set_ylabel(lbl)
+            ax.legend()
+            ax.spines['right'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            
+        else:
+            if area == 'V1':
+                xvals = analysis_results_v1['tau_xaxis_sec']
+                yvals = analysis_results_v1['peak_time_by_tau_mean']
+                sem   = analysis_results_v1['peak_time_by_tau_sem']
+                lbl   = 'Peak time (sec)'
+                cl    = params['general_params']['V1_cl']
+            else:
+                xvals = analysis_results_m2['tau_xaxis_sec']
+                yvals = analysis_results_m2['peak_time_by_tau_mean']
+                sem   = analysis_results_m2['peak_time_by_tau_sem']
+                lbl   = 'Peak time (sec)'
+                cl    = params['general_params']['M2_cl']
+        
+            ax.errorbar(xvals,yvals,yerr=sem,color=cl)
+            ax.set_xlabel('$\\tau$ (sec)')
+            ax.set_ylabel(lbl)
+            ax.spines['right'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+        
+    else:
+        print('unknown plot_what parameter, returning nothing')
+        return None, None, None
+    
+    return ax, fig, tau_vs_opto_comp_summary
                     
 # ====================
 # SANDBOX
