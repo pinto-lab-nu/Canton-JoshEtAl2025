@@ -1654,10 +1654,12 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
     # response properties by tau (need to implement peak width)
     bins     = params['tau_bins']
     num_bins = np.size(bins)-1
-    peakt_by_tau_avg = np.zeros(num_bins)
-    peakt_by_tau_sem = np.zeros(num_bins)
-    peakm_by_tau_avg = np.zeros(num_bins)
-    peakm_by_tau_sem = np.zeros(num_bins)
+    peakt_by_tau_avg  = np.zeros(num_bins)
+    peakt_by_tau_sem  = np.zeros(num_bins)
+    peakt_by_tau_expt = [None]*num_bins
+    peakm_by_tau_avg  = np.zeros(num_bins)
+    peakm_by_tau_sem  = np.zeros(num_bins)
+    peakm_by_tau_expt = [None]*num_bins
     for iBin in range(num_bins):
         idx     = np.logical_and(is_good_tau==1,np.logical_and(tau>bins[iBin], tau<=bins[iBin+1]))
         sem_den = np.sqrt(np.sum(idx==1)-1)
@@ -1665,6 +1667,15 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
         peakt_by_tau_sem[iBin] = (np.std(peak_ts[idx],ddof=1))/sem_den
         peakm_by_tau_avg[iBin] = np.mean(peak_mag[idx])
         peakm_by_tau_sem[iBin] = (np.std(peak_mag[idx],ddof=1))/sem_den
+        sess = np.unique(sess_ids[idx])
+        peaks = list()
+        mags  = list()
+        for s in sess:
+            idx_sess = np.logical_and(sess_ids==s,idx)
+            peaks.append(peak_ts[idx_sess])
+            mags.append(peak_mag[idx_sess])
+        peakt_by_tau_expt[iBin] = peaks
+        peakm_by_tau_expt[iBin] = mags
     
     # for each session and stim, get responding stats overall and across time
     unique_sess = list(np.unique(sess_ids))
@@ -1719,8 +1730,10 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
                         'tau_xaxis_sec'             : bins+np.diff(bins)[0]/2,
                         'peak_time_by_tau_mean'     : peakt_by_tau_avg,
                         'peak_time_by_tau_sem'      : peakt_by_tau_sem,
+                        'peak_time_by_tau_expt'     : peakt_by_tau_expt,
                         'peak_mag_by_tau_mean'      : peakm_by_tau_avg,
                         'peak_mag_by_tau_sem'       : peakm_by_tau_sem,
+                        'peak_mag_by_tau_expt'      : peakm_by_tau_expt,
                         'resp_prob_by_tau'          : tau_mat,
                         'tau_over_time_axis_sec'    : tau_t_bins+np.diff(tau_t_bins)[0]/2,
                         'resp_prob_by_tau_over_time': tau_mat_t,
@@ -1772,12 +1785,43 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
     tau_vs_opto_comp_summary['V1_results'] = analysis_results_v1
     tau_vs_opto_comp_summary['M2_results'] = analysis_results_m2
     if area is None:
-        tau_vs_opto_comp_summary['V1_vs_M2'] = dict()
+        tau_vs_opto_comp_summary['stats'] = dict()
         # tau_vs_opto_comp_summary['V1_vs_M2']['peak_time'] = stats.ttest_ind(analysis_results_v1['peak_time_by_tau_mean'],analysis_results_m2['peak_time_by_tau_mean'])
         # tau_vs_opto_comp_summary['V1_vs_M2']['peak_mag']  = stats.ttest_ind(analysis_results_v1['peak_mag_by_tau_mean'],analysis_results_m2['peak_mag_by_tau_mean'])
         # tau_vs_opto_comp_summary['V1_vs_M2']['resp_prob'] = stats.ttest_ind(analysis_results_v1['resp_prob_by_tau'],analysis_results_m2['resp_prob_by_tau'])
         # tbc
     
+        # two-way ANOVAs for the tau-dependent metrics 
+        # make it flattened lists for dataframe conversion first
+        taus       = list()
+        areas      = list()
+        peak_ts    = list()
+        peak_mags  = list()
+        tau_vals   = list(analysis_results_v1['tau_xaxis_sec'])
+        num_bins   = len(tau_vals)
+        num_exp_v1 = analysis_results_v1['peak_time_by_tau_expt']
+        num_exp_m2 = analysis_results_m2['peak_time_by_tau_expt']
+        for iEx in range(v1_data['num_experiments']):
+            [prop_total.append(ii) for ii in list(v1_data['prop_by_dist_vs_total'][iEx])]
+            [prop_sig.append(ii) for ii in list(v1_data['prop_by_dist_of_sig'][iEx])]
+            [dists.append(ii) for ii in list(dist_vals)]
+            [areas.append(ii) for ii in ['V1']*num_bins]
+        for iEx in range(m2_data['num_experiments']):
+            [prop_total.append(ii) for ii in list(m2_data['prop_by_dist_vs_total'][iEx])]
+            [prop_sig.append(ii) for ii in list(m2_data['prop_by_dist_of_sig'][iEx])]
+            [dists.append(ii) for ii in list(dist_vals)]
+            [areas.append(ii) for ii in ['M2']*num_bins]
+            
+        df         = pd.DataFrame({'area': areas, 
+                                'dist': dists, 
+                                'prop_vs_total': prop_total, 
+                                'prop_of_sig'  : prop_sig
+                                })
+
+        response_stats['anova_prop_by_dist_vs_total'] = pg.anova(data=df, dv='prop_vs_total', between=['area', 'dist'])
+        response_stats['anova_prop_by_dist_of_sig']   = pg.anova(data=df, dv='prop_of_sig', between=['area', 'dist'])
+
+
     # plot (either two areas or one, lots of contingencies)
     if plot_what == 'prob': # plot overall response probability by tau
         if area is None:
