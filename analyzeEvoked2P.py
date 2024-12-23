@@ -1629,7 +1629,7 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
                      note that rois of opto_data and tau_data need to match exactly, enforced within this method
         
     OUTPUT:
-        analsys_results : dict with results of tau vs opto analysis
+        analysis_results : dict with results of tau vs opto analysis
     """
     
     # get data for opto. this must contain both stimd and non-stimd cells
@@ -1719,32 +1719,36 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
                 tau_mat_t[iBin][mat_row,1] += np.sum(long_idx) / np.sum(peak_idx)
                 
     # divide by counts to get average
-    tau_mat[0,:] = tau_mat[0,:] / ct_short
-    tau_mat[1,:] = tau_mat[1,:] / ct_long
+    tau_mat_counts   = deepcopy(tau_mat)
+    tau_mat_t_counts = deepcopy(tau_mat_t)
+    tau_mat[0,:]     = tau_mat[0,:] / ct_short
+    tau_mat[1,:]     = tau_mat[1,:] / ct_long
     for iBin in range(len(tau_mat_t)):
         tau_mat_t[iBin][0,:] = tau_mat_t[iBin][0,:] / ct_short
         tau_mat_t[iBin][1,:] = tau_mat_t[iBin][1,:] / ct_long
     
     # collect analysis results
     analysis_results = {
-                        'tau_xaxis_sec'             : bins+np.diff(bins)[0]/2,
-                        'peak_time_by_tau_mean'     : peakt_by_tau_avg,
-                        'peak_time_by_tau_sem'      : peakt_by_tau_sem,
-                        'peak_time_by_tau_expt'     : peakt_by_tau_expt,
-                        'peak_mag_by_tau_mean'      : peakm_by_tau_avg,
-                        'peak_mag_by_tau_sem'       : peakm_by_tau_sem,
-                        'peak_mag_by_tau_expt'      : peakm_by_tau_expt,
-                        'resp_prob_by_tau'          : tau_mat,
-                        'tau_over_time_axis_sec'    : tau_t_bins+np.diff(tau_t_bins)[0]/2,
-                        'resp_prob_by_tau_over_time': tau_mat_t,
-                        'params'                    : deepcopy(params)
+                        'tau_xaxis_sec'               : bins+np.diff(bins)[0]/2,
+                        'peak_time_by_tau_mean'       : peakt_by_tau_avg,
+                        'peak_time_by_tau_sem'        : peakt_by_tau_sem,
+                        'peak_time_by_tau_expt'       : peakt_by_tau_expt,
+                        'peak_mag_by_tau_mean'        : peakm_by_tau_avg,
+                        'peak_mag_by_tau_sem'         : peakm_by_tau_sem,
+                        'peak_mag_by_tau_expt'        : peakm_by_tau_expt,
+                        'resp_prob_by_tau'            : tau_mat,
+                        'resp_counts_by_tau'          : tau_mat_counts,
+                        'tau_over_time_axis_sec'      : tau_t_bins+np.diff(tau_t_bins)[0]/2,
+                        'resp_prob_by_tau_over_time'  : tau_mat_t,
+                        'resp_counts_by_tau_over_time': tau_mat_t_counts,
+                        'params'                      : deepcopy(params)
                         }
             
     return analysis_results
 
 # ---------------
 # %% plot opto response properties vs tau
-def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt_type='standard', resp_type='dff', dff_type='residuals_dff', analysis_results_v1=None, analysis_results_m2=None, axis_handles=None):
+def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt_type='standard', resp_type='dff', dff_type='residuals_dff', tau_vs_opto_comp_summary=None, axis_handles=None):
     
     """
     plot_opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_type = 'residuals_dff', opto_data=None, tau_data=None, axis_handle=None)
@@ -1768,63 +1772,68 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
     """
     
     # get data if necessary
-    if area is None:
-        if analysis_results_v1 is None:
+    if tau_vs_opto_comp_summary is None:
+        if area is None:
             analysis_results_v1 = opto_vs_tau('V1', params=params, expt_type=expt_type, resp_type=resp_type, dff_type=dff_type, opto_data=opto_data, tau_data=tau_data)
-        if analysis_results_m2 is None:
             analysis_results_m2 = opto_vs_tau('M2', params=params, expt_type=expt_type, resp_type=resp_type, dff_type=dff_type, opto_data=opto_data, tau_data=tau_data)
-    elif area == 'V1':
-        if analysis_results_v1 is None:
+        elif area == 'V1':
             analysis_results_v1 = opto_vs_tau('V1', params=params, expt_type=expt_type, resp_type=resp_type, dff_type=dff_type, opto_data=opto_data, tau_data=tau_data)
-    elif area == 'M2':
-        if analysis_results_m2 is None:
+            analysis_results_m2 = None
+        elif area == 'M2':
+            analysis_results_v1 = None
             analysis_results_m2 = opto_vs_tau('M2', params=params, expt_type=expt_type, resp_type=resp_type, dff_type=dff_type, opto_data=opto_data, tau_data=tau_data)
          
-    # do area comparison
-    tau_vs_opto_comp_summary = dict()
-    tau_vs_opto_comp_summary['V1_results'] = analysis_results_v1
-    tau_vs_opto_comp_summary['M2_results'] = analysis_results_m2
-    if area is None:
-        tau_vs_opto_comp_summary['stats'] = dict()
-        # tau_vs_opto_comp_summary['V1_vs_M2']['peak_time'] = stats.ttest_ind(analysis_results_v1['peak_time_by_tau_mean'],analysis_results_m2['peak_time_by_tau_mean'])
-        # tau_vs_opto_comp_summary['V1_vs_M2']['peak_mag']  = stats.ttest_ind(analysis_results_v1['peak_mag_by_tau_mean'],analysis_results_m2['peak_mag_by_tau_mean'])
-        # tau_vs_opto_comp_summary['V1_vs_M2']['resp_prob'] = stats.ttest_ind(analysis_results_v1['resp_prob_by_tau'],analysis_results_m2['resp_prob_by_tau'])
-        # tbc
-    
-        # two-way ANOVAs for the tau-dependent metrics 
-        # make it flattened lists for dataframe conversion first
-        taus       = list()
-        areas      = list()
-        peak_ts    = list()
-        peak_mags  = list()
-        tau_vals   = list(analysis_results_v1['tau_xaxis_sec'])
-        num_bins   = len(tau_vals)
-        num_exp_v1 = analysis_results_v1['peak_time_by_tau_expt']
-        num_exp_m2 = analysis_results_m2['peak_time_by_tau_expt']
-        for iEx in range(v1_data['num_experiments']):
-            [prop_total.append(ii) for ii in list(v1_data['prop_by_dist_vs_total'][iEx])]
-            [prop_sig.append(ii) for ii in list(v1_data['prop_by_dist_of_sig'][iEx])]
-            [dists.append(ii) for ii in list(dist_vals)]
-            [areas.append(ii) for ii in ['V1']*num_bins]
-        for iEx in range(m2_data['num_experiments']):
-            [prop_total.append(ii) for ii in list(m2_data['prop_by_dist_vs_total'][iEx])]
-            [prop_sig.append(ii) for ii in list(m2_data['prop_by_dist_of_sig'][iEx])]
-            [dists.append(ii) for ii in list(dist_vals)]
-            [areas.append(ii) for ii in ['M2']*num_bins]
-            
-        df         = pd.DataFrame({'area': areas, 
-                                'dist': dists, 
-                                'prop_vs_total': prop_total, 
-                                'prop_of_sig'  : prop_sig
+        # do area comparison
+        tau_vs_opto_comp_summary = dict()
+        tau_vs_opto_comp_summary['V1_results'] = analysis_results_v1
+        tau_vs_opto_comp_summary['M2_results'] = analysis_results_m2
+        if area is None:
+            tau_vs_opto_comp_summary['stats'] = dict()
+
+            # two-way ANOVAs for the tau-dependent metrics 
+            # make it flattened lists for dataframe conversion first
+            taus       = list()
+            areas      = list()
+            peak_ts    = list()
+            peak_mags  = list()
+            tau_vals   = list(analysis_results_v1['tau_xaxis_sec'])
+            num_bins   = len(tau_vals)
+            num_exp_v1 = len(analysis_results_v1['peak_time_by_tau_expt'])
+            num_exp_m2 = len(analysis_results_m2['peak_time_by_tau_expt'])
+            for iEx in range(num_exp_v1):
+                for iBin in range(num_bins):
+                    this_peak = list(analysis_results_v1['peak_time_by_tau_expt'][iBin][iEx])
+                    this_mag  = list(analysis_results_v1['peak_mag_by_tau_expt'][iBin][iEx])
+                    [peak_ts.append(ii) for ii in this_peak]
+                    [peak_mags.append(ii) for ii in this_mag]
+                    [taus.append(ii) for ii in [tau_vals[iBin]]*len(this_peak)]
+                    [areas.append(ii) for ii in ['V1']*len(this_peak)]
+            for iEx in range(num_exp_m2):
+                for iBin in range(num_bins):
+                    this_peak = list(analysis_results_m2['peak_time_by_tau_expt'][iBin][iEx])
+                    this_mag  = list(analysis_results_m2['peak_mag_by_tau_expt'][iBin][iEx])
+                    [peak_ts.append(ii) for ii in this_peak]
+                    [peak_mags.append(ii) for ii in this_mag]
+                    [taus.append(ii) for ii in [tau_vals[iBin]]*len(this_peak)]
+                    [areas.append(ii) for ii in ['M2']*len(this_peak)]
+                
+            df  = pd.DataFrame({'area': areas, 
+                                'taus': taus, 
+                                'peak_ts'  : peak_ts, 
+                                'peak_mag' : peak_mags
                                 })
 
-        response_stats['anova_prop_by_dist_vs_total'] = pg.anova(data=df, dv='prop_vs_total', between=['area', 'dist'])
-        response_stats['anova_prop_by_dist_of_sig']   = pg.anova(data=df, dv='prop_of_sig', between=['area', 'dist'])
+            tau_vs_opto_comp_summary['stats']['anova_peak_time_by_tau'] = pg.anova(data=df, dv='peak_ts', between=['area', 'taus'])
+            tau_vs_opto_comp_summary['stats']['anova_peak_mag_by_tau']  = pg.anova(data=df, dv='peak_mag', between=['area', 'taus'])
 
+            # >>>>> to do: chi square (or some other proportion test)
 
     # plot (either two areas or one, lots of contingencies)
-    if plot_what == 'prob': # plot overall response probability by tau
+    # plot overall response probability by tau
+    if plot_what == 'prob': 
+        # multi-area case
         if area is None:
+            # handle axes
             if axis_handles is None:
                 fig = plt.figure()
                 ax  = [fig.subplots(121), fig.subplots(122)]
@@ -1834,7 +1843,8 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
                     return None, None, tau_vs_opto_comp_summary
                 ax  = axis_handles
                 fig = axis_handles[0].get_figure()
-                
+               
+        # plot heatmaps of response prob on the same scale 
         if area is None:
             vmax = np.max([np.max(analysis_results_v1['resp_prob_by_tau']),np.max(analysis_results_m2['resp_prob_by_tau'])])
             vmin = np.min([np.min(analysis_results_v1['resp_prob_by_tau']),np.min(analysis_results_m2['resp_prob_by_tau'])])
@@ -1847,6 +1857,8 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
                 ax[iPlot].set_yticklabels(['short $\\tau$','long $\\tau$'])
                 ax[iPlot].set_xlabel('Responding neurons')
                 ax[iPlot].set_ylabel("Stim'd neurons")
+                
+        # single-area case
         else:
             plt.colorbar(ax.imshow(analysis_results_v1['resp_prob_by_tau'],aspect='auto',cmap='bone'))
             ax.set_title(params['general_params'][area+'_lbl'])
@@ -1855,10 +1867,14 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
             ax.set_xlabel('Responding neurons')
             ax.set_ylabel("Stim'd neurons")
         
-    elif plot_what == 'prob_by_time': # plot response probability by tau over time
+    # plot response probability by tau over time
+    elif plot_what == 'prob_by_time': 
         num_plots = len(analysis_results_v1['resp_prob_by_tau_over_time'])
         time_lbls = analysis_results_v1['tau_over_time_axis_sec']
+        
+        # multi-area case
         if area is None:
+             # handle axes
             if axis_handles is None:
                 fig = plt.figure()
                 ax  = list()
@@ -1873,17 +1889,36 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
                 ax  = axis_handles
                 fig = axis_handles[0].get_figure()
                 
+            # put everyone on the same scale
+            this_max = list()
+            this_min = list()
             for iTime in range(num_plots):
-                ### stopped here need to add colorbars and improve layout
-                ax[0,iTime].imshow(analysis_results_v1['resp_prob_by_tau_over_time'][iTime],aspect='auto',cmap='bone')
+                probs = np.concatenate(analysis_results_v1['resp_prob_by_tau_over_time'][iTime].flatten(),analysis_results_m2['resp_prob_by_tau_over_time'][iTime].flatten())
+                this_max.append(np.max(probs))
+                this_min.appen(np.min(probs))
+            vmin = np.min(this_min)
+            vmax = np.max(this_max)
+            
+            # plot heatmaps over time
+            for iTime in range(num_plots):
+                ax[0,iTime].imshow(analysis_results_v1['resp_prob_by_tau_over_time'][iTime],aspect='auto',cmap='bone',vmax=vmax,vmin=vmin)
                 ax[0,iTime].set_title(params['general_params']['V1_lbl']+str(time_lbls[iTime]))
-                ax[1,iTime].imshow(analysis_results_m2['resp_prob_by_tau_over_time'][iTime],aspect='auto',cmap='bone')
+                ax[1,iTime].imshow(analysis_results_m2['resp_prob_by_tau_over_time'][iTime],aspect='auto',cmap='bone',vmax=vmax,vmin=vmin)
                 ax[1,iTime].set_title(params['general_params']['M2_lbl']+str(time_lbls[iTime]))
-                for iPlot in range(2):
-                    ax[iPlot,iTime].set_xticklabels(['short $\\tau$','long $\\tau$'])
-                    ax[iPlot,iTime].set_yticklabels(['short $\\tau$','long $\\tau$'])
-                    ax[iPlot,iTime].set_xlabel('Responding neurons')
-                    ax[iPlot,iTime].set_ylabel("Stim'd neurons")
+                
+                if iTime == num_plots-1:
+                    plt.colorbar(ax[1,iTime].imshow(analysis_results_m2['resp_prob_by_tau_over_time'][iTime],aspect='auto',cmap='bone',vmax=vmax,vmin=vmin,label='Response prob.'))
+                
+                if iTime == 0:
+                    for iPlot in range(2):
+                        ax[iPlot,iTime].set_xticklabels(['short $\\tau$','long $\\tau$'])
+                        ax[iPlot,iTime].set_yticklabels(['short $\\tau$','long $\\tau$'])
+                        ax[iPlot,iTime].set_ylabel("Stim'd neurons")
+                if iTime == np.round(num_plots/2)-1:
+                    for iPlot in range(2):
+                        ax[iPlot,iTime].set_xlabel('Responding neurons')
+            
+        # single-area case            
         else:
             if axis_handles is None:
                 fig = plt.figure()
@@ -1893,14 +1928,47 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
             else:
                 ax  = axis_handles
                 fig = axis_handles[0].get_figure()    
-        # tbc
+            
+            # put everyone on the same scale
+            this_max = list()
+            this_min = list()
+            for iTime in range(num_plots):
+                if area == 'V1':
+                    probs = analysis_results_v1['resp_prob_by_tau_over_time'][iTime].flatten()
+                else:
+                    probs = analysis_results_m2['resp_prob_by_tau_over_time'][iTime].flatten()
+                this_max.append(np.max(probs))
+                this_min.appen(np.min(probs))
+            vmin = np.min(this_min)
+            vmax = np.max(this_max)
+            
+            # plot heatmaps over time
+            if area=='V1':
+                tau_probs = analysis_results_v1['resp_prob_by_tau_over_time']
+            else:
+                tau_probs = analysis_results_m2['resp_prob_by_tau_over_time']
+            for iTime in range(num_plots):
+                ax[iTime].imshow(tau_probs[iTime],aspect='auto',cmap='bone',vmax=vmax,vmin=vmin)
+                ax[iTime].set_title(params['general_params'][area+'_lbl']+str(time_lbls[iTime]))
+                
+                if iTime == num_plots-1:
+                    plt.colorbar(ax[iTime].imshow(tau_probs[iTime],aspect='auto',cmap='bone',vmax=vmax,vmin=vmin,label='Response prob.'))
+                
+                if iTime == 0:
+                    ax[iTime].set_xticklabels(['short $\\tau$','long $\\tau$'])
+                    ax[iTime].set_yticklabels(['short $\\tau$','long $\\tau$'])
+                    ax[iTime].set_ylabel("Stim'd neurons")
+                if iTime == np.round(num_plots/2)-1:
+                    ax[iTime].set_xlabel('Responding neurons')
         
-    elif plot_what == 'peak_time' or plot_what == 'peak_mag': # plot peak time or magnitude by tau
+    # plot peak time or magnitude by tau
+    elif plot_what == 'peak_time' or plot_what == 'peak_mag': 
         
         if axis_handles is None:
             fig = plt.figure()
             ax  = fig.gca()
                 
+        # multi-area case
         if area is None:
             if plot_what == 'peak_time':
                 yvals_v1 = analysis_results_v1['peak_time_by_tau_mean']
@@ -1908,12 +1976,16 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
                 yvals_m2 = analysis_results_m2['peak_time_by_tau_mean']
                 sem_m2   = analysis_results_m2['peak_time_by_tau_sem']
                 lbl      = 'Peak time (sec)'
+                stats    = tau_vs_opto_comp_summary['stats']['anova_peak_time_by_tau']
+                texty    = 1.5
             else:
                 yvals_v1 = analysis_results_v1['peak_mag_by_tau_mean']
                 sem_v1   = analysis_results_v1['peak_mag_by_tau_sem']
                 yvals_m2 = analysis_results_m2['peak_mag_by_tau_mean']
                 sem_m2   = analysis_results_m2['peak_mag_by_tau_sem']
                 lbl      = 'Peak magnitude (z-score)'
+                stats    = tau_vs_opto_comp_summary['stats']['anova_peak_mag_by_tau']
+                texty    = 2
             
             ax.errorbar(analysis_results_v1['tau_xaxis_sec'],yvals_v1,yerr=sem_v1,color=params['general_params']['V1_cl'],label=params['general_params']['V1_lbl'])
             ax.errorbar(analysis_results_m2['tau_xaxis_sec'],yvals_m2,yerr=sem_m2,color=params['general_params']['M2_cl'],label=params['general_params']['M2_lbl'])
@@ -1923,6 +1995,15 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
             ax.spines['right'].set_visible(False)
             ax.spines['top'].set_visible(False)
             
+            # print pvals
+            pval_area     = stats['p-unc'].loc[0]
+            pval_tau      = stats['p-unc'].loc[1]
+            pval_interact = stats['p-unc'].loc[2]
+            ax.text(.5,texty,'p(area) = {:1.2g}'.format(pval_area)) 
+            ax.text(.5,texty,'p(tau) = {:1.2g}'.format(pval_tau)) 
+            ax.text(.5,texty,'p(area*tau) = {:1.2g}'.format(pval_interact)) 
+        
+        # single-area case    
         else:
             if area == 'V1':
                 xvals = analysis_results_v1['tau_xaxis_sec']
@@ -1949,8 +2030,124 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
     
     return ax, fig, tau_vs_opto_comp_summary
                     
+# ---------------
+# %% plot taus on FOV
+def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_type='dff', plot_what='peak_mag', prctile_cap=[0,95], signif_only=True, highlight_signif=True, axis_handle=None):
+
+    """
+    tdb
+    
+    OUTPUTS:
+    ax: axis handle of plot
+    fig: figure handle of plot
+    """
+    
+    # fetch response stats
+    if plot_what == 'full_seq': # for plotting a sequence of frames
+        response_stats = get_avg_trig_responses(area, params=params, expt_type=expt_type, resp_type=resp_type, eg_ids=which_sess, signif_only=signif_only, which_neurons='all', as_matrix=True)
+        all_vals = np.array(response_stats['dff_trig_avg'])[response_stats['stim_ids']==which_stim]
+        taxis    = np.array(response_stats['time_axis_sec'])[0]
+        is_sig   = np.argwhere(np.array(response_stats['dff_trig_avg'])[response_stats['is_sig']==1])
+
+        # bin responses to desired resolution
+        tbins      = params['response_time_bins']
+        num_frames = len(tbins)-1
+        num_cells  = len(all_vals)
+        fvals      = np.zeros(num_cells,num_frames)
+        faxis      = tbins[:-1]+np.diff(tbins[0])/2
+        for iBin in range(num_frames):
+            idx = np.logical_and(taxis>tbins[iBin],taxis<=tbins[iBin+1])
+            for iCell in range(num_cells):
+                fvals[iCell,iBin] = np.mean(all_vals[iCell][idx])
+        
+        # define list of axes
+        if axis_handle is None:
+            fig_handle = plt.figure()
+            axis_handle  = plt.gca()
+        else:
+            fig = axis_handle.get_figure() 
+        lbl  = '$\\delta$F/F (z-score)'
+        
+    else: # single frames (peak time or magnitude)
+        response_stats = get_full_resp_stats(area, params=params, expt_type=expt_type, resp_type=resp_type, eg_ids=which_sess, which_neurons='all')
+        
+        if plot_what == 'peak_mag':
+            vals = np.array(response_stats['min_or_max_vals'])[response_stats['stim_ids']==which_stim]
+            lbl  = 'Peak $\\delta$F/F (z-score)'
+        elif plot_what == 'peak_time':
+            vals = np.array(response_stats['min_or_max_times_Sec'])[response_stats['stim_ids']==which_stim]
+            lbl  = 'Peak time (sec)'
+        else:
+            print('unknown plot_what, returning nothing')
+            return None, None
+        
+        if signif_only:
+            is_sig       = np.argwhere(np.array(response_stats['dff_trig_avg'])[response_stats['is_sig']==1])
+            vals[is_sig] = 0
+                
+        if axis_handle is None:
+            fig_handle  = plt.figure()
+            axis_handle = plt.gca()
+        else:
+            fig = axis_handle.get_figure() 
+    
+    # fetch roi coordinates for desired session
+    row_pxls, col_pxls           = (VM['twophoton'].Roi2P & response_stats['roi_keys']).fetch('row_pxls','col_pxls')
+    num_rows,num_cols,um_per_pxl = (VM['twophoton'].Scan & response_stats['roi_keys'][0]).fetch1('lines_per_frame','pixels_per_line','microns_per_pxl_y')
+    roi_coords = [row_pxls,col_pxls]
+    im_size    = (num_rows,num_cols)
+    stim_idx   = np.argwhere(response_stats['is_stimd'][response_stats['stim_ids']==which_stim])
+    
+    # send to generic function
+    if plot_what == 'full_seq':
+        ax = list()
+        for iF in range(num_frames):
+            iax, fig = plot_fov_heatmap(roi_vals=fvals[:,iF], roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
+                                    prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=axis_handle[iF], figHandle=fig_handle)
+            
+            iax.set_title('{} sec'.format(faxis[iBin]))
+            
+            # add arrow on stim'd neuron
+            x = np.median(roi_coords[1][stim_idx])
+            y = np.median(roi_coords[0][stim_idx]) - 10
+            iax.plt(x,y,'wv')
+            
+            # draw a circle around significant neurons 
+            if highlight_signif:
+                for isig in list(is_sig):
+                    x = np.median(roi_coords[1][isig])
+                    y = np.median(roi_coords[0][isig])
+                    iax.plot(x,y,'wo',ms=20)
+                
+            ax.append(iax)
+    else:
+        ax, fig = plot_fov_heatmap(roi_vals=vals, roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
+                                prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=axis_handle, figHandle=fig_handle)
+
+        # add arrow on stim'd neuron
+        x = np.median(roi_coords[1][stim_idx])
+        y = np.median(roi_coords[0][stim_idx]) - 10
+        iax.plt(x,y,'wv')
+        
+        # draw a circle around significant neurons 
+        if highlight_signif:
+            for isig in list(is_sig):
+                x = np.median(roi_coords[1][isig])
+                y = np.median(roi_coords[0][isig])
+                iax.plot(x,y,'wo',ms=20)
+    
+    return ax, fig
+
 # ====================
 # SANDBOX
 # =====================
 
+# to do:
+# - add chi-square or equivalent
+# - debug all tau vs opto
+# - debug fov plots
+# - add cmap / colorbar options to plot_fov_heatmap
+# - header plot plot_resp_fov
+# - PCA 
+# - example fig method
 # %%

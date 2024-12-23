@@ -63,6 +63,7 @@ import analyzeEvoked2P
 # makes it a lot easier to follow what's going on
 # fig2_handle, fig2_data = plot_spont_tau(params=tau_params)
 
+# generate layout here and pass axis handles 
 fig_handle = plt.plot()
 
 # fig 2a: FOV and cranial window egs with raw traces for each area
@@ -116,11 +117,33 @@ clust_stats_m2_hightau,_ = analyzeSpont2P.clustering_by_tau(m2_taus, m2_centr, m
 # == Fig 3: overall evoked 2p-opto comparison ==
 # ==============================================
 
+# generate layout here and pass axis handles 
+
 # fig 3a raw evoked traces and/or pixel-wise dff example (or suppl movie)
 # >>> TO DO
 
 # fig 3b area eg response map
-# >>> TO DO
+# >>>>>>>>>>> still need to pick which_sess and which_stim
+_, _ = analyzeEvoked2P.plot_resp_fov('V1', 
+                                     which_sess=0, 
+                                     which_stim=0, 
+                                     expt_type='standard', 
+                                     resp_type='dff', 
+                                     plot_what='peak_mag', 
+                                     prctile_cap=[0,98], 
+                                     signif_only=True, 
+                                     highlight_signif=False, 
+                                     axis_handle=None)
+_, _ = analyzeEvoked2P.plot_resp_fov('M2', 
+                                     which_sess=0, 
+                                     which_stim=0, 
+                                     expt_type='standard', 
+                                     resp_type='dff', 
+                                     plot_what='peak_mag', 
+                                     prctile_cap=[0,98], 
+                                     signif_only=True, 
+                                     highlight_signif=False, 
+                                     axis_handle=None)
 
 # fig 3c overall response probability
 resp_prob_summary, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
@@ -152,6 +175,8 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
                                                       overlay_non_sig=False)
 
 # === Fig S4: 2p opto controls ===
+
+# generate layout here and pass axis handles 
 
 # x-y-z psf estimates
 # [NETO INSERT HERE]
@@ -191,9 +216,30 @@ _, _ = analyzeEvoked2P.plot_opsin_expression_vs_response(params=opto_params,
 v1_avgs = analyzeEvoked2P.get_avg_trig_responses('V1', params=opto_params, expt_type='standard', resp_type='dff')
 m2_avgs = analyzeEvoked2P.get_avg_trig_responses('M2', params=opto_params, expt_type='standard', resp_type='dff')
 
+# generate layout here and pass axis handles 
 
 # fig 4a roi-wise dff timecourse heatmaps
-# >>> TO DO
+# >>>>>>>>>>> still need to pick which_sess and which_stim
+_, _ = analyzeEvoked2P.plot_resp_fov('V1', 
+                                     which_sess=0, 
+                                     which_stim=0, 
+                                     expt_type='standard', 
+                                     resp_type='dff', 
+                                     plot_what='full_seq', 
+                                     prctile_cap=[0,98], 
+                                     signif_only=False, 
+                                     highlight_signif=True, 
+                                     axis_handle=None)
+_, _ = analyzeEvoked2P.plot_resp_fov('M2', 
+                                     which_sess=0, 
+                                     which_stim=0, 
+                                     expt_type='standard', 
+                                     resp_type='dff', 
+                                     plot_what='full_seq', 
+                                     prctile_cap=[0,98], 
+                                     signif_only=False, 
+                                     highlight_signif=True, 
+                                     axis_handle=None)
 
 # fig 4b average timecourse
 # these look different than Neto's need to figure out why. 
@@ -253,7 +299,44 @@ _, _, xval_results = analyzeEvoked2P.plot_trial_xval(area='M2',
                                                      fig_handle=None)
 
 # === Fig S6: timing with deconvolved traces ===
-# >>> TO DO
+v1_avgs_deconv = analyzeEvoked2P.get_avg_trig_responses('V1', params=opto_params, expt_type='standard', resp_type='deconv')
+m2_avgs_deconv = analyzeEvoked2P.get_avg_trig_responses('M2', params=opto_params, expt_type='standard', resp_type='deconv')
+full_resp_stats_deconv = analyzeEvoked2P.compare_response_stats(params=opto_params, 
+                                                                expt_type='standard', 
+                                                                resp_type='deconv', 
+                                                                which_neurons='non_stimd', 
+                                                                signif_only=True)
+# heatmaps
+_, _, _, = analyzeEvoked2P.plot_avg_response_heatmap('V1', 
+                                                     params=opto_params, 
+                                                     expt_type='standard', 
+                                                     resp_type='deconv', 
+                                                     signif_only=True, 
+                                                     which_neurons='non_stimd', 
+                                                     avg_data=v1_avgs_deconv, 
+                                                     axis_handle=None, 
+                                                     fig_handle=None, 
+                                                     norm_type='minmax')
+_, _, _, = analyzeEvoked2P.plot_avg_response_heatmap('M2', 
+                                                     params=opto_params, 
+                                                     expt_type='standard', 
+                                                     resp_type='deconv', 
+                                                     signif_only=True, 
+                                                     which_neurons='non_stimd', 
+                                                     avg_data=m2_avgs_deconv, 
+                                                     axis_handle=None, 
+                                                     fig_handle=None, 
+                                                     norm_type='minmax')
+
+# response time distributions
+_, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
+                                                      expt_type='standard', 
+                                                      resp_type='deconv', 
+                                                      which_neurons='non_stimd', 
+                                                      response_stats=full_resp_stats_deconv, 
+                                                      axis_handle=None, 
+                                                      plot_what='response_time',
+                                                      signif_only=True)
 
 # %% ======================================
 # ===== Fig 5: PCA trial trajectories =====
@@ -263,7 +346,55 @@ _, _, xval_results = analyzeEvoked2P.plot_trial_xval(area='M2',
 # %% ==============================================
 # ===== Fig 6: responses vs. spont timescales =====
 # =================================================
-# >>> TO DO: opto vs tau, including dyanmics of that
+
+# generate layout here and pass axis handles 
+
+# peak time vs tau
+_, _, tau_vs_opto_comp_summary = analyzeEvoked2P.tau_vs_opto_comp_summary(area=None, 
+                                                                        plot_what='peak_time', 
+                                                                        params=opto_params, 
+                                                                        expt_type='standard', 
+                                                                        resp_type='dff', 
+                                                                        dff_type='residuals_dff', 
+                                                                        tau_vs_opto_comp_summary=None, 
+                                                                        axis_handles=None)
+
+# peak magnitude
+_, _, _ = analyzeEvoked2P.tau_vs_opto_comp_summary(area=None, 
+                                                plot_what='peak_mag', 
+                                                params=opto_params, 
+                                                expt_type='standard', 
+                                                resp_type='dff', 
+                                                dff_type='residuals_dff', 
+                                                tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
+                                                axis_handles=None)
+
+# peak width: I forgot to write that into the dj tables. 
+# will need to be coded posthoc and added as a category to:
+#    - analyzeEvoked2P.tau_vs_opto_comp_summary
+#    - analyzeEvoked2P.opto_vs_tau
+
+# overall tau vs stimd/reponding probability
+# (this expects a list of two axis handles)
+_, _, _ = analyzeEvoked2P.tau_vs_opto_comp_summary(area=None, 
+                                                plot_what='prob', 
+                                                params=opto_params, 
+                                                expt_type='standard', 
+                                                resp_type='dff', 
+                                                dff_type='residuals_dff', 
+                                                tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
+                                                axis_handles=None)
+
+# evolution of tau vs stimd/reponding probability over time
+# (this expects a list of 2 x 10 axis handles)
+_, _, _ = analyzeEvoked2P.tau_vs_opto_comp_summary(area=None, 
+                                                plot_what='prob_by_time', 
+                                                params=opto_params, 
+                                                expt_type='standard', 
+                                                resp_type='dff', 
+                                                dff_type='residuals_dff', 
+                                                tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
+                                                axis_handles=None)
 
 
 # %% ==============================================
