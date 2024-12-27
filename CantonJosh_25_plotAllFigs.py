@@ -118,31 +118,35 @@ clust_stats_m2_hightau,_ = analyzeSpont2P.clustering_by_tau(m2_taus, m2_centr, m
 # ==============================================
 
 # generate layout here and pass axis handles 
+fig3_params = {'sess_eg_v1' : 0,
+               'stim_eg_v1' : 1,
+               'sess_eg_m2' : 0,
+               'stim_eg_m2' : 1}
 
 # fig 3a raw evoked traces and/or pixel-wise dff example (or suppl movie)
 # >>> TO DO
 
 # fig 3b area eg response map
-# >>>>>>>>>>> still need to pick which_sess and which_stim
+# >>>>>>>>>>> still need to pick best which_sess and which_stim
 _, _ = analyzeEvoked2P.plot_resp_fov('V1', 
-                                     which_sess=0, 
-                                     which_stim=0, 
+                                     which_sess=fig3_params['sess_eg_v1'], 
+                                     which_stim=fig3_params['stim_eg_v1'], 
                                      expt_type='standard', 
                                      resp_type='dff', 
                                      plot_what='peak_mag', 
                                      prctile_cap=[0,98], 
-                                     signif_only=True, 
-                                     highlight_signif=False, 
+                                     signif_only=False, 
+                                     highlight_signif=True, 
                                      axis_handle=None)
 _, _ = analyzeEvoked2P.plot_resp_fov('M2', 
-                                     which_sess=0, 
-                                     which_stim=0, 
+                                     which_sess=fig3_params['sess_eg_m2'], 
+                                     which_stim=fig3_params['stim_eg_m2'], 
                                      expt_type='standard', 
                                      resp_type='dff', 
                                      plot_what='peak_mag', 
                                      prctile_cap=[0,98], 
-                                     signif_only=True, 
-                                     highlight_signif=False, 
+                                     signif_only=False, 
+                                     highlight_signif=True, 
                                      axis_handle=None)
 
 # fig 3c overall response probability
@@ -212,17 +216,22 @@ _, _ = analyzeEvoked2P.plot_opsin_expression_vs_response(params=opto_params,
 # ===== Fig 4: evoked timecourse comparison ====
 # ==============================================
 
+fig4_params = {'sess_eg_v1' : 0,
+               'stim_eg_v1' : 1,
+               'sess_eg_m2' : 0,
+               'stim_eg_m2' : 1}
+
 # get data
 v1_avgs = analyzeEvoked2P.get_avg_trig_responses('V1', params=opto_params, expt_type='standard', resp_type='dff')
 m2_avgs = analyzeEvoked2P.get_avg_trig_responses('M2', params=opto_params, expt_type='standard', resp_type='dff')
 
-# generate layout here and pass axis handles 
+# generate layout here and pass axis handles ; params
 
 # fig 4a roi-wise dff timecourse heatmaps
-# >>>>>>>>>>> still need to pick which_sess and which_stim
+# >>>>>>>>>>> still need to pick best which_sess and which_stim
 _, _ = analyzeEvoked2P.plot_resp_fov('V1', 
-                                     which_sess=0, 
-                                     which_stim=0, 
+                                     which_sess=fig4_params['sess_eg_v1'], 
+                                     which_stim=fig4_params['stim_eg_v1'], 
                                      expt_type='standard', 
                                      resp_type='dff', 
                                      plot_what='full_seq', 
@@ -231,8 +240,8 @@ _, _ = analyzeEvoked2P.plot_resp_fov('V1',
                                      highlight_signif=True, 
                                      axis_handle=None)
 _, _ = analyzeEvoked2P.plot_resp_fov('M2', 
-                                     which_sess=0, 
-                                     which_stim=0, 
+                                     which_sess=fig4_params['sess_eg_m2'], 
+                                     which_stim=fig4_params['stim_eg_m2'], 
                                      expt_type='standard', 
                                      resp_type='dff', 
                                      plot_what='full_seq', 
@@ -349,25 +358,27 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
 
 # generate layout here and pass axis handles 
 
+# related to the timing differences in fig 4 (compared to previous versions):
+# no differences here, given that most cells peak very late. need to figure this out 
 # peak time vs tau
-_, _, tau_vs_opto_comp_summary = analyzeEvoked2P.tau_vs_opto_comp_summary(area=None, 
-                                                                        plot_what='peak_time', 
-                                                                        params=opto_params, 
-                                                                        expt_type='standard', 
-                                                                        resp_type='dff', 
-                                                                        dff_type='residuals_dff', 
-                                                                        tau_vs_opto_comp_summary=None, 
-                                                                        axis_handles=None)
+_, _, tau_vs_opto_comp_summary = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None, 
+                                                                             plot_what='peak_time', 
+                                                                             params=opto_params, 
+                                                                             expt_type='standard', 
+                                                                             resp_type='dff', 
+                                                                             dff_type='residuals_dff', 
+                                                                             tau_vs_opto_comp_summary=None, 
+                                                                             axis_handles=None)
 
 # peak magnitude
-_, _, _ = analyzeEvoked2P.tau_vs_opto_comp_summary(area=None, 
-                                                plot_what='peak_mag', 
-                                                params=opto_params, 
-                                                expt_type='standard', 
-                                                resp_type='dff', 
-                                                dff_type='residuals_dff', 
-                                                tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
-                                                axis_handles=None)
+_, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None, 
+                                                    plot_what='peak_mag', 
+                                                    params=opto_params, 
+                                                    expt_type='standard', 
+                                                    resp_type='dff', 
+                                                    dff_type='residuals_dff', 
+                                                    tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
+                                                    axis_handles=None)
 
 # peak width: I forgot to write that into the dj tables. 
 # will need to be coded posthoc and added as a category to:
@@ -376,25 +387,25 @@ _, _, _ = analyzeEvoked2P.tau_vs_opto_comp_summary(area=None,
 
 # overall tau vs stimd/reponding probability
 # (this expects a list of two axis handles)
-_, _, _ = analyzeEvoked2P.tau_vs_opto_comp_summary(area=None, 
-                                                plot_what='prob', 
-                                                params=opto_params, 
-                                                expt_type='standard', 
-                                                resp_type='dff', 
-                                                dff_type='residuals_dff', 
-                                                tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
-                                                axis_handles=None)
+_, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None, 
+                                                    plot_what='prob', 
+                                                    params=opto_params, 
+                                                    expt_type='standard', 
+                                                    resp_type='dff', 
+                                                    dff_type='residuals_dff', 
+                                                    tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
+                                                    axis_handles=None)
 
 # evolution of tau vs stimd/reponding probability over time
 # (this expects a list of 2 x 10 axis handles)
-_, _, _ = analyzeEvoked2P.tau_vs_opto_comp_summary(area=None, 
-                                                plot_what='prob_by_time', 
-                                                params=opto_params, 
-                                                expt_type='standard', 
-                                                resp_type='dff', 
-                                                dff_type='residuals_dff', 
-                                                tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
-                                                axis_handles=None)
+_, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None, 
+                                                    plot_what='prob_by_time_by_overall', 
+                                                    params=opto_params, 
+                                                    expt_type='standard', 
+                                                    resp_type='dff', 
+                                                    dff_type='residuals_dff', 
+                                                    tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
+                                                    axis_handles=None)
 
 
 # %% ==============================================
