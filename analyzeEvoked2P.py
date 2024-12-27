@@ -10,11 +10,11 @@ import scipy.stats
 import pingouin as pg
 import pandas as pd
 import statsmodels.api as sm
+from sklearn.decomposition import PCA
 from copy import deepcopy
 from schemas import spont_timescales
 from schemas import twop_opto_analysis
 from utils.stats import general_stats
-from utils.plotting import plot_pval_circles
 from utils.plotting import plot_fov_heatmap
 from analyzeSpont2P import params as tau_params
 import analyzeSpont2P
@@ -47,6 +47,8 @@ params = {
         'tau_vs_opto_do_prob_by_expt'    : False, # in tau_vs_opto, do probability by experiment (vs overall)
         'tau_vs_opto_max_tau'            : 10, # max tau to include a cell in tau_vs_opto
         'prob_plot_same_scale'           : False, # in tau_vs_opto, plot all prob plots on same scale
+        'pca_smooth_win_sec'             : 0.3, # window for smoothing in PCA
+        'pca_num_components'             : 20, # number of PCA for trial projections
         }
 
 params['general_params'] = deepcopy(tau_params['general_params'])
@@ -2436,177 +2438,187 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
         
     return ax, fig
 
+# ---------------
+# %% PCA of a single baseline session
+def baseline_sess_pca(expt_key,params=params,resp_type='dff'):
+    
+    """
+    baseline_sess_pca(expt_key,params=params,resp_type='dff',smooth_win_sec=0.5)
+    performs PCA on a single baseline session, excluding stimd cells
+    
+    INPUTS:
+        expt_key      : dict, session key
+        params        : dict, analysis parameters
+        resp_type     : str, 'dff' (default) or 'deconv'
+    
+    OUTPUTS:
+        pca_results : dict, PCA results
+    """
+    
+    # get just included, non-stimd rois
+    sess_key = {'subject_fullname': expt_key['subject_fullname'],
+                'session_date'    : expt_key['session_date'],
+                'trig_dff_param_set_id': params['trigdff_param_set_id_{}'.format(resp_type)],
+                'trig_dff_inclusion_param_set_id': params['trigdff_inclusion_param_set_id'],
+                }
+
+    incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & sess_key).fetch('is_included', 'KEY')
+    stimd      = (twop_opto_analysis.TrigDffTrialAvg & keys).fetch('is_stimd')
+    taxis      = (twop_opto_analysis.TrigDffTrialAvg & keys[0]).fetch1('time_axis_sec')
+    idx        = np.argwhere(np.logical_and(np.array(incl)==1,np.array(stimd)==0)).flatten()
+    keys       = list(np.array(keys)[idx])
+
+    # fetch their dffs and restrict to baseline
+    dff          = (VM['twophoton'].Dff2P & keys).fetch('dff')
+    total_frames = np.size(dff[0])
+    baseline_idx = spont_timescales.get_baseline_frame_idx(sess_key,total_frames)
+    frame_int    = np.diff(taxis)[0]
+    smooth_win   = np.round(params['pca_smooth_win_sec']/frame_int).astype(int)
+    for iCell in range(len(dff)):
+        dff[iCell] = dff[iCell][:,baseline_idx].flatten()
+        if smooth_win > 1:
+            dff[iCell] = general_stats.moving_average(dff[iCell],num_points=smooth_win).flatten()
+
+    # matrix format
+    num_cells = len(dff)
+    num_time    = len(dff[0])   
+    dff_mat     = np.zeros((num_time,num_cells))
+    dff_means   = np.zeros(num_cells)
+    dff_stds    = np.zeros(num_cells)
+    for iCell in range(num_cells):
+        dff_mat[:,iCell] = dff[iCell]
+
+        # zscore manually to put trials on same scale     
+        dff_means[iCell] = np.nanmean(dff[iCell])
+        dff_stds[iCell]  = np.nanstd(dff[iCell])
+        dff_mat[:,iCell] = (dff_mat[:,iCell]-dff_means[iCell])/dff_stds[iCell]
+        
+    # run PCA
+    pca_obj = PCA()
+    pca_obj.fit(dff_mat)
+    
+    pca_results =  {'pca_obj'           : pca_obj,
+                    'dff_means'         : dff_means,
+                    'dff_stds'          : dff_stds,
+                    'roi_keys'          : keys,
+                    'params'            : params,
+                    'resp_type'         : resp_type,
+                    'cum_var_explained' : np.cumsum(pca_obj.explained_variance_ratio_),
+                    }
+    
+    return pca_results
+
+# ---------------
+# %% project trial responses onto PCA components
+def project_trial_responses(expt_key, params=params, resp_type='dff'):
+    
+    """
+    project_trial_responses(expt_key, params=params, resp_type='dff')
+    projects trial responses onto PCA components
+    
+    INPUTS:
+        expt_key      : dict, session key
+        params        : dict, analysis parameters
+        resp_type     : str, 'dff' (default) or 'deconv'
+    
+    OUTPUTS:
+        trial_proj_results : dict, projection results
+    """
+    
+    # get PCA results
+    pca_results = baseline_sess_pca(expt_key,params=params,resp_type=resp_type)
+    keys        = pca_results['roi_keys']
+    
+    # get trial responses for this session
+    trial_ids, trials, stim_ids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'stim_id')
+    taxis = (twop_opto_analysis.TrigDffTrialAvg & keys[0]).fetch1('time_axis_sec')
+    
+    # project trial responses onto PCA components
+    
+    # compute pairwise distances between trials (baseline and post-stim)
+    
+    return trial_proj_results
+    
 # ====================
 # SANDBOX
 # =====================
 # %%
-_, _ = plot_resp_fov('V1', 
-                    which_sess=0, 
-                    which_stim=1, 
-                    expt_type='standard', 
-                    resp_type='dff', 
-                    plot_what='peak_mag', 
-                    prctile_cap=[0,98], 
-                    signif_only=False, 
-                    highlight_signif=True,
-                    axis_handle=None)
-# %%
 # to do:
-# - debug fov plots
 # - PCA 
+# - project trial responses onto PCA components
+# - plot trial responses on PCA components
+# - compile across experiments (think abouut combining high trial count and standard)
 # - example fig method
 # %%
+area = 'V1'
+expt_type = 'standard'
+resp_type = 'dff'
 which_sess = 0
 which_stim = 1
-response_stats = get_avg_trig_responses('V1', eg_ids=which_sess, signif_only=False, which_neurons='all', as_matrix=True)
-stim_idx = np.argwhere(response_stats['stim_ids']==which_stim).flatten()
+# get relevant keys
+expt_keys = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
 # %%
-all_vals = np.array(response_stats['trig_dff_avgs'])[stim_idx].tolist()
-taxis    = response_stats['time_axis_sec']
-is_sig   = np.argwhere(response_stats['is_sig'][stim_idx]==1).flatten()
+# get just included rois
+sess_key = {'subject_fullname': expt_keys[which_sess]['subject_fullname'],
+            'session_date'    : expt_keys[which_sess]['session_date'],
+            'trig_dff_param_set_id': params['trigdff_param_set_id_{}'.format(resp_type)],
+            'trig_dff_inclusion_param_set_id': params['trigdff_inclusion_param_set_id'],
+            }
 
-# bin responses to desired resolution
-tbins      = params['fov_seq_time_bins']
-num_frames = len(tbins)-1
-num_cells  = len(all_vals)
-fvals      = np.zeros((num_cells,num_frames))
-faxis      = tbins[:-1]+(np.diff(tbins.reshape((np.size(tbins),1))[:,0])[0]/2)
-# %%
-for iBin in range(num_frames):
-    idx = np.argwhere(np.logical_and(taxis>tbins[iBin],taxis<=tbins[iBin+1])).flatten()
-    for iCell in range(num_cells):
-        fvals[iCell,iBin] = np.nanmean(np.array(all_vals[iCell])[idx])
-# %%
-# fetch roi coordinates for desired session
-roi_keys   = np.array(response_stats['roi_keys'])[stim_idx].tolist()
-row_pxls, col_pxls           = (VM['twophoton'].Roi2P & roi_keys).fetch('row_pxls','col_pxls')
-num_rows,num_cols,um_per_pxl = (VM['twophoton'].Scan & roi_keys[0]).fetch1('lines_per_frame','pixels_per_line','microns_per_pxl_y')
-roi_coords = [row_pxls,col_pxls]
-im_size    = (num_rows,num_cols)
-stimd_idx   = np.argwhere(response_stats['is_stimd'][stim_idx]).flatten()[0]
-# %%
-ax = list()
-fig = plt.figure()
-lbl = '$\\Delta$F/F (z-score)'
-if isinstance(stimd_idx, list) == False:
-    stimd_idx = [stimd_idx]
-if len(ax) == 0:
-    ax = fig.subplots(1,5)
-imax = np.percentile(np.abs(fvals),98)
-for iF in range(num_frames):
-    if iF == num_frames-1:
-        cbar = True
-    else:
-        cbar = False
-        
-    iax, fig = plot_fov_heatmapa(roi_vals=fvals[:,iF].tolist(), roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
-                                prctile_cap=[0, 98], cbar_lbl=lbl, axisHandle=ax[iF], figHandle=fig, \
-                                cmap='viridis', background_cl = 'grey', plot_colorbar=cbar, max_min=[-imax,imax])
-    
-    iax.set_title('{} sec'.format(faxis[iF]))
-    ax[iF] = deepcopy(iax)
-    
-# %%
-im = np.zeros((512,512)) + np.nan
-for idx, val in enumerate(fvals[:,iF].tolist()):
-    rows = roi_coords[0][idx]
-    cols = roi_coords[1][idx]
-    for iPxl in range(len(rows[0,:])):
-        im[rows[0,iPxl],cols[0,iPxl]] = val
-ax=list()
-# %%
-fig, ax = plt.subplots(1,5)
-ax = ax.tolist()
-for iF in range(num_frames):
-    ax[iF].imshow(im,aspect='auto',cmap='viridis')
-# %%
-from sklearn.decomposition import PCA
-smooth_win_sec = 0.5
-sess_key['session_number'] = spont_timescales.get_baseline_sess_num(sess_key)    
-seg_key  = get_single_segmentation_key(sess_key)
-baseline_idx = get_baseline_frame_idx(sess_key,total_frames)
+incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & sess_key).fetch('is_included', 'KEY')
+taxis = (twop_opto_analysis.TrigDffTrialAvg & keys[0]).fetch1('time_axis_sec')
+idx   = np.argwhere(np.array(incl)==1).flatten()
+keys  = list(np.array(keys)[idx])
 
-sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
-idx  = np.argwhere(np.array(incl)==1).flatten()
-keys = list(np.array(keys)[idx])
-sig  = list(np.array(sig)[idx])
+# fetch their dffs and restrict to baseline
+dff = (VM['twophoton'].Dff2P & keys).fetch('dff')
+total_frames = np.size(dff[0])
+baseline_idx = spont_timescales.get_baseline_frame_idx(sess_key,total_frames)
+frame_int    = np.diff(taxis)[0]
+smooth_win   = np.round(params['pca_smooth_win_sec']/frame_int).astype(int)
+for iCell in range(len(dff)):
+    dff[iCell] = dff[iCell][:,baseline_idx].flatten()
+    if smooth_win > 1:
+        dff[iCell] = general_stats.moving_average(dff[iCell],num_points=smooth_win).flatten()
 
-if signif_only:
-    idx  = np.argwhere(np.array(sig)==1).flatten()
-    keys = list(np.array(keys)[idx])
-    sig  = list(np.array(sig)[idx]) 
-
-avgs, sems, ts, stimd, com, peak, sids, nkeys = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall', 'stim_id', 'KEY')
-                
-
-pca = PCA(n_components=2)
-pca.fit(X)
+# matrix format
+num_cells = len(dff)
+num_time  = len(dff[0])   
+dff_mat   = np.zeros((num_time,num_cells))
+dff_means = np.zeros(num_cells)
+dff_stds  = np.zeros(num_cells)
+for iCell in range(num_cells):
+    dff_mat[:,iCell] = dff[iCell]
+         
+    # zscore manually to put trials on same scale     
+    dff_means[iCell] = np.nanmean(dff[iCell])
+    dff_stds[iCell]  = np.nanstd(dff[iCell])
+    dff_mat[:,iCell] = (dff_mat[:,iCell]-dff_means[iCell])/dff_stds[iCell]
+          
+# run PCA
+pca_obj = PCA()
+pca_obj.fit(dff_mat)
 
 # %%
-def plot_fov_heatmapa(roi_vals, roi_coords, im_size=(512,512), um_per_pxl=1, prctile_cap=[1,99], cbar_lbl='', axisHandle=None, figHandle=None, cmap='viridis', background_cl = 'gray', plot_colorbar=True, max_min=None):
-
-    """
-    plot_fov_heatmap(roi_vals, roi_coords, im_size=(512,512), um_per_pxl=1, prctile_cap=[1,99], cbar_lbl='', axisHandle=None, figHandle=None, cmap='viridis', background_cl = 'gray', plot_colorbar=True, max_min=None)
-    
-    Plots a 2P field of view as a heatmap, where each roi mask gets a single value
-    
-    ** INPUT **
-    roi_vals      : list of values, one per ROI
-    roi_coords    : list of lists, roi_coords[0] contains an Number-of-ROIs-long list of arrays with row pixel coordinates, roi_coords[1] same for columns
-    im_size       : tuple indicating FOV size in pixels, (num_rows, num_cols), default (512,512). Recommend fetching from twophoton.Scan
-    um_per_pxl    : image scale in microns per pixel, default 1. Recommend fetching from twophoton.Scan
-    prctile_cap   : two-element array-like with percentile values in roi_vals to cap color map at [bottom, upper], default [1, 99]
-    cbar_lbl      : string to label the color bar, default empty
-    axisHandle    : optional handle to axis where image will be plotted, default None will generate new plot
-    figHandle     : optional handle to fig as above, required for colorbar
-    cmap          : string with the name of the colormap to plot roi_vals (default: 'viridis')
-    background_cl : string or RGB values for the color of the background against which ROIs will be plotted, default 'gray'
-    plot_colorbar : boolean to plot colorbar, default True
-    max_min       : two-element array-like with values to cap color map at [min, max], default None. Overrides prctile_cap if not None
-    
-    ** OUTPUT **
-    ax  : axisHandle as explained above
-    fig : figHandle as explained above
-    """
-    
-    # create image
-    im = np.zeros(im_size) + np.nan
-    for idx, val in enumerate(roi_vals):
-        rows = roi_coords[0][idx]
-        cols = roi_coords[1][idx]
-        for iPxl in range(len(rows[0,:])):
-            im[rows[0,iPxl],cols[0,iPxl]] = val
-    
-    # plot
-    if axisHandle is None:
-        fig = plt.figure()
-        ax  = plt.gca()
-    else:
-        fig = figHandle
-        ax  = axisHandle
-
-    this_map = plt.get_cmap(name=cmap)  
-    this_map.set_bad(background_cl)
-    
-    if background_cl == 'white' or background_cl=='w':
-        font_cl = 'k'
-    else:
-        font_cl = 'w'
-    
-    if max_min is not None:
-        minval = max_min[0]
-        maxval = max_min[1]
-    else:
-        minval = np.percentile(np.array(roi_vals),prctile_cap[0])
-        maxval = np.percentile(np.array(roi_vals),prctile_cap[1])
-    print(roi_vals)
-    ax.imshow(im,cmap=this_map,vmin=minval,vmax=maxval)
-    ax.plot([12, 12+100*um_per_pxl],[im_size[1]-12, im_size[1]-12],'-',linewidth=2,color=font_cl)
-    ax.text((12+100*um_per_pxl)/2,im_size[1]-12-10,'100 $\\mu$m',color=font_cl,horizontalalignment='center')
-    ax.set_axis_off()
-    if plot_colorbar:
-        fig.colorbar(ax.imshow(im,cmap=this_map,vmin=minval,vmax=maxval),label=cbar_lbl)
-
-
-    return ax, fig
+plt.plot(pca_obj.explained_variance_ratio_)
+np.cumsum(pca_obj.explained_variance_ratio_[:20])[-1]
 # %%
+trial_ids, taxes, trials, stim_ids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id')
+# %%
+taxis = (twop_opto_analysis.TrigDffTrialAvg & keys[0]).fetch1('time_axis_sec')
+# %%
+stim_ids     = np.array(stim_ids).flatten()
+trial_ids    = np.array(trial_ids).flatten()
+unique_stims = np.unique(stim_ids).tolist()
+num_cells    = len(keys)
+trial_projs  = list()
+
+for iStim, stim in enumerate(unique_stims):
+    idx       = np.argwhere(stim_ids==stim).flatten()
+    trial_idx = np.argwhere(trial_ids[idx]).flatten()
+    for iTrial in trial_idx.tolist():
+        # select trials
+        # z score to baseline mean / std
+        # smooth
+        # project onto PCA components
+        # pca_obj.transform(X)
