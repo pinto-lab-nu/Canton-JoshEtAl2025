@@ -264,6 +264,7 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
     peak_ts   = list()
     roi_keys  = list()
     num_expt  = len(expt_keys)
+    
     for ct, ikey in enumerate(expt_keys):
         print('     {} of {}...'.format(ct+1,num_expt))
         this_key = {'subject_fullname' : ikey['subject_fullname'], 
@@ -272,41 +273,63 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
                     'trigdff_inclusion_param_set_id': trigdff_inclusion_param_set_id
                     }
         
-        # do selecion at the fetching level for speed
-        if which_neurons == 'stimd':
-            # stimd neurons bypass inclusion criteria
-            avgs, sems, ts, stimd, com, peak, nkeys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall', 'KEY')
-        else:
-            sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
-            idx  = np.argwhere(np.array(incl)==1).flatten()
-            keys = list(np.array(keys)[idx])
-            sig  = list(np.array(sig)[idx])
+        # for some downstream analyses we need to keep track of roi order, so separate by stim
+        these_stim_ids = list((twop_opto_analysis.Opto2PSummary & this_key).fetch1('stim_ids'))
+ 
+        for this_stim in these_stim_ids:
+            this_key['stim_id'] = this_stim
             
-            if signif_only:
-                idx  = np.argwhere(np.array(sig)==1).flatten()
-                keys = list(np.array(keys)[idx])
-                sig  = list(np.array(sig)[idx]) 
-            
-            if which_neurons == 'all':
-                avgs, sems, ts, stimd, com, peak, nkeys = (twop_opto_analysis.TrigDffTrialAvg & keys).fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall', 'KEY')
-            elif which_neurons == 'non_stimd':
-                avgs, sems, ts, stimd, com, peak, nkeys = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall', 'KEY')
+            # do selecion at the fetching level for speed
+            if which_neurons == 'stimd':
+                # stimd neurons bypass inclusion criteria
+                avgs, sems, ts, stimd, com, peak, nkeys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall', 'KEY')
             else:
-                print('Unknown category of which_neurons, returning nothing')
-                return None
-            
-        # get roi keys for fetching from other tables (eg tau)
-        rkeys = (VM['twophoton'].Roi2P & nkeys).fetch('KEY')
+                sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
+                idx  = np.argwhere(np.array(incl)==1).flatten()
+                keys = list(np.array(keys)[idx])
+                sig  = list(np.array(sig)[idx])
+                
+                if signif_only:
+                    idx  = np.argwhere(np.array(sig)==1).flatten()
+                    keys = list(np.array(keys)[idx])
+                    sig  = list(np.array(sig)[idx]) 
+                
+                avgs, sems, ts, stimd, com, peak, nkeys = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall', 'KEY')
+                
+                # get stimd neurons if desired (bypass inclusion because of distance criterion)
+                if which_neurons == 'all':
+                    avgsst, semsst, tsst, stimdst, comst, peakst, nkeysst = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall', 'KEY')
+                    sigst   = list(np.ones(len(avgsst)))
+                    avgs    = list(avgs)
+                    sems    = list(sems)
+                    ts      = list(ts)
+                    stimd   = list(stimd)
+                    com     = list(com)
+                    peak    = list(peak)
+                    nkeys   = list(nkeys)
+                    
+                    # append to non-stimulated neurons
+                    [stimd.append(st) for st in stimdst]
+                    [com.append(co) for co in comst]
+                    [avgs.append(avg) for avg in avgsst]
+                    [sems.append(sem) for sem in semsst]
+                    [ts.append(t) for t in tsst]
+                    [peak.append(pt) for pt in peakst]
+                    [nkeys.append(nk) for nk in nkeysst]
+                    [sig.append(sg) for sg in sigst]
+                        
+            # get roi keys for fetching from other tables (eg tau)
+            rkeys = (VM['twophoton'].Roi2P & nkeys).fetch('KEY')
 
-        # flatten list
-        [avg_resps.append(avg) for avg in avgs]
-        [sem_resps.append(sem) for sem in sems]
-        [t_axes.append(t) for t in ts]
-        [is_stimd.append(st) for st in stimd]
-        [is_sig.append(sg) for sg in sig]
-        [coms.append(co) for co in com]
-        [peak_ts.append(pt) for pt in peak]
-        [roi_keys.append(rr) for rr in rkeys]
+            # flatten list
+            [avg_resps.append(avg) for avg in avgs]
+            [sem_resps.append(sem) for sem in sems]
+            [t_axes.append(t) for t in ts]
+            [is_stimd.append(st) for st in stimd]
+            [is_sig.append(sg) for sg in sig]
+            [coms.append(co) for co in com]
+            [peak_ts.append(pt) for pt in peak]
+            [roi_keys.append(rr) for rr in rkeys]
             
     is_stimd = np.array(is_stimd).flatten()
     is_sig   = np.array(is_sig).flatten()
@@ -442,72 +465,99 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
                     'trigdff_inclusion_param_set_id': trigdff_inclusion_param_set_id
                     }
         
-        # do selecion at the fetching level for speed
-        if which_neurons == 'stimd':
-            # stimd neurons bypass inclusion criteria
-            stimd, com, maxmin, peakt, trought, dist, sid, nkeys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
-            n    = len(stimd)
-        else:
-            sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
-            idx  = np.argwhere(np.array(incl)==1).flatten()
-            n    = np.size(idx)
-            keys = list(np.array(keys)[idx])
-            sig  = list(np.array(sig)[idx])
+        # for some downstream analyses we need to keep track of roi order, so separate by stim
+        these_stim_ids = list((twop_opto_analysis.Opto2PSummary & this_key).fetch1('stim_ids'))
+ 
+        for this_stim in these_stim_ids:
+            this_key['stim_id'] = this_stim
+            
+            # do selecion at the fetching level for speed
+            if which_neurons == 'stimd':
+                # stimd neurons bypass inclusion criteria
+                stimd, com, maxmin, peakt, trought, dist, sid, nkeys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
+                n    = len(stimd)
+                sig  = list(np.ones(n))
+            else:          
+                # get included non-stimulated neurons first 
+                sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
+                idx  = np.argwhere(np.array(incl)==1).flatten()
+                n    = np.size(idx)
+                keys = list(np.array(keys)[idx])
+                sig  = list(np.array(sig)[idx])
 
-            if which_neurons == 'all':
-                stimd, com, maxmin, peakt, trought, dist, sid, nkeys = (twop_opto_analysis.TrigDffTrialAvg & keys).fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
-            elif which_neurons == 'non_stimd':
                 stimd, com, maxmin, peakt, trought, dist, sid, nkeys = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
-            else:
-                print('Unknown category of which_neurons, returning nothing')
-                return None
-
-        # pick trough or peak time, whichever is higher magnitude
-        maxmin_t = list()
-        for iNeuron in range(len(trought)):
-            if maxmin[iNeuron] < 0:
-                maxmin_t.append(trought[iNeuron])
-            else:
-                maxmin_t.append(peakt[iNeuron])
                 
-        # get roi keys for fetching from other tables (eg tau)
-        rkeys = (VM['twophoton'].Roi2P & nkeys).fetch('KEY')
-
-        # flatten list
-        [is_stimd.append(st) for st in stimd]
-        [is_sig.append(sg) for sg in sig]
-        [coms.append(co) for co in com]
-        [maxmins.append(mm) for mm in maxmin]
-        [maxmins_ts.append(mmt) for mmt in maxmin_t]
-        [dists.append(ds) for ds in dist]
-        [roi_keys.append(rk) for rk in rkeys]
-        [stim_ids.append(ss) for ss in sid]
-
-        # response prob by dist per experiment
-        dist        = np.array(dist).flatten()
-        sig         = np.array(sig).flatten()
-        unique_sids = np.unique(sid)
-        n           = n / len(unique_sids)
-        vs_total    = np.zeros(num_bins)
-        vs_sig      = np.zeros(num_bins)
-        for this_id in unique_sids:
-            this_dist = dist[sid == this_id]
-            this_sig  = sig[sid == this_id]
-            dist_by_expt.append(this_dist)
-            is_sig_by_expt.append(this_sig)
-            n_sig_by_expt.append(np.sum(this_sig==1))
-            n_by_expt.append(n)
-            for iBin in range(num_bins):
-                idx    = np.logical_and(this_dist > dist_bins[iBin], this_dist <= dist_bins[iBin+1])
-                this_n = np.sum(this_sig[idx==1])
-                vs_total[iBin] = this_n / n
-                if n_sig_by_expt[-1] == 0:
-                    vs_sig[iBin] = 0
+                # get stimd neurons if desired (bypass inclusion because of distance criterion)
+                if which_neurons == 'all':
+                    stimdst, comst, maxminst, peaktst, troughtst, distst, sidst, nkeysst = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
+                    sigs  = list(np.ones(len(stimdst)))
+                    
+                    stimd   = list(stimd)
+                    com     = list(com)
+                    maxmin  = list(maxmin)
+                    peakt   = list(peakt)
+                    trought = list(trought)
+                    dist    = list(dist)
+                    sid     = list(sid)
+                    nkeys   = list(nkeys)
+                    
+                    # append to non-stimulated neurons
+                    [stimd.append(st) for st in stimdst]
+                    [com.append(co) for co in comst]
+                    [maxmin.append(mm) for mm in maxminst]
+                    [peakt.append(pt) for pt in peaktst]
+                    [trought.append(tr) for tr in troughtst]
+                    [dist.append(ds) for ds in distst]
+                    [sid.append(ss) for ss in sidst]
+                    [nkeys.append(nk) for nk in nkeysst]
+                    [sig.append(sg) for sg in sigs]
+                    
+            # pick trough or peak time, whichever is higher magnitude
+            maxmin_t = list()
+            for iNeuron in range(len(trought)):
+                if maxmin[iNeuron] < 0:
+                    maxmin_t.append(trought[iNeuron])
                 else:
-                    vs_sig[iBin] = this_n / n_sig_by_expt[-1]
-                
-            prop_vs_total.append(vs_total)
-            prop_of_sig.append(vs_sig)
+                    maxmin_t.append(peakt[iNeuron])
+                    
+            # get roi keys for fetching from other tables (eg tau)
+            rkeys = (VM['twophoton'].Roi2P & nkeys).fetch('KEY')
+
+            # flatten list
+            [is_stimd.append(st) for st in stimd]
+            [is_sig.append(sg) for sg in sig]
+            [coms.append(co) for co in com]
+            [maxmins.append(mm) for mm in maxmin]
+            [maxmins_ts.append(mmt) for mmt in maxmin_t]
+            [dists.append(ds) for ds in dist]
+            [roi_keys.append(rk) for rk in rkeys]
+            [stim_ids.append(ss) for ss in sid]
+
+            # response prob by dist per experiment
+            dist        = np.array(dist).flatten()
+            sig         = np.array(sig).flatten()
+            unique_sids = np.unique(sid)
+            n           = n / len(unique_sids)
+            vs_total    = np.zeros(num_bins)
+            vs_sig      = np.zeros(num_bins)
+            for this_id in unique_sids:
+                this_dist = dist[sid == this_id]
+                this_sig  = sig[sid == this_id]
+                dist_by_expt.append(this_dist)
+                is_sig_by_expt.append(this_sig)
+                n_sig_by_expt.append(np.sum(this_sig==1))
+                n_by_expt.append(n)
+                for iBin in range(num_bins):
+                    idx    = np.logical_and(this_dist > dist_bins[iBin], this_dist <= dist_bins[iBin+1])
+                    this_n = np.sum(this_sig[idx==1])
+                    vs_total[iBin] = this_n / n
+                    if n_sig_by_expt[-1] == 0:
+                        vs_sig[iBin] = 0
+                    else:
+                        vs_sig[iBin] = this_n / n_sig_by_expt[-1]
+                    
+                prop_vs_total.append(vs_total)
+                prop_of_sig.append(vs_sig)
     
     # collect summary data   
     summary_data = {
@@ -1612,21 +1662,22 @@ def plot_response_grand_average(params=params, expt_type='standard', resp_type='
 
 # ---------------
 # %% analyze opto response probability vs tau
-def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_type='residuals_dff', opto_data=None, tau_data=None):
+def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_type='residuals_dff', opto_data=None, tau_data=None, prob_by_expt=False):
     
     """
     opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_type = 'residuals_dff', opto_data=None, tau_data=None)
     plots response timing cross-validation results
     
     INPUTS:
-        area       : str, 'V1' or 'M2' 
-        params     : dict, analysis parameters (default is params from top of this script)
-        expt_type  : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
-        resp_type  : str, 'dff' (default) or 'deconv'
-        dff_type   : str, 'residuals_dff' (default), 'noGlm_dff', 'residuals_deconv'. Type use to calculate tau
-        opto_data  : dict with response stats, output of get_full_resp_stats (optional, if not provided will call that method)
-        tau_data   : dict with tau stats, output of analyzeSpont2P.get_tau_from_roi_keys (optional, if not provided will call that method)
-                     note that rois of opto_data and tau_data need to match exactly, enforced within this method
+        area         : str, 'V1' or 'M2' 
+        params       : dict, analysis parameters (default is params from top of this script)
+        expt_type    : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+        resp_type    : str, 'dff' (default) or 'deconv'
+        dff_type     : str, 'residuals_dff' (default), 'noGlm_dff', 'residuals_deconv'. Type use to calculate tau
+        opto_data    : dict with response stats, output of get_full_resp_stats (optional, if not provided will call that method)
+        tau_data     : dict with tau stats, output of analyzeSpont2P.get_tau_from_roi_keys (optional, if not provided will call that method)
+                       note that rois of opto_data and tau_data need to match exactly, enforced within this method
+        prob_by_expt : bool, if True computes response probability by experiment and then averages (default is False)
         
     OUTPUT:
         analysis_results : dict with results of tau vs opto analysis
@@ -1635,13 +1686,36 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
     # get data for opto. this must contain both stimd and non-stimd cells
     if opto_data is None:
         opto_data = get_full_resp_stats(area=area, params=params, expt_type=expt_type, resp_type=resp_type, which_neurons='all')
-    # tau data nees to receive the roi keys to ensure consistency
+    
+    # here we need to be clunky and loop to enforce correspondence between opto and tau data
     if tau_data is None:
-        tau_data = analyzeSpont2P.get_tau_from_roi_keys(opto_data['roi_keys'], params = params, dff_type = dff_type)
+        start_time = time.time()
+        print('Fetching tau data...')
+        
+        sess_ids    = analyzeSpont2P.sess_ids_from_tau_keys(opto_data['roi_keys']) 
+        stim_ids    = deepcopy(opto_data['stim_ids'])
+        taus = list()
+        is_good_tau = list()
+
+        for sess in np.unique(sess_ids):
+            this_sess = sess_ids==sess
+            unique_stim = np.unique(stim_ids[this_sess])
+            for stim in unique_stim:
+                this_stim = np.logical_and(this_sess,stim_ids==stim)
+                keys = list(np.array(opto_data['roi_keys'])[this_stim])
+                td  = analyzeSpont2P.get_tau_from_roi_keys(keys, params=params, dff_type=dff_type, verbose=False)
+                [taus.append(t) for t in td['taus']]
+                [is_good_tau.append(ig) for ig in td['is_good_tau']]
+                
+        tau_data = {'taus':np.array(taus).flatten(),'is_good_tau':np.array(is_good_tau).flatten()}
+        
+        end_time = time.time()
+        print("     done after {: 1.2f} min".format((end_time-start_time)/60))
+    else:
+        sess_ids    = analyzeSpont2P.sess_ids_from_tau_keys(opto_data['roi_keys']) 
+        stim_ids    = deepcopy(opto_data['stim_ids'])
         
     # divide into stimd and non-stimd   
-    sess_ids    = analyzeSpont2P.sess_ids_from_tau_keys(opto_data['roi_keys']) 
-    stim_ids    = deepcopy(opto_data['stim_ids'])
     is_stimd    = deepcopy(opto_data['is_stimd'])
     is_sig      = deepcopy(opto_data['is_sig'])
     peak_ts     = deepcopy(opto_data['max_or_min_times_sec'])
@@ -1662,6 +1736,7 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
     peakm_by_tau_expt = [None]*num_bins
     for iBin in range(num_bins):
         idx     = np.logical_and(is_good_tau==1,np.logical_and(tau>bins[iBin], tau<=bins[iBin+1]))
+        idx     = np.logical_and(is_stimd==0,np.logical_and(is_sig==1,idx))
         sem_den = np.sqrt(np.sum(idx==1)-1)
         peakt_by_tau_avg[iBin] = np.mean(peak_ts[idx])
         peakt_by_tau_sem[iBin] = (np.std(peak_ts[idx],ddof=1))/sem_den
@@ -1677,25 +1752,31 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
         peakt_by_tau_expt[iBin] = peaks
         peakm_by_tau_expt[iBin] = mags
     
-    # for each session and stim, get responding stats overall and across time
+    # get responding stats overall and across time
     unique_sess = list(np.unique(sess_ids))
     ct_short    = 0
     ct_long     = 0
     tau_t_bins  = params['tau_by_time_bins']
-    tau_mat     = np.zeros((2,2))
-    tau_mat_t   = [np.zeros((2,2))]*(len(tau_t_bins)-1)
-    for sess in unique_sess:
-        unique_stim = list(np.unique(stim_ids[sess_ids==sess]))
-        for stim in unique_stim:
-            stimd_idx       = np.logical_and(is_stimd==1, np.logical_and(sess_ids==sess, stim_ids==stim))
-            non_stimd_idx   = np.logical_and(is_stimd==0, np.logical_and(sess_ids==sess, stim_ids==stim))
-            total_non_stimd = np.sum(non_stimd_idx)
-            
-            # just include good tau fits in this analysis
-            if is_good_tau[stimd_idx] == 0:
+    tau_mat_counts   = np.zeros((2,2))
+    tau_mat_t_counts = [np.zeros((2,2))]*(len(tau_t_bins)-1)
+    tau_mat          = np.zeros((2,2))
+    tau_mat_t        = [np.zeros((2,2))]*(len(tau_t_bins)-1)
+    t_counts         = [np.zeros(2)]*(len(tau_t_bins)-1)
+
+    if prob_by_expt:
+        # take averages across expts
+        for sess in unique_sess:
+            unique_stim = list(np.unique(stim_ids[sess_ids==sess]))
+            for stim in unique_stim:
+                these_cells   = np.logical_and(np.logical_and(sess_ids==sess, stim_ids==stim),is_good_tau==1)
+                stimd_idx     = np.logical_and(is_stimd==1, these_cells)
+                non_stimd_idx = np.logical_and(np.logical_and(is_stimd==0, these_cells),is_sig==1)
+                
+            if np.sum(stimd_idx) == 0:
                 continue
             
             # divide by tau median and compute response prob
+            total_good_cells = np.sum(these_cells==1)-1
             if is_short[stimd_idx]:
                 ct_short += 1
                 mat_row   = 0
@@ -1704,32 +1785,80 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
                 mat_row  = 1
             
             # overall resp prob by tau
-            short_idx = np.logical_and(is_sig[non_stimd_idx]==1,np.logical_and(is_short[non_stimd_idx]==1,is_good_tau[non_stimd_idx]==1))
-            long_idx  = np.logical_and(is_sig[non_stimd_idx]==1,np.logical_and(is_short[non_stimd_idx]==0,is_good_tau[non_stimd_idx]==1))
-            tau_mat[mat_row,0] += np.sum(short_idx) / total_non_stimd
-            tau_mat[mat_row,1] += np.sum(long_idx) / total_non_stimd
+            short_idx = np.logical_and(is_short==1,non_stimd_idx==1)
+            long_idx  = np.logical_and(is_short==0,non_stimd_idx==1)
+            tau_mat_counts[mat_row,0] += np.sum(short_idx) 
+            tau_mat_counts[mat_row,1] += np.sum(long_idx) 
+            tau_mat[mat_row,0] += np.sum(short_idx) / total_good_cells
+            tau_mat[mat_row,1] += np.sum(long_idx) / total_good_cells
             
             # now do it by time by restricting by peak time
-            for iBin in range(len(tau_mat_t)):
-                peak_idx  = np.logical_and(peak_ts[non_stimd_idx]>tau_t_bins[iBin], peak_ts[non_stimd_idx]<=tau_t_bins[iBin+1])
-                short_idx = np.logical_and(peak_idx,short_idx)
-                long_idx  = np.logical_and(peak_idx,long_idx)
-                
-                tau_mat_t[iBin][mat_row,0] += np.sum(short_idx) / np.sum(peak_idx)
-                tau_mat_t[iBin][mat_row,1] += np.sum(long_idx) / np.sum(peak_idx)
-                
-    # divide by counts to get average
-    tau_mat_counts   = deepcopy(tau_mat)
-    tau_mat_t_counts = deepcopy(tau_mat_t)
-    tau_mat[0,:]     = tau_mat[0,:] / ct_short
-    tau_mat[1,:]     = tau_mat[1,:] / ct_long
-    for iBin in range(len(tau_mat_t)):
-        tau_mat_t[iBin][0,:] = tau_mat_t[iBin][0,:] / ct_short
-        tau_mat_t[iBin][1,:] = tau_mat_t[iBin][1,:] / ct_long
+            for iBin in range(len(tau_mat_t_counts)):
+                peak_idx    = np.logical_and(peak_ts>tau_t_bins[iBin], peak_ts<=tau_t_bins[iBin+1])
+                short_idx_t = np.logical_and(peak_idx,short_idx)
+                long_idx_t  = np.logical_and(peak_idx,long_idx)
+                total_t     = np.sum(np.logical_and(peak_idx,stimd_idx==1))
+                tau_mat_t[iBin][mat_row,0] += np.sum(short_idx_t==1) / total_t
+                tau_mat_t[iBin][mat_row,1] += np.sum(long_idx_t==1) / total_t
+                tau_mat_t_counts[iBin][mat_row,0] += np.sum(short_idx_t==1) 
+                tau_mat_t_counts[iBin][mat_row,1] += np.sum(long_idx_t==1)
+
+        # multiply by counts to get average numbers (from average probs)
+        tau_mat[0,:] = tau_mat[0,:] / ct_short
+        tau_mat[1,:] = tau_mat[1,:] / ct_long
+        tau_mat_counts[0,:] = tau_mat_counts[0,:] / ct_short
+        tau_mat_counts[1,:] = tau_mat_counts[1,:] / ct_long
+        for iBin in range(len(tau_mat_t)):
+            tau_mat_t[iBin][0,:] = tau_mat_t[iBin][0,:] / ct_short
+            tau_mat_t[iBin][1,:] = tau_mat_t[iBin][1,:] / ct_long
+            tau_mat_t_counts[iBin][0,:] = tau_mat_t_counts[iBin][0,:] / ct_short
+            tau_mat_t_counts[iBin][1,:] = tau_mat_t_counts[iBin][1,:] / ct_long
+    else:
+        # vector of taus for stimd cells corersponding to cells in flattened vector
+        tau_stimd   = np.zeros(np.size(tau))-1
+        for sess in unique_sess:
+            unique_stim = list(np.unique(stim_ids[sess_ids==sess]))
+            for stim in unique_stim:
+                these_cells = np.logical_and(sess_ids==sess, stim_ids==stim)
+                stimd_idx   = np.logical_and(is_stimd==1, these_cells)
+                tau_stimd[these_cells] = tau[stimd_idx]
+
+        # overall resp prob by tau
+        long_tau_stimd     = np.logical_and(tau_stimd > tau_th,is_good_tau==1)
+        short_tau_stimd    = np.logical_and(tau_stimd <= tau_th,is_good_tau==1)
+        long_tau_nonstimd  = np.logical_and(np.logical_and(is_sig==1,np.logical_and(tau > tau_th, is_stimd==0)),is_good_tau==1)
+        short_tau_nonstimd = np.logical_and(np.logical_and(is_sig==1,np.logical_and(tau <= tau_th, is_stimd==0)),is_good_tau==1)
+    
+        tau_mat_counts[0,0] = np.sum(np.logical_and(short_tau_stimd,short_tau_nonstimd))
+        tau_mat_counts[0,1] = np.sum(np.logical_and(short_tau_stimd,long_tau_nonstimd))
+        tau_mat_counts[1,0] = np.sum(np.logical_and(long_tau_stimd,short_tau_nonstimd))
+        tau_mat_counts[1,1] = np.sum(np.logical_and(long_tau_stimd,long_tau_nonstimd))
+        
+        # now do it by time by restricting by peak time
+        for iBin in range(len(tau_mat_t_counts)):
+            peak_idx    = np.logical_and(peak_ts>tau_t_bins[iBin], peak_ts<=tau_t_bins[iBin+1])
+            short_tau_t = np.logical_and(peak_idx,short_tau_nonstimd)
+            long_tau_t  = np.logical_and(peak_idx,long_tau_nonstimd)
+            t_counts[iBin][0]           = np.sum(np.logical_and(peak_idx==1,short_tau_stimd==1))
+            t_counts[iBin][1]           = np.sum(np.logical_and(peak_idx==1,long_tau_stimd==1))
+            tau_mat_t_counts[iBin][0,0] = np.sum(np.logical_and(short_tau_stimd,short_tau_t))
+            tau_mat_t_counts[iBin][0,1] = np.sum(np.logical_and(short_tau_stimd,long_tau_t))
+            tau_mat_t_counts[iBin][1,0] = np.sum(np.logical_and(long_tau_stimd,short_tau_t))
+            tau_mat_t_counts[iBin][1,1] = np.sum(np.logical_and(long_tau_stimd,long_tau_t))
+            
+        ct_long  = np.sum(long_tau_stimd==1)
+        ct_short = np.sum(short_tau_stimd==1)
+            
+        # divide by counts to get average
+        tau_mat[0,:] = tau_mat_counts[0,:] / ct_short
+        tau_mat[1,:] = tau_mat_counts[1,:] / ct_long
+        for iBin in range(len(tau_mat_t)):
+            tau_mat_t[iBin][0,:] = tau_mat_t_counts[iBin][0,:] / t_counts[iBin][0]
+            tau_mat_t[iBin][1,:] = tau_mat_t_counts[iBin][1,:] / t_counts[iBin][1]
     
     # collect analysis results
     analysis_results = {
-                        'tau_xaxis_sec'               : bins+np.diff(bins)[0]/2,
+                        'tau_xaxis_sec'               : bins[:-1]+np.diff(bins)[0]/2,
                         'peak_time_by_tau_mean'       : peakt_by_tau_avg,
                         'peak_time_by_tau_sem'        : peakt_by_tau_sem,
                         'peak_time_by_tau_expt'       : peakt_by_tau_expt,
@@ -1738,7 +1867,7 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
                         'peak_mag_by_tau_expt'        : peakm_by_tau_expt,
                         'resp_prob_by_tau'            : tau_mat,
                         'resp_counts_by_tau'          : tau_mat_counts,
-                        'tau_over_time_axis_sec'      : tau_t_bins+np.diff(tau_t_bins)[0]/2,
+                        'tau_over_time_axis_sec'      : tau_t_bins[:-1]+np.diff(tau_t_bins)[0]/2,
                         'resp_prob_by_tau_over_time'  : tau_mat_t,
                         'resp_counts_by_tau_over_time': tau_mat_t_counts,
                         'params'                      : deepcopy(params)
@@ -1748,7 +1877,7 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
 
 # ---------------
 # %% plot opto response properties vs tau
-def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt_type='standard', resp_type='dff', dff_type='residuals_dff', tau_vs_opto_comp_summary=None, axis_handles=None):
+def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt_type='standard', resp_type='dff', dff_type='residuals_dff', tau_vs_opto_comp_summary=None, analysis_results_v1=None, analysis_results_m2=None, axis_handles=None):
     
     """
     plot_opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_type = 'residuals_dff', opto_data=None, tau_data=None, axis_handle=None)
@@ -1761,9 +1890,10 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
         expt_type  : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
         resp_type  : str, 'dff' (default) or 'deconv'
         dff_type   : str, 'residuals_dff' (default), 'noGlm_dff', 'residuals_deconv'. Type use to calculate tau
-        analysis_results_v1 : dict with results of tau vs opto analysis (optional, if not provided will call that method)
-        analysis_results_m2 : dict with results of tau vs opto analysis (optional, if not provided will call that method)
-        axis_handles: axis handle for plotting (optional). Certain plots require a list of multiple axis handles
+        tau_vs_opto_comp_summary : dict with results of tau vs opto analysis and area comparisons thereof (optional, if not provided will run analysis)
+        analysis_results_v1      : dict with results of tau vs opto analysis (optional, if not provided will call that method)
+        analysis_results_m2      : dict with results of tau vs opto analysis (optional, if not provided will call that method)
+        axis_handles             : axis handle for plotting (optional). Certain plots require a list of multiple axis handles
         
     OUTPUT:
         ax               : axis handle(s)
@@ -1774,14 +1904,16 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
     # get data if necessary
     if tau_vs_opto_comp_summary is None:
         if area is None:
-            analysis_results_v1 = opto_vs_tau('V1', params=params, expt_type=expt_type, resp_type=resp_type, dff_type=dff_type, opto_data=opto_data, tau_data=tau_data)
-            analysis_results_m2 = opto_vs_tau('M2', params=params, expt_type=expt_type, resp_type=resp_type, dff_type=dff_type, opto_data=opto_data, tau_data=tau_data)
+            if analysis_results_v1 is None:
+                analysis_results_v1 = opto_vs_tau('V1', params=params, expt_type=expt_type, resp_type=resp_type, dff_type=dff_type)
+            if analysis_results_m2 is None:
+                analysis_results_m2 = opto_vs_tau('M2', params=params, expt_type=expt_type, resp_type=resp_type, dff_type=dff_type)
         elif area == 'V1':
-            analysis_results_v1 = opto_vs_tau('V1', params=params, expt_type=expt_type, resp_type=resp_type, dff_type=dff_type, opto_data=opto_data, tau_data=tau_data)
-            analysis_results_m2 = None
+            if analysis_results_v1 is None:
+                analysis_results_v1 = opto_vs_tau('V1', params=params, expt_type=expt_type, resp_type=resp_type, dff_type=dff_type)
         elif area == 'M2':
-            analysis_results_v1 = None
-            analysis_results_m2 = opto_vs_tau('M2', params=params, expt_type=expt_type, resp_type=resp_type, dff_type=dff_type, opto_data=opto_data, tau_data=tau_data)
+            if analysis_results_m2 is None:
+                analysis_results_m2 = opto_vs_tau('M2', params=params, expt_type=expt_type, resp_type=resp_type, dff_type=dff_type)
          
         # do area comparison
         tau_vs_opto_comp_summary = dict()
@@ -1798,18 +1930,18 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
             peak_mags  = list()
             tau_vals   = list(analysis_results_v1['tau_xaxis_sec'])
             num_bins   = len(tau_vals)
-            num_exp_v1 = len(analysis_results_v1['peak_time_by_tau_expt'])
-            num_exp_m2 = len(analysis_results_m2['peak_time_by_tau_expt'])
-            for iEx in range(num_exp_v1):
-                for iBin in range(num_bins):
+            for iBin in range(num_bins):
+                num_exp_v1 = len(analysis_results_v1['peak_time_by_tau_expt'][iBin])
+                for iEx in range(num_exp_v1):
                     this_peak = list(analysis_results_v1['peak_time_by_tau_expt'][iBin][iEx])
                     this_mag  = list(analysis_results_v1['peak_mag_by_tau_expt'][iBin][iEx])
                     [peak_ts.append(ii) for ii in this_peak]
                     [peak_mags.append(ii) for ii in this_mag]
                     [taus.append(ii) for ii in [tau_vals[iBin]]*len(this_peak)]
                     [areas.append(ii) for ii in ['V1']*len(this_peak)]
-            for iEx in range(num_exp_m2):
-                for iBin in range(num_bins):
+            for iBin in range(num_bins):
+                num_exp_m2 = len(analysis_results_m2['peak_time_by_tau_expt'][iBin])
+                for iEx in range(num_exp_m2):
                     this_peak = list(analysis_results_m2['peak_time_by_tau_expt'][iBin][iEx])
                     this_mag  = list(analysis_results_m2['peak_mag_by_tau_expt'][iBin][iEx])
                     [peak_ts.append(ii) for ii in this_peak]
@@ -1826,7 +1958,28 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
             tau_vs_opto_comp_summary['stats']['anova_peak_time_by_tau'] = pg.anova(data=df, dv='peak_ts', between=['area', 'taus'])
             tau_vs_opto_comp_summary['stats']['anova_peak_mag_by_tau']  = pg.anova(data=df, dv='peak_mag', between=['area', 'taus'])
 
-            # >>>>> to do: chi square (or some other proportion test)
+            # chi2 tests for response probability
+            # create a 3-way contingency table for chi-square tests
+            chi2_data = {'area': ['V1']*4+['M2']*4,
+                    'tau_stimd': ['short', 'short', 'long', 'long', 'short', 'short', 'long', 'long'],
+                    'tau_nonstimd': ['short', 'long', 'short', 'long', 'short', 'long', 'short', 'long'],
+                    'counts': list(analysis_results_v1['resp_counts_by_tau'].flatten())+list(analysis_results_m2['resp_counts_by_tau'].flatten())}
+            chi2_df = pd.DataFrame(chi2_data)
+
+            # chi-square test for area
+            contingency_table = pd.crosstab(index=[chi2_df['tau_stimd'], chi2_df['tau_nonstimd']], columns=chi2_df['area'], values=chi2_df['counts'], aggfunc='sum')
+            chi2, p, dof, expected = scipy.stats.chi2_contingency(contingency_table)
+            tau_vs_opto_comp_summary['stats']['chi2_area'] = {'chi2':chi2, 'p':p, 'dof':dof, 'expected':expected}
+
+            # chi-square test for tau (responding)
+            contingency_table = pd.crosstab(index=[chi2_df['area'], chi2_df['tau_stimd']], columns=chi2_df['tau_nonstimd'], values=chi2_df['counts'], aggfunc='sum')
+            chi2, p, dof, expected = scipy.stats.chi2_contingency(contingency_table)
+            tau_vs_opto_comp_summary['stats']['chi2_tau_nonstimd'] = {'chi2':chi2, 'p':p, 'dof':dof, 'expected':expected}
+
+            # chi-square test for tau (stimulated)
+            contingency_table = pd.crosstab(index=[chi2_df['area'], chi2_df['tau_nonstimd']], columns=chi2_df['tau_stimd'], values=chi2_df['counts'], aggfunc='sum')
+            chi2, p, dof, expected = scipy.stats.chi2_contingency(contingency_table)
+            tau_vs_opto_comp_summary['stats']['chi2_tau_stimd'] = {'chi2':chi2, 'p':p, 'dof':dof, 'expected':expected}
 
     # plot (either two areas or one, lots of contingencies)
     # plot overall response probability by tau
@@ -1836,16 +1989,14 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
             # handle axes
             if axis_handles is None:
                 fig = plt.figure()
-                ax  = [fig.subplots(121), fig.subplots(122)]
+                ax  = [plt.subplot(121), plt.subplot(122)]
             else:
                 if len(axis_handles) != 2:
                     print('need two axis handles for this plot, returning just the stats')
                     return None, None, tau_vs_opto_comp_summary
                 ax  = axis_handles
                 fig = axis_handles[0].get_figure()
-               
-        # plot heatmaps of response prob on the same scale 
-        if area is None:
+
             vmax = np.max([np.max(analysis_results_v1['resp_prob_by_tau']),np.max(analysis_results_m2['resp_prob_by_tau'])])
             vmin = np.min([np.min(analysis_results_v1['resp_prob_by_tau']),np.min(analysis_results_m2['resp_prob_by_tau'])])
             plt.colorbar(ax[0].imshow(analysis_results_v1['resp_prob_by_tau'],aspect='auto',cmap='bone',vmax=vmax,vmin=vmin),label='Response probability')
@@ -1853,15 +2004,31 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
             ax[0].set_title(params['general_params']['V1_lbl'])
             ax[1].set_title(params['general_params']['M2_lbl'])
             for iPlot in range(2):
+                ax[iPlot].set_xticks([0,1])
+                ax[iPlot].set_yticks([0,1])
                 ax[iPlot].set_xticklabels(['short $\\tau$','long $\\tau$'])
                 ax[iPlot].set_yticklabels(['short $\\tau$','long $\\tau$'])
                 ax[iPlot].set_xlabel('Responding neurons')
                 ax[iPlot].set_ylabel("Stim'd neurons")
                 
+            ax[0].text(1.5,-.5,'p(area) = {: 1.2e}'.format(tau_vs_opto_comp_summary['stats']['chi2_area']['p']),transform=ax[0].transAxes)
+            ax[0].text(1.5,-.4,'p(tau_stim) = {: 1.2e}'.format(tau_vs_opto_comp_summary['stats']['chi2_tau_stimd']['p']),transform=ax[0].transAxes)
+            ax[0].text(1.5,-.3,'p(tau_nonstim) = {: 1.2e}'.format(tau_vs_opto_comp_summary['stats']['chi2_tau_nonstimd']['p']),transform=ax[0].transAxes)   
+             
         # single-area case
         else:
-            plt.colorbar(ax.imshow(analysis_results_v1['resp_prob_by_tau'],aspect='auto',cmap='bone'))
+            # handle axes
+            if axis_handles is None:
+                fig = plt.figure()
+                ax  = plt.gca()
+            else:
+                ax  = axis_handles
+                fig = ax.get_figure()
+                
+            plt.colorbar(ax.imshow(analysis_results_v1['resp_prob_by_tau'],aspect='auto',cmap='bone',label='Response probability'),label='Response probability')
             ax.set_title(params['general_params'][area+'_lbl'])
+            ax.set_xticks([0,1])
+            ax.set_yticks([0,1])
             ax.set_xticklabels(['short $\\tau$','long $\\tau$'])
             ax.set_yticklabels(['short $\\tau$','long $\\tau$'])
             ax.set_xlabel('Responding neurons')
@@ -1879,8 +2046,9 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
                 fig = plt.figure()
                 ax  = list()
                 for iPlot in range(num_plots):
-                    ax.append(fig.subplots(2,num_plots,iPlot+1))
-                    ax.append(fig.subplots(2,num_plots,iPlot+1+num_plots))
+                    ax.append(plt.subplot(2,num_plots,iPlot+1))
+                for iPlot in range(num_plots):
+                    ax.append(plt.subplot(2,num_plots,iPlot+1+num_plots))
                     
             else:
                 if len(axis_handles) != 2*len(analysis_results_v1['resp_prob_by_tau_over_time']):
@@ -1893,30 +2061,40 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
             this_max = list()
             this_min = list()
             for iTime in range(num_plots):
-                probs = np.concatenate(analysis_results_v1['resp_prob_by_tau_over_time'][iTime].flatten(),analysis_results_m2['resp_prob_by_tau_over_time'][iTime].flatten())
+                probs = np.concatenate((analysis_results_v1['resp_prob_by_tau_over_time'][iTime].flatten(),analysis_results_m2['resp_prob_by_tau_over_time'][iTime].flatten()))
                 this_max.append(np.max(probs))
-                this_min.appen(np.min(probs))
+                this_min.append(np.min(probs))
             vmin = np.min(this_min)
             vmax = np.max(this_max)
             
             # plot heatmaps over time
             for iTime in range(num_plots):
-                ax[0,iTime].imshow(analysis_results_v1['resp_prob_by_tau_over_time'][iTime],aspect='auto',cmap='bone',vmax=vmax,vmin=vmin)
-                ax[0,iTime].set_title(params['general_params']['V1_lbl']+str(time_lbls[iTime]))
-                ax[1,iTime].imshow(analysis_results_m2['resp_prob_by_tau_over_time'][iTime],aspect='auto',cmap='bone',vmax=vmax,vmin=vmin)
-                ax[1,iTime].set_title(params['general_params']['M2_lbl']+str(time_lbls[iTime]))
+                ax[iTime].imshow(analysis_results_v1['resp_prob_by_tau_over_time'][iTime],aspect='auto',cmap='bone',vmax=vmax,vmin=vmin)
+                ax[iTime].set_title(params['general_params']['V1_lbl']+str(time_lbls[iTime]))
+                ax[iTime+num_plots].imshow(analysis_results_m2['resp_prob_by_tau_over_time'][iTime],aspect='auto',cmap='bone',vmax=vmax,vmin=vmin)
+                ax[iTime+num_plots].set_title(params['general_params']['M2_lbl']+str(time_lbls[iTime]))
+                
+                ax[iTime].set_xticks([0,1])
+                ax[iTime].set_yticks([0,1])
+                ax[iTime+num_plots].set_xticks([0,1])
+                ax[iTime+num_plots].set_yticks([0,1])
                 
                 if iTime == num_plots-1:
-                    plt.colorbar(ax[1,iTime].imshow(analysis_results_m2['resp_prob_by_tau_over_time'][iTime],aspect='auto',cmap='bone',vmax=vmax,vmin=vmin,label='Response prob.'))
+                    plt.colorbar(ax[iTime].imshow(analysis_results_m2['resp_prob_by_tau_over_time'][iTime],aspect='auto',cmap='bone',vmax=vmax,vmin=vmin,label='Response prob.'))
                 
                 if iTime == 0:
-                    for iPlot in range(2):
-                        ax[iPlot,iTime].set_xticklabels(['short $\\tau$','long $\\tau$'])
-                        ax[iPlot,iTime].set_yticklabels(['short $\\tau$','long $\\tau$'])
-                        ax[iPlot,iTime].set_ylabel("Stim'd neurons")
+                    ax[iTime].set_xticklabels(['short $\\tau$','long $\\tau$'])
+                    ax[iTime].set_yticklabels(['short $\\tau$','long $\\tau$'])
+                    ax[iTime+num_plots].set_yticklabels(['short $\\tau$','long $\\tau$'])
+                    ax[iTime+num_plots].set_xticklabels(['short $\\tau$','long $\\tau$'])
+                    ax[iTime].set_ylabel("Stim'd neurons")
+                else:
+                    ax[iTime].set_xticklabels(['',''])
+                    ax[iTime].set_yticklabels(['',''])
+                    ax[iTime+num_plots].set_xticklabels(['',''])
+                    ax[iTime+num_plots].set_yticklabels(['',''])
                 if iTime == np.round(num_plots/2)-1:
-                    for iPlot in range(2):
-                        ax[iPlot,iTime].set_xlabel('Responding neurons')
+                    ax[iTime+num_plots].set_xlabel('Responding neurons')
             
         # single-area case            
         else:
@@ -1924,7 +2102,7 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
                 fig = plt.figure()
                 ax  = list()
                 for iPlot in range(num_plots):
-                    ax.append(fig.subplots(1,num_plots,iPlot+1))
+                    ax.append(plt.subplot(1,num_plots,iPlot+1))
             else:
                 ax  = axis_handles
                 fig = axis_handles[0].get_figure()    
@@ -1938,7 +2116,7 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
                 else:
                     probs = analysis_results_m2['resp_prob_by_tau_over_time'][iTime].flatten()
                 this_max.append(np.max(probs))
-                this_min.appen(np.min(probs))
+                this_min.append(np.min(probs))
             vmin = np.min(this_min)
             vmax = np.max(this_max)
             
@@ -1951,6 +2129,9 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
                 ax[iTime].imshow(tau_probs[iTime],aspect='auto',cmap='bone',vmax=vmax,vmin=vmin)
                 ax[iTime].set_title(params['general_params'][area+'_lbl']+str(time_lbls[iTime]))
                 
+                ax[iTime].set_xticks([0,1])
+                ax[iTime].set_yticks([0,1])
+            
                 if iTime == num_plots-1:
                     plt.colorbar(ax[iTime].imshow(tau_probs[iTime],aspect='auto',cmap='bone',vmax=vmax,vmin=vmin,label='Response prob.'))
                 
@@ -1958,6 +2139,9 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
                     ax[iTime].set_xticklabels(['short $\\tau$','long $\\tau$'])
                     ax[iTime].set_yticklabels(['short $\\tau$','long $\\tau$'])
                     ax[iTime].set_ylabel("Stim'd neurons")
+                else:
+                    ax[iTime].set_xticklabels(['',''])
+                    ax[iTime].set_yticklabels(['',''])
                 if iTime == np.round(num_plots/2)-1:
                     ax[iTime].set_xlabel('Responding neurons')
         
@@ -2000,24 +2184,38 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
             pval_tau      = stats['p-unc'].loc[1]
             pval_interact = stats['p-unc'].loc[2]
             ax.text(.5,texty,'p(area) = {:1.2g}'.format(pval_area)) 
-            ax.text(.5,texty,'p(tau) = {:1.2g}'.format(pval_tau)) 
-            ax.text(.5,texty,'p(area*tau) = {:1.2g}'.format(pval_interact)) 
+            ax.text(.5,texty*.95,'p(tau) = {:1.2g}'.format(pval_tau)) 
+            ax.text(.5,texty*.9,'p(area*tau) = {:1.2g}'.format(pval_interact)) 
         
         # single-area case    
         else:
-            if area == 'V1':
-                xvals = analysis_results_v1['tau_xaxis_sec']
-                yvals = analysis_results_v1['peak_time_by_tau_mean']
-                sem   = analysis_results_v1['peak_time_by_tau_sem']
-                lbl   = 'Peak time (sec)'
-                cl    = params['general_params']['V1_cl']
+            if plot_what == 'peak_time':
+                if area == 'V1':
+                    xvals = analysis_results_v1['tau_xaxis_sec']
+                    yvals = analysis_results_v1['peak_time_by_tau_mean']
+                    sem   = analysis_results_v1['peak_time_by_tau_sem']
+                    lbl   = 'Peak time (sec)'
+                    cl    = params['general_params']['V1_cl']
+                else:
+                    xvals = analysis_results_m2['tau_xaxis_sec']
+                    yvals = analysis_results_m2['peak_time_by_tau_mean']
+                    sem   = analysis_results_m2['peak_time_by_tau_sem']
+                    lbl   = 'Peak time (sec)'
+                    cl    = params['general_params']['M2_cl']
             else:
-                xvals = analysis_results_m2['tau_xaxis_sec']
-                yvals = analysis_results_m2['peak_time_by_tau_mean']
-                sem   = analysis_results_m2['peak_time_by_tau_sem']
-                lbl   = 'Peak time (sec)'
-                cl    = params['general_params']['M2_cl']
-        
+                if area == 'V1':
+                    xvals = analysis_results_v1['tau_xaxis_sec']
+                    yvals = analysis_results_v1['peak_mag_by_tau_mean']
+                    sem   = analysis_results_v1['peak_mag_by_tau_sem']
+                    lbl   = 'Peak magnitude (z-score)'
+                    cl    = params['general_params']['V1_cl']
+                else:
+                    xvals = analysis_results_m2['tau_xaxis_sec']
+                    yvals = analysis_results_m2['peak_mag_by_tau_mean']
+                    sem   = analysis_results_m2['peak_mag_by_tau_sem']
+                    lbl   = 'Peak magnitude (z-score)'
+                    cl    = params['general_params']['M2_cl']
+                    
             ax.errorbar(xvals,yvals,yerr=sem,color=cl)
             ax.set_xlabel('$\\tau$ (sec)')
             ax.set_ylabel(lbl)
@@ -2032,14 +2230,27 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
                     
 # ---------------
 # %% plot taus on FOV
-def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_type='dff', plot_what='peak_mag', prctile_cap=[0,95], signif_only=True, highlight_signif=True, axis_handle=None):
+def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_type='dff', plot_what='peak_mag', prctile_cap=[1,99], signif_only=True, highlight_signif=True, axis_handle=None):
 
     """
-    tdb
+    plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_type='dff', plot_what='peak_mag', prctile_cap=[1,99], signif_only=True, highlight_signif=True, axis_handle=None)
+    plots response properties on FOV
+    
+    INPUTS:
+        area             : str, 'V1' or 'M2'
+        which_sess       : int, session id (default is 0)
+        which_stim       : int, stim id (default is 0)
+        expt_type        : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+        resp_type        : str, 'dff' (default) or 'deconv'
+        plot_what        : str, 'peak_mag' (default), 'peak_time', 'full_seq' (sequence of frames at resolution set by params['response_time_bins'])
+        prctile_cap      : list, [1,99] (default), percentile cap for colormap
+        signif_only      : bool, True (default), only plot significant neurons
+        highlight_signif : bool, True (default), highlight significant neurons
+        axis_handle      : axis handle for plotting (optional)
     
     OUTPUTS:
-    ax: axis handle of plot
-    fig: figure handle of plot
+        ax   : axis handle of plot
+        fig  : figure handle of plot
     """
     
     # fetch response stats
@@ -2062,11 +2273,11 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
         
         # define list of axes
         if axis_handle is None:
-            fig_handle = plt.figure()
-            axis_handle  = plt.gca()
+            ax  = list()
         else:
-            fig = axis_handle.get_figure() 
-        lbl  = '$\\delta$F/F (z-score)'
+            ax  = axis_handle
+        fig = None
+        lbl = '$\\delta$F/F (z-score)'
         
     else: # single frames (peak time or magnitude)
         response_stats = get_full_resp_stats(area, params=params, expt_type=expt_type, resp_type=resp_type, eg_ids=which_sess, which_neurons='all')
@@ -2086,9 +2297,10 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
             vals[is_sig] = 0
                 
         if axis_handle is None:
-            fig_handle  = plt.figure()
-            axis_handle = plt.gca()
+            fig = plt.figure()
+            ax  = plt.gca()
         else:
+            ax  = axis_handle
             fig = axis_handle.get_figure() 
     
     # fetch roi coordinates for desired session
@@ -2099,11 +2311,19 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
     stim_idx   = np.argwhere(response_stats['is_stimd'][response_stats['stim_ids']==which_stim])
     
     # send to generic function
+    if len(ax) == 0:
+        ax = [None] * num_frames
     if plot_what == 'full_seq':
-        ax = list()
+        imax = np.nanmax(np.abs(fvals))
         for iF in range(num_frames):
+            if iF == num_frames-1:
+                cbar = True
+            else:
+                cbar = False
+                
             iax, fig = plot_fov_heatmap(roi_vals=fvals[:,iF], roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
-                                    prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=axis_handle[iF], figHandle=fig_handle)
+                                    prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=ax[iF], figHandle=fig, \
+                                    cmap='coolwarm', background_cl = 'k', plot_colorbar=cbar, max_min=[-imax,imax])
             
             iax.set_title('{} sec'.format(faxis[iBin]))
             
@@ -2119,10 +2339,10 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
                     y = np.median(roi_coords[0][isig])
                     iax.plot(x,y,'wo',ms=20)
                 
-            ax.append(iax)
+            ax[iF] = iax
     else:
         ax, fig = plot_fov_heatmap(roi_vals=vals, roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
-                                prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=axis_handle, figHandle=fig_handle)
+                                prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=axis_handle, figHandle=fig_handle, cmap='coolwarm', background_cl = 'k')
 
         # add arrow on stim'd neuron
         x = np.median(roi_coords[1][stim_idx])
@@ -2136,18 +2356,24 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
                 y = np.median(roi_coords[0][isig])
                 iax.plot(x,y,'wo',ms=20)
     
+    if fig is None:
+        fig = axis_handle.get_figure() 
+        
     return ax, fig
 
 # ====================
 # SANDBOX
 # =====================
-
+# %%
+analysis_results_v1 = opto_vs_tau('V1')
+analysis_results_m2 = opto_vs_tau('M2')
+# %%
+ax, fig, comp = plot_opto_vs_tau_comparison(None,analysis_results_v1=analysis_results_v1,analysis_results_m2=analysis_results_m2,plot_what='prob_by_time')
 # to do:
-# - add chi-square or equivalent
 # - debug all tau vs opto
 # - debug fov plots
-# - add cmap / colorbar options to plot_fov_heatmap
-# - header plot plot_resp_fov
 # - PCA 
 # - example fig method
+# %%
+
 # %%

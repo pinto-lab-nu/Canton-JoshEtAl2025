@@ -151,7 +151,7 @@ def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
 
 # ---------------
 # %% retrieve all taus for a full list of roi keys, from dj database
-def get_tau_from_roi_keys(roi_keys, params = params, dff_type = 'residuals_dff'):
+def get_tau_from_roi_keys(roi_keys, params = params, dff_type = 'residuals_dff', verbose=True):
     
     """
     get_tau_from_roi_keys(roi_keys, params=params, dff_type='residuals_dff')
@@ -165,13 +165,15 @@ def get_tau_from_roi_keys(roi_keys, params = params, dff_type = 'residuals_dff')
     dff_type: 'residuals_dff' for residuals of running linear regression (default)
               'residuals_deconv' for residuals of running Poisson GLM on deconvolved traces
               'noGlm_dff' for plain dff traces
+    verbose: whether to print progress (default is True)
               
     OUTPUT:
     taus_dict: dictionary with taus and inclusion for each roi
     """
     
-    start_time      = time.time()
-    print('Fetching all taus from roi keys...')
+    if verbose:
+        start_time      = time.time()
+        print('Fetching all taus from roi keys...')
         
     # get primary keys for query
     corr_param_set_id = params['general_params']['corr_param_id_{}'.format(dff_type)]
@@ -191,8 +193,9 @@ def get_tau_from_roi_keys(roi_keys, params = params, dff_type = 'residuals_dff')
                 'dff_type'    : dff_type
                  }
     
-    end_time = time.time()
-    print("     done after {: 1.1f} min".format((end_time-start_time)/60))
+    if verbose:
+        end_time = time.time()
+        print("     done after {: 1.1f} min".format((end_time-start_time)/60))
     
     return taus_dict
 
@@ -378,7 +381,10 @@ def sess_ids_from_tau_keys(tau_keys):
     # find unique sessions 
     subj_date_list = ['{}-{}'.format(this_key['subject_fullname'],this_key['session_date']) for this_key in tau_keys] 
     unique_sess    = np.unique(subj_date_list).tolist()
-    sess_ids       = [sess_ids.append(unique_sess.index([sess])) for sess in subj_date_list]
+    sess_ids       = list()
+    sess_ids       = list()
+    for sess in subj_date_list:
+        sess_ids.append(unique_sess.index(sess))
     
     return np.array(sess_ids) 
 
