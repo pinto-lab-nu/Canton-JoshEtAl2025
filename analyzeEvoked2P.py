@@ -2457,6 +2457,9 @@ def baseline_sess_pca(expt_key,params=params,resp_type='dff'):
         pca_results : dict, PCA results
     """
     
+    start_time = time.time()
+    print('     Performing baseline session PCA...')
+    
     # get just included, non-stimd rois
     sess_key = {'subject_fullname': expt_key['subject_fullname'],
                 'session_date'    : expt_key['session_date'],
@@ -2509,6 +2512,8 @@ def baseline_sess_pca(expt_key,params=params,resp_type='dff'):
                     'cum_var_explained' : np.cumsum(pca_obj.explained_variance_ratio_),
                     }
     
+    print('     done after {:1.2f} min'.format((time.time()-start_time)/60))
+    
     return pca_results
 
 # ---------------
@@ -2532,16 +2537,16 @@ def project_trial_responses(expt_key, params=params, resp_type='dff'):
     pca_results = baseline_sess_pca(expt_key,params=params,resp_type=resp_type)
     keys        = pca_results['roi_keys']
     pca_obj     = pca_results['pca_obj']
-    dff_means   = pca_results['pca_means']
-    dff_stds    = pca_results['pca_stds']
+    dff_means   = pca_results['dff_means']
+    dff_stds    = pca_results['dff_stds']
     smooth_win  = pca_results['smooth_win_samp']
     
     # get trial responses for this session
     start_time = time.time()
-    print('Fetching trial responses... (takes a while)')
+    print('     Fetching trial responses... (takes a while)')
     trial_ids, trials, stim_ids, roi_ids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'stim_id', 'roi_id')
     taxis = (twop_opto_analysis.TrigDffTrialAvg & keys[0]).fetch1('time_axis_sec')
-    print('     done after {:1.2f} sec'.format(time.time()-start_time))
+    print('     done after {:1.2f} min'.format((time.time()-start_time)/60))
     
     # project trial responses onto PCA components
     # do it separately for baseline and respose to avoid NaNs (from PMT shuttering)
@@ -2661,27 +2666,30 @@ def batch_trial_pca(area, params=params, expt_type='standard+high_trial_count', 
         
     # loop through experiments and call method above
     single_expt_results = list()
-    num_expts = len(expt_keys)
-    num_stim  = 0
+    basel_dists = list()
+    resp_dists  = list()
+    ccs         = list()
+    ps          = list()
+    var_expl    = list()
+    num_expts   = len(expt_keys)
+    num_stim    = 0
     for ct, expt_key in enumerate(expt_keys):
-        print('{} of {}'.format(ct,num_expts))
+        print('{} of {}'.format(ct+1,num_expts))
         these_results = project_trial_responses(expt_key, params=params, resp_type=resp_type)
         single_expt_results.append(these_results)
-        if ct == 0:
-            basel_dists = deepcopy(these_results['basel_dists'])
-            resp_dists  = deepcopy(these_results['resp_dists'])
-            ccs         = deepcopy(these_results['corr_basel_vs_resp'])
-            ps          = deepcopy(these_results['p_basel_vs_resp'])
-            var_expl    = deepcopy(these_results['var_explained'])
-        else:
-            basel_dists = np.concatenate((basel_dists,deepcopy(these_results['basel_dists'])))
-            resp_dists  = np.concatenate((resp_dists,deepcopy(these_results['resp_dists'])))
-            ccs         = np.concatenate((ccs,deepcopy(these_results['corr_basel_vs_resp'])))
-            ps          = np.concatenate((ps,deepcopy(these_results['ps_basel_vs_resp'])))
-            var_expl    = np.concatenate((ps,deepcopy(these_results['var_explained'])))
+        [basel_dists.append(x) for x in these_results['basel_dists'].tolist()]
+        [resp_dists.append(x) for x in these_results['resp_dists'].tolist()]
+        ccs.append(these_results['corr_basel_vs_resp'])
+        ps.append(these_results['p_basel_vs_resp'])
+        var_expl.append(these_results['var_explained']) 
         num_stim += these_results['num_stim']
         
     # overall correlation, collect results
+    basel_dists = np.array(basel_dists).flatten()
+    resp_dists  = np.array(resp_dists).flatten()
+    ccs         = np.array(ccs).flatten()
+    ps          = np.array(ps).flatten()
+    var_expl    = np.array(var_expl).flatten()
     corr_basel_vs_resp, p_basel_vs_resp = scipy.stats.pearsonr(basel_dists,resp_dists)
     
     trial_pca_results = {
@@ -2698,7 +2706,7 @@ def batch_trial_pca(area, params=params, expt_type='standard+high_trial_count', 
                         'corr_by_expt'        : ccs,
                         }
     
-    print('     done after {:1.2f} sec'.format(time.time()-start_time))
+    print('done after {:1.2f} min'.format((time.time()-start_time)/60))
     
     return trial_pca_results
 
@@ -2752,8 +2760,8 @@ def plot_pca_dist_scatter(area, params=params, expt_type='standard+high_trial_co
     ax.plot(x_hat,ci_low,'--',color=params['general_params'][area+'_cl'],lw=.4)
     
     ax.legend()
-    ax.set_xlabel('Euclidean dist. (baseline)')
-    ax.set_ylabel('Euclidean dist. (post-stim)')
+    ax.set_xlabel('Trial Euclidean dist. (baseline)')
+    ax.set_ylabel('Trial Euclidean dist. (post-stim)')
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     
