@@ -49,6 +49,8 @@ params = {
         'prob_plot_same_scale'           : False, # in tau_vs_opto, plot all prob plots on same scale
         'pca_smooth_win_sec'             : 0.3, # window for smoothing in PCA
         'pca_num_components'             : 20, # number of PCA for trial projections
+        'pca_basel_sec'                  : 2, # baseline length for pca trial analysis
+        'pca_resp_sec'                   : 8, # post-stim response for pca trial analysis
         }
 
 params['general_params'] = deepcopy(tau_params['general_params'])
@@ -2458,8 +2460,8 @@ def baseline_sess_pca(expt_key,params=params,resp_type='dff'):
     # get just included, non-stimd rois
     sess_key = {'subject_fullname': expt_key['subject_fullname'],
                 'session_date'    : expt_key['session_date'],
-                'trig_dff_param_set_id': params['trigdff_param_set_id_{}'.format(resp_type)],
-                'trig_dff_inclusion_param_set_id': params['trigdff_inclusion_param_set_id'],
+                'trigdff_param_set_id': params['trigdff_param_set_id_{}'.format(resp_type)],
+                'trigdff_inclusion_param_set_id': params['trigdff_inclusion_param_set_id'],
                 }
 
     incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & sess_key).fetch('is_included', 'KEY')
@@ -2501,8 +2503,9 @@ def baseline_sess_pca(expt_key,params=params,resp_type='dff'):
                     'dff_means'         : dff_means,
                     'dff_stds'          : dff_stds,
                     'roi_keys'          : keys,
-                    'params'            : params,
+                    'params'            : deepcopy(params),
                     'resp_type'         : resp_type,
+                    'smooth_win_samp'   : smooth_win,
                     'cum_var_explained' : np.cumsum(pca_obj.explained_variance_ratio_),
                     }
     
@@ -2528,97 +2531,230 @@ def project_trial_responses(expt_key, params=params, resp_type='dff'):
     # get PCA results
     pca_results = baseline_sess_pca(expt_key,params=params,resp_type=resp_type)
     keys        = pca_results['roi_keys']
+    pca_obj     = pca_results['pca_obj']
+    dff_means   = pca_results['pca_means']
+    dff_stds    = pca_results['pca_stds']
+    smooth_win  = pca_results['smooth_win_samp']
     
     # get trial responses for this session
-    trial_ids, trials, stim_ids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'stim_id')
+    start_time = time.time()
+    print('Fetching trial responses... (takes a while)')
+    trial_ids, trials, stim_ids, roi_ids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'stim_id', 'roi_id')
     taxis = (twop_opto_analysis.TrigDffTrialAvg & keys[0]).fetch1('time_axis_sec')
+    print('     done after {:1.2f} sec'.format(time.time()-start_time))
     
     # project trial responses onto PCA components
+    # do it separately for baseline and respose to avoid NaNs (from PMT shuttering)
+    basel_idx = np.argwhere(np.logical_and(taxis > -params['pca_basel_sec'], taxis < -0.25)).flatten()
+    first_idx = np.argwhere(np.isnan(trials[0])).flatten()[-1]+10
+    last_idx  = np.argwhere(taxis<= params['pca_resp_sec']).flatten()[-1]
+    resp_idx  = np.arange(first_idx,last_idx+1)
+    
+    stim_ids     = np.array(stim_ids).flatten()
+    trial_ids    = np.array(trial_ids).flatten()
+    unique_stims = np.unique(stim_ids).tolist()
+    unique_rois  = np.unique(roi_ids).tolist()
+    num_cells    = len(unique_rois)
+    trial_projs_basel = [None]*len(unique_stims)
+    trial_projs_resp  = [None]*len(unique_stims)
+    
+    for iStim, stim in enumerate(unique_stims):
+        sidx          = stim_ids==stim
+        unique_trials = np.unique(trial_ids[sidx]).tolist()
+        trial_projs_basel[iStim] = [None]*len(unique_trials)
+        trial_projs_resp[iStim]  = [None]*len(unique_trials)
+        for iTrial, trial in enumerate(unique_trials):
+            
+            # select trials
+            tidx      = np.logical_and(trial_ids==trial,sidx)
+            trial_mat = np.zeros((len(taxis),num_cells))
+            
+            # build matrix
+            for iCell, roi in enumerate(unique_rois):
+                cidx = np.argwhere(np.logical_and(tidx,np.array(roi_ids)==roi)).flatten()
+                if len(cidx)==0:
+                    trial_mat[:,iCell] = np.zeros(len(taxis)) 
+                else:
+                    dff = trials[cidx[0]]
+                    
+                    # z score to baseline mean / std; smooth
+                    dff = (dff - dff_means[iCell]) / dff_stds[iCell]
+                    dff = general_stats.moving_average(dff,num_points=smooth_win)
+                    trial_mat[:,iCell] = dff
+            
+            # project onto PCA components
+            trial_projs_basel[iStim][iTrial] = pca_obj.transform(trial_mat[basel_idx,:])
+            trial_projs_resp[iStim][iTrial]  = pca_obj.transform(trial_mat[resp_idx,:])
     
     # compute pairwise distances between trials (baseline and post-stim)
+    num_pcs    = params['pca_num_components']
+    basel_dist = list()
+    resp_dist  = list()
+    for iStim in range(len(unique_stims)):
+        num_trials = len(trial_projs_basel[iStim])
+        for iTrial1 in range(num_trials):
+            for iTrial2 in range(num_trials):
+                if iTrial1 > iTrial2:
+                    dist = np.linalg.norm(trial_projs_basel[iStim][iTrial1][:num_pcs]-trial_projs_basel[iStim][iTrial2][:num_pcs])
+                    basel_dist.append(dist)
+                    
+                    dist = np.linalg.norm(trial_projs_resp[iStim][iTrial1][:num_pcs]-trial_projs_resp[iStim][iTrial2][:num_pcs])
+                    resp_dist.append(dist)
+
+    # correlation between distances
+    basel_dist = np.array(basel_dist).flatten()
+    resp_dist  = np.array(resp_dist).flatten()
+    corr_basel_vs_resp, p_basel_vs_resp = scipy.stats.pearsonr(basel_dist,resp_dist)
+    
+    # collect results and return 
+    trial_proj_results = {
+                        'pca_results'       : pca_results,
+                        'num_pcs'           : num_pcs,
+                        'var_explained'     : pca_results['cum_var_explained'][num_pcs],
+                        'params'            : deepcopy(params),
+                        'trial_projs_basel' : trial_projs_basel,
+                        'trial_projs_resp'  : trial_projs_resp,
+                        'basel_dists'       : basel_dist,
+                        'resp_dists'        : resp_dist,
+                        'p_basel_vs_resp'   : p_basel_vs_resp,
+                        'corr_basel_vs_resp': corr_basel_vs_resp,
+                        'num_stim'          : len(unique_stims)
+                        }
     
     return trial_proj_results
     
-# ====================
-# SANDBOX
-# =====================
-# %%
-# to do:
-# - PCA 
-# - project trial responses onto PCA components
-# - plot trial responses on PCA components
-# - compile across experiments (think abouut combining high trial count and standard)
-# - example fig method
-# %%
-area = 'V1'
-expt_type = 'standard'
-resp_type = 'dff'
-which_sess = 0
-which_stim = 1
-# get relevant keys
-expt_keys = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
-# %%
-# get just included rois
-sess_key = {'subject_fullname': expt_keys[which_sess]['subject_fullname'],
-            'session_date'    : expt_keys[which_sess]['session_date'],
-            'trig_dff_param_set_id': params['trigdff_param_set_id_{}'.format(resp_type)],
-            'trig_dff_inclusion_param_set_id': params['trigdff_inclusion_param_set_id'],
-            }
+# ---------------
+# %% batch PCA trial projection, baseline vs. post-stim
+def batch_trial_pca(area, params=params, expt_type='standard+high_trial_count', resp_type='dff', eg_ids=None):
+    
+    """
+    batch_trial_pca(area, params=params, expt_type='standard+high_trial_count', resp_type='dff', eg_ids=None)
+    runs batch analysis of comparing baseline and post-stim pca by calling project_trial_responses()
+    
+    INPUTS:
+        area        : str, 'V1' or 'M2'
+        params      : dict, analysis parameters (default is params from top of this script)
+        expt_type   : str, 'standard+high_trial_count' (default), 'standard', 'short_stim', 'high_trial_count', 'multi_cell'
+        resp_type   : str, 'dff' (default) or 'deconv'
+        eg_ids      : list of int, experiment group ids to restrict to specific experiments (optional, default is None)
+        
+    OUTPUTS:
+        trial_pca_results : dict with summary data of single-trial pca projections
+    """
+    
+    start_time      = time.time()
+    print('Performing batch trial PCA...')
+    
+    # get relevant keys
+    if expt_type == 'standard+high_trial_count':
+        expt_keys1 = get_keys_for_expt_types(area, params=params, expt_type='standard')
+        expt_keys2 = get_keys_for_expt_types(area, params=params, expt_type='high_trial_count')
+        expt_keys  = expt_keys1 + expt_keys2
+    else:
+        expt_keys  = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
+        
+    # restrict to only desired rec/stim if applicable
+    if eg_ids is not None:
+        if isinstance(eg_ids,list) == False:
+            eg_ids = [eg_ids]
+        expt_keys = list(np.array(expt_keys)[np.array(eg_ids).astype(int)])
+        
+    # loop through experiments and call method above
+    single_expt_results = list()
+    num_expts = len(expt_keys)
+    num_stim  = 0
+    for ct, expt_key in enumerate(expt_keys):
+        print('{} of {}'.format(ct,num_expts))
+        these_results = project_trial_responses(expt_key, params=params, resp_type=resp_type)
+        single_expt_results.append(these_results)
+        if ct == 0:
+            basel_dists = deepcopy(these_results['basel_dists'])
+            resp_dists  = deepcopy(these_results['resp_dists'])
+            ccs         = deepcopy(these_results['corr_basel_vs_resp'])
+            ps          = deepcopy(these_results['p_basel_vs_resp'])
+            var_expl    = deepcopy(these_results['var_explained'])
+        else:
+            basel_dists = np.concatenate((basel_dists,deepcopy(these_results['basel_dists'])))
+            resp_dists  = np.concatenate((resp_dists,deepcopy(these_results['resp_dists'])))
+            ccs         = np.concatenate((ccs,deepcopy(these_results['corr_basel_vs_resp'])))
+            ps          = np.concatenate((ps,deepcopy(these_results['ps_basel_vs_resp'])))
+            var_expl    = np.concatenate((ps,deepcopy(these_results['var_explained'])))
+        num_stim += these_results['num_stim']
+        
+    # overall correlation, collect results
+    corr_basel_vs_resp, p_basel_vs_resp = scipy.stats.pearsonr(basel_dists,resp_dists)
+    
+    trial_pca_results = {
+                        'single_expt_results' : single_expt_results,
+                        'num_pcs_used'        : params['pca_num_components'],
+                        'var_explained'       : var_expl,
+                        'num_sess'            : num_expts,
+                        'total_stimd'         : num_stim, 
+                        'basel_dists'         : basel_dists,
+                        'resp_dists'          : resp_dists,
+                        'p_basel_vs_resp'     : p_basel_vs_resp,
+                        'corr_basel_vs_resp'  : corr_basel_vs_resp,
+                        'p_by_expt'           : ps,
+                        'corr_by_expt'        : ccs,
+                        }
+    
+    print('     done after {:1.2f} sec'.format(time.time()-start_time))
+    
+    return trial_pca_results
 
-incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & sess_key).fetch('is_included', 'KEY')
-taxis = (twop_opto_analysis.TrigDffTrialAvg & keys[0]).fetch1('time_axis_sec')
-idx   = np.argwhere(np.array(incl)==1).flatten()
-keys  = list(np.array(keys)[idx])
-
-# fetch their dffs and restrict to baseline
-dff = (VM['twophoton'].Dff2P & keys).fetch('dff')
-total_frames = np.size(dff[0])
-baseline_idx = spont_timescales.get_baseline_frame_idx(sess_key,total_frames)
-frame_int    = np.diff(taxis)[0]
-smooth_win   = np.round(params['pca_smooth_win_sec']/frame_int).astype(int)
-for iCell in range(len(dff)):
-    dff[iCell] = dff[iCell][:,baseline_idx].flatten()
-    if smooth_win > 1:
-        dff[iCell] = general_stats.moving_average(dff[iCell],num_points=smooth_win).flatten()
-
-# matrix format
-num_cells = len(dff)
-num_time  = len(dff[0])   
-dff_mat   = np.zeros((num_time,num_cells))
-dff_means = np.zeros(num_cells)
-dff_stds  = np.zeros(num_cells)
-for iCell in range(num_cells):
-    dff_mat[:,iCell] = dff[iCell]
-         
-    # zscore manually to put trials on same scale     
-    dff_means[iCell] = np.nanmean(dff[iCell])
-    dff_stds[iCell]  = np.nanstd(dff[iCell])
-    dff_mat[:,iCell] = (dff_mat[:,iCell]-dff_means[iCell])/dff_stds[iCell]
-          
-# run PCA
-pca_obj = PCA()
-pca_obj.fit(dff_mat)
-
-# %%
-plt.plot(pca_obj.explained_variance_ratio_)
-np.cumsum(pca_obj.explained_variance_ratio_[:20])[-1]
-# %%
-trial_ids, taxes, trials, stim_ids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id')
-# %%
-taxis = (twop_opto_analysis.TrigDffTrialAvg & keys[0]).fetch1('time_axis_sec')
-# %%
-stim_ids     = np.array(stim_ids).flatten()
-trial_ids    = np.array(trial_ids).flatten()
-unique_stims = np.unique(stim_ids).tolist()
-num_cells    = len(keys)
-trial_projs  = list()
-
-for iStim, stim in enumerate(unique_stims):
-    idx       = np.argwhere(stim_ids==stim).flatten()
-    trial_idx = np.argwhere(trial_ids[idx]).flatten()
-    for iTrial in trial_idx.tolist():
-        # select trials
-        # z score to baseline mean / std
-        # smooth
-        # project onto PCA components
-        # pca_obj.transform(X)
+# ---------------
+# %% plot scatter of baseline vs post-stim pca projections
+def plot_pca_dist_scatter(area, params=params, expt_type='standard+high_trial_count', resp_type='dff', eg_ids=None, trial_pca_results=None, axis_handle=None):
+    
+    """
+    plot_pca_dist_scatter(area, params=params, expt_type='standard+high_trial_count', resp_type='dff', eg_ids=None, trial_pca_results=None, axis_handle=None)
+    runs batch analysis of comparing baseline and post-stim pca by calling project_trial_responses()
+    
+    INPUTS:
+        area        : str, 'V1' or 'M2'
+        params      : dict, analysis parameters (default is params from top of this script)
+        expt_type   : str, 'standard+high_trial_count' (default), 'standard', 'short_stim', 'high_trial_count', 'multi_cell'
+        resp_type   : str, 'dff' (default) or 'deconv'
+        eg_ids      : list of int, experiment group ids to restrict to specific experiments (optional, default is None)
+        
+    OUTPUTS:
+        trial_pca_results : dict with summary data of single-trial pca projections
+    """
+    
+    # run analysis if necessary
+    if trial_pca_results is None:
+        trial_pca_results = batch_trial_pca(area=area, params=params, expt_type=expt_type, resp_type=resp_type, eg_ids=eg_ids)
+        
+    # axis handles
+    if axis_handle is None:
+        plt.figure()
+        ax  = plt.gca()
+    else:
+        ax  = axis_handle
+    
+    # plot scatter      
+    ax.plot(trial_pca_results['basel_dists'],trial_pca_results['resp_dists'],'o', \
+        color=params['general_params'][area+'_sh'],mew=0,label=params['general_params'][area+'_lbl']+'trial pairs')
+    yl = ax.get_ylim()
+    xl = ax.get_xlim()
+    ax.text(xl[0]*1.05,yl[1]*.95,'r = {:1.2f}'.format(trial_pca_results['corr_basel_vs_resp']))
+    ax.text(xl[0]*1.05,yl[1]*.90,'p = {:1.2g}'.format(trial_pca_results['p_basel_vs_resp']))
+    
+    # plot regression line
+    olsfit = sm.OLS(trial_pca_results['resp_dists'],sm.add_constant(trial_pca_results['basel_dists'])).fit()
+    x_hat  = np.arange(xl[0]-5, xl[1]+6)
+    y_hat  = olsfit.predict(sm.add_constant(x_hat))
+    predci = olsfit.get_prediction(sm.add_constant(x_hat)).summary_frame()
+    ci_up  = predci.loc[:,'mean_ci_upper']
+    ci_low = predci.loc[:,'mean_ci_lower']
+    ax.plot(x_hat,y_hat,'-',color=params['general_params'][area+'_cl'])
+    ax.plot(x_hat,ci_up,'--',color=params['general_params'][area+'_cl'],lw=.4)
+    ax.plot(x_hat,ci_low,'--',color=params['general_params'][area+'_cl'],lw=.4)
+    
+    ax.legend()
+    ax.set_xlabel('Euclidean dist. (baseline)')
+    ax.set_ylabel('Euclidean dist. (post-stim)')
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    
+    return ax, trial_pca_results

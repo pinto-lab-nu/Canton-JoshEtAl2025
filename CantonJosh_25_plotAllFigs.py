@@ -350,7 +350,45 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
 # %% ======================================
 # ===== Fig 5: PCA trial trajectories =====
 # =========================================
-# >>> TO DO
+
+# generate layout here and pass axis handles 
+
+# run data analysis 
+v1_pca_results = analyzeEvoked2P.batch_trial_pca('V1', 
+                                                params=opto_params, 
+                                                expt_type='standard', 
+                                                resp_type='dff')
+m2_pca_results = analyzeEvoked2P.batch_trial_pca('M2', 
+                                                params=opto_params, 
+                                                expt_type='standard+high_trial_count', 
+                                                resp_type='dff')
+
+# fig 5a trajectory examples for each area:  
+# [NETO TO DO]
+# area_pca_resluts above already have the trajectories
+# just a matter of writing a method that takes an exaple and plots 3d trajectories
+
+# fig 5b baseline x response distance for V1 and M2
+_, _ = analyzeEvoked2P.plot_pca_dist_scatter('V1', 
+                                             params=opto_params, 
+                                             expt_type='standard', 
+                                             resp_type='dff', 
+                                             eg_ids=None, 
+                                             trial_pca_results=v1_pca_results, 
+                                             axis_handle=None)
+_, _ = analyzeEvoked2P.plot_pca_dist_scatter('M2', 
+                                             params=opto_params, 
+                                             expt_type='standard+high_trial_count', 
+                                             resp_type='dff', 
+                                             eg_ids=None, 
+                                             trial_pca_results=m2_pca_results, 
+                                             axis_handle=None)
+
+# fig 5c comparison of V1 and M2 (single-expt distributions of correlations / pvals)
+# [NETO TO DO]
+# here I was just thinking to write a simple method to plot simple histograms of 
+# corr coefficients across experiments for the two area and compare statistically
+# these are already collected in area_pca_results['corr_by_expt'] and ['p_by_expt']
 
 # %% ==============================================
 # ===== Fig 6: responses vs. spont timescales =====
@@ -360,7 +398,7 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
 
 # related to the timing differences in fig 4 (compared to previous versions):
 # no differences here, given that most cells peak very late. need to figure this out 
-# peak time vs tau
+# fig 6a peak time vs tau
 _, _, tau_vs_opto_comp_summary = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None, 
                                                                              plot_what='peak_time', 
                                                                              params=opto_params, 
@@ -370,7 +408,7 @@ _, _, tau_vs_opto_comp_summary = analyzeEvoked2P.plot_opto_vs_tau_comparison(are
                                                                              tau_vs_opto_comp_summary=None, 
                                                                              axis_handles=None)
 
-# peak magnitude
+# fig 6b peak magnitude
 _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None, 
                                                     plot_what='peak_mag', 
                                                     params=opto_params, 
@@ -380,12 +418,12 @@ _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None,
                                                     tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
                                                     axis_handles=None)
 
-# peak width: I forgot to write that into the dj tables. 
+# fig 6c maybe, peak width: I forgot to write that into the dj tables. 
 # will need to be coded posthoc and added as a category to:
 #    - analyzeEvoked2P.tau_vs_opto_comp_summary
 #    - analyzeEvoked2P.opto_vs_tau
 
-# overall tau vs stimd/reponding probability
+# fig 6d overall tau vs stimd/reponding probability
 # (this expects a list of two axis handles)
 _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None, 
                                                     plot_what='prob', 
@@ -396,7 +434,7 @@ _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None,
                                                     tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
                                                     axis_handles=None)
 
-# evolution of tau vs stimd/reponding probability over time
+# fig 6e, maybe evolution of tau vs stimd/reponding probability over time
 # (this expects a list of 2 x 10 axis handles)
 _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None, 
                                                     plot_what='prob_by_time_by_overall', 
