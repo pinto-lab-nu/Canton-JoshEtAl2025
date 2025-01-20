@@ -29,8 +29,8 @@ params = {
         'random_seed'                    : 42, 
         'trigdff_param_set_id_dff'       : 4, 
         'trigdff_param_set_id_deconv'    : 5, 
-        'trigdff_inclusion_param_set_id' : 3,
-        'trigdff_inclusion_param_set_id_notiming' : 4, # for some analyses (e.g. inhibition), we may want to relax trough timing constraint
+        'trigdff_inclusion_param_set_id' : 1,
+        'trigdff_inclusion_param_set_id_notiming' : 3, # for some analyses (e.g. inhibition), we may want to relax trough timing constraint
         'trigspeed_param_set_id'         : 1,
         'prop_resp_bins'                 : np.arange(0,.41,.01),
         'dist_bins_resp_prob'            : np.arange(30,480,50),
