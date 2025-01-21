@@ -29,7 +29,7 @@ params = {
         'random_seed'                    : 42, 
         'trigdff_param_set_id_dff'       : 4, 
         'trigdff_param_set_id_deconv'    : 5, 
-        'trigdff_inclusion_param_set_id' : 1,
+        'trigdff_inclusion_param_set_id' : 2,
         'trigdff_inclusion_param_set_id_notiming' : 3, # for some analyses (e.g. inhibition), we may want to relax trough timing constraint
         'trigspeed_param_set_id'         : 1,
         'prop_resp_bins'                 : np.arange(0,.41,.01),
@@ -2015,7 +2015,18 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
             contingency_table = pd.crosstab(index=[chi2_df['area'], chi2_df['tau_nonstimd']], columns=chi2_df['tau_stimd'], values=chi2_df['counts'], aggfunc='sum')
             chi2, p, dof, expected = scipy.stats.chi2_contingency(contingency_table)
             tau_vs_opto_comp_summary['stats']['chi2_tau_stimd'] = {'chi2':chi2, 'p':p, 'dof':dof, 'expected':expected}
-
+    
+    else:
+        if area is None:
+            analysis_results_v1=tau_vs_opto_comp_summary['V1_results']
+            analysis_results_m2=tau_vs_opto_comp_summary['M2_results']
+        
+        elif area == 'V1':
+            analysis_results_v1=tau_vs_opto_comp_summary['V1_results']
+        
+        elif area == 'M2':
+            analysis_results_m2=tau_vs_opto_comp_summary['M2_results']
+            
     # plot (either two areas or one, lots of contingencies)
     # plot overall response probability by tau
     if plot_what == 'prob': 
@@ -2031,6 +2042,8 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
                     return None, None, tau_vs_opto_comp_summary
                 ax  = axis_handles
                 fig = axis_handles[0].get_figure()
+
+
 
             if params['prob_plot_same_scale']:
                 vmax = np.max([np.max(analysis_results_v1['resp_prob_by_tau']),np.max(analysis_results_m2['resp_prob_by_tau'])])
