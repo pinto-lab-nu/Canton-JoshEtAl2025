@@ -34,6 +34,7 @@ params = {
         }
 params['general_params'] = {
         'V1_mice'     : ['jec822_NCCR62','jec822_NCCR63','jec822_NCCR66','jec822_NCCR86'] ,
+        # 'V1_mice'     : ['jec822_NCCR63','jec822_NCCR66','jec822_NCCR86'],
         'M2_mice'     : ['jec822_NCCR32','jec822_NCCR72','jec822_NCCR73','jec822_NCCR77'] ,
         'V1_cl'       : np.array([180, 137, 50])/255 ,
         'M2_cl'       : np.array([43, 67, 121])/255 ,
@@ -93,7 +94,8 @@ def get_single_sess_keys(area, params=params, dff_type='residuals_dff'):
         subj = sess[:idx]
         dat  = sess[idx+1:]
         sess_keys.append({'subject_fullname':subj,'session_date':dat})
-    
+        
+    # if in session keys delete, later
     return sess_keys
 
 # ---------------
@@ -600,7 +602,7 @@ def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_
     
     # send to generic function
     ax, fig = plot_fov_heatmap(roi_vals=taus, roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
-                              prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=axis_handle, figHandle=fig_handle)
+                              prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=axis_handle, figHandle=fig_handle,plot_colorbar=False)
     
     return ax, fig
 

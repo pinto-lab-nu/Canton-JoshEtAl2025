@@ -77,6 +77,10 @@ print(df)
 # %%
 from scipy.signal import find_peaks
 
+limit=1.96
+
+
+
 Stim_cell_mean=pd.DataFrame(index=range(0,len(df)),columns=['mean_trace'])
 Stim_cell_mean_peak=pd.DataFrame(index=range(0,len(df)),columns=['mean_trace'])
 Stim_cell_peaks_trials=pd.DataFrame(index=range(0,len(df)),columns=['Peaks'])
@@ -105,7 +109,7 @@ for j in range(0,len(df)):
         
         # peaks, properties = find_peaks(mov_mean_array, prominence=1.96,distance=len(mov_mean_array)/100, width=0)
         # properties["prominences"], properties["widths"]
-        peaks, properties = find_peaks(mov_mean_array, height=1.96,distance=len(mov_mean_array)/100, width=1)
+        peaks, properties = find_peaks(mov_mean_array, height=limit,distance=len(mov_mean_array)/100, width=1)
         properties["peak_heights"], properties["widths"]
 
         # index=np.where(peaks>300)[0][0]
@@ -122,7 +126,7 @@ for j in range(0,len(df)):
     x=np.mean(yyy,axis=0)
     x = np.nan_to_num(x, nan=0)
     mov_mean_array=(np.convolve(x, np.ones(5), 'valid') / 5)
-    peaks, properties = find_peaks(mov_mean_array, height=1.96, width=0)
+    peaks, properties = find_peaks(mov_mean_array, height=limit, width=0)
     if len(np.where(peaks>99)[0])>0:
         index=np.where(peaks>99)[0][0]
         Stim_cell_mean_peak.loc[j, "mean_trace"] = mov_mean_array[peaks][index]
@@ -163,14 +167,14 @@ Stim_cell_peaktimes_trials_mean=Stim_cell_peaktimes_trials_mean.T.reset_index(dr
 Stim_cell_peaktimes_trials=Stim_cell_peaktimes_trials.T.reset_index(drop=True).T
 Stim_cell_peaktimes_abs_diff=abs(Stim_cell_peaktimes_trials-Stim_cell_peaktimes_trials_mean)
 
-threshold=15
+threshold=45
 Stim_cell_peaktimes_abs_diff_count=Stim_cell_peaktimes_abs_diff.applymap(lambda x: proportion_above_threshold(x, threshold))
 
 # %%
 
-response_proportion=0.5
+response_proportion=0.4
 limit=1.96
-peaktime_deviation=45
+peaktime_deviation=60
 peaktime_min=99
 
 peaktime_max=300
@@ -188,7 +192,7 @@ ccc = ccc.where(Stim_cell_peaks_trials_count > response_proportion, float("nan")
 
 #  use one or the other!!!
 # ccc = ccc.where(Stim_cell_peaktimes_trials_std[0] < peaktime_deviation, float("nan"))
-
+# 
 ccc = ccc.where(Stim_cell_peaktimes_abs_diff_count[0] < response_proportion, float("nan"))
 
 # 
@@ -210,12 +214,37 @@ conditional_zscores_no_nan_df=conditional_zscores_no_nan.explode(0).to_numpy()
 
 conditional_zscores_no_nan_df=np.reshape(conditional_zscores_no_nan_df, (len(conditional_zscores_no_nan),len(conditional_zscores_no_nan.iloc[0][0]))).astype('float32')
 
-conditional_zscores_no_nan_df=pd.DataFrame(conditional_zscores_no_nan_df)
  # conditional_zscores_no_nan_df=conditional_zscores_no_nan_df[:,301:-1]
+conditional_zscores_no_nan_df=pd.DataFrame(conditional_zscores_no_nan_df)
  
  
 conditional_zscores_no_nan_df_max=conditional_zscores_no_nan_df.iloc[conditional_zscores_no_nan_df.idxmax(axis=1).argsort()]
 conditional_zscores_no_nan_df_max_time=conditional_zscores_no_nan_df.idxmax(axis=1).to_numpy()
+
+
+# %%
+
+
+# # Stim_cell_mean=df.T.reset_index(drop=True).T
+
+# conditional_zscores=df.T.reset_index(drop=True).T
+
+
+ 
+# conditional_zscores_no_nan=pd.DataFrame(conditional_zscores.stack().to_numpy()).dropna()
+
+ 
+# conditional_zscores_no_nan_df=conditional_zscores_no_nan.explode(0).to_numpy().explode(0).to_numpy()
+
+
+# conditional_zscores_no_nan_df=np.reshape(conditional_zscores_no_nan_df, (len(conditional_zscores_no_nan),len(conditional_zscores_no_nan.iloc[0][0]))).astype('float32')
+
+#  # conditional_zscores_no_nan_df=conditional_zscores_no_nan_df[:,301:-1]
+# conditional_zscores_no_nan_df=pd.DataFrame(conditional_zscores_no_nan_df)
+ 
+ 
+# conditional_zscores_no_nan_df_max=conditional_zscores_no_nan_df.iloc[conditional_zscores_no_nan_df.idxmax(axis=1).argsort()]
+# conditional_zscores_no_nan_df_max_time=conditional_zscores_no_nan_df.idxmax(axis=1).to_numpy()
 
 # %%
 

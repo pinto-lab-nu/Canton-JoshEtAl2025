@@ -35,9 +35,9 @@ params = {
         'prop_resp_bins'                 : np.arange(0,.41,.01),
         'dist_bins_resp_prob'            : np.arange(30,480,50),
         'response_magnitude_bins'        : np.arange(-2.5,7.75,.25),
-        'tau_bins'                       : np.arange(0,10.25,.5),
-        'tau_by_time_bins'               : np.arange(0,11,1),
-        'response_time_bins'             : np.arange(0,10.1,.1),
+        'tau_bins'                       : np.arange(0,3.5,.5),
+        'tau_by_time_bins'               : np.arange(0,3,.5),
+        'response_time_bins'             : np.arange(0,3.1,.1),
         'fov_seq_time_bins'              : np.arange(0,12,2),
         'expression_level_type'          : 'intensity_zscore_stimdcells', # which expression level normalization to use 
         'xval_relax_timing_criteria'     : True, # set to true will select inclusion criteria that do not enforce peak timing
@@ -45,7 +45,7 @@ params = {
         'xval_timing_metric'             : 'peak', # 'peak' or 'com'. peak is time of peak or trough
         'xval_num_iter'                  : 1000, # number if iters in trial_xval
         'tau_vs_opto_do_prob_by_expt'    : False, # in tau_vs_opto, do probability by experiment (vs overall)
-        'tau_vs_opto_max_tau'            : 10, # max tau to include a cell in tau_vs_opto
+        'tau_vs_opto_max_tau'            : 3, # max tau to include a cell in tau_vs_opto
         'prob_plot_same_scale'           : False, # in tau_vs_opto, plot all prob plots on same scale
         'pca_smooth_win_sec'             : 0.3, # window for smoothing in PCA
         'pca_num_components'             : 20, # number of PCA for trial projections
@@ -1761,7 +1761,9 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
     peakm_by_tau_sem  = np.zeros(num_bins)
     peakm_by_tau_expt = [None]*num_bins
     for iBin in range(num_bins):
-        idx     = np.logical_and(is_good_tau==1,np.logical_and(tau>bins[iBin], tau<=bins[iBin+1]))
+        # idx     = np.logical_and(is_good_tau==1,np.logical_and(tau>bins[iBin], tau<=bins[iBin+1]))
+        idx     = np.logical_and(tau>bins[iBin], tau<=bins[iBin+1])
+
         idx     = np.logical_and(is_stimd==0,np.logical_and(is_sig==1,idx))
         sem_den = np.sqrt(np.sum(idx==1)-1)
         peakt_by_tau_avg[iBin] = np.mean(peak_ts[idx])
@@ -1905,7 +1907,9 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
                         'resp_prob_by_tau_over_time'  : tau_mat_t,
                         'resp_counts_by_tau_over_time': tau_mat_t_counts,
                         'resp_prob_by_tau_over_time_by_overall'  : tau_mat_t_by_overall,
-                        'params'                      : deepcopy(params)
+                        'params'                      : deepcopy(params),
+                        'tau_data'                    : tau_data,
+                        'peaks'                       : peaks
                         }
             
     return analysis_results
