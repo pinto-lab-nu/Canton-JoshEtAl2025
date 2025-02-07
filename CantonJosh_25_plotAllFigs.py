@@ -49,9 +49,13 @@ import analyzeEvoked2P
 # fig 1g regression results 
 # calling this method will either run or save, but not recommended. for bash script see /[path]
 # [LYN INSERT HERE]
+# %%
+
 
 # === Fig S1: tau regression simulations ===
 # [LYN INSERT HERE]
+# %%
+
 
 # === Fig S2: merfish regression controls ===
 # [LYN INSERT HERE]
@@ -64,6 +68,8 @@ import analyzeEvoked2P
 # makes it a lot easier to follow what's going on
 # fig2_handle, fig2_data = plot_spont_tau(params=tau_params)
 
+
+#Working well
 
 v1_taus, v1_keys, v1_total = analyzeSpont2P.get_all_tau('V1', params = tau_params, dff_type = 'residuals_dff')
 m2_taus, m2_keys, m2_total = analyzeSpont2P.get_all_tau('M2', params = tau_params, dff_type = 'residuals_dff')
@@ -98,7 +104,9 @@ clust_stats_v1 , tau_diff_mat_v1 = analyzeSpont2P.clustering_by_tau(v1_taus, v1_
 clust_stats_m2 , tau_diff_mat_m2 = analyzeSpont2P.clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, params = tau_params)
 cax = analyzeSpont2P.plot_clustering_comp(v1_clust=clust_stats_v1,m2_clust=clust_stats_m2, params = tau_params,axis_handle = ax4)
 
-# %% Figure 2 supp
+# %% Figure S3
+
+#Working well
 
 plt.figure()
 ax1 = plt.subplot(221)
@@ -137,11 +145,23 @@ fig3_params = {'sess_eg_v1' : 0,
                'sess_eg_m2' : 0,
                'stim_eg_m2' : 1}
 
+
+plt.figure()
+ax1 = plt.subplot(231)
+ax2 = plt.subplot(232)
+ax3 = plt.subplot(233)
+ax4 = plt.subplot(234)
+ax5 = plt.subplot(235)
+ax6 = plt.subplot(236)
+
 # fig 3a raw evoked traces and/or pixel-wise dff example (or suppl movie)
 # >>> TO DO
 
 # fig 3b area eg response map
 # >>>>>>>>>>> still need to pick best which_sess and which_stim
+
+# Some issues with the arrows in second plot.
+
 _, _ = analyzeEvoked2P.plot_resp_fov('V1', 
                                      which_sess=fig3_params['sess_eg_v1'], 
                                      which_stim=fig3_params['stim_eg_v1'], 
@@ -151,7 +171,8 @@ _, _ = analyzeEvoked2P.plot_resp_fov('V1',
                                      prctile_cap=[0,98], 
                                      signif_only=False, 
                                      highlight_signif=True, 
-                                     axis_handle=None)
+                                     axis_handle=ax2)
+
 _, _ = analyzeEvoked2P.plot_resp_fov('M2', 
                                      which_sess=fig3_params['sess_eg_m2'], 
                                      which_stim=fig3_params['stim_eg_m2'], 
@@ -161,14 +182,22 @@ _, _ = analyzeEvoked2P.plot_resp_fov('M2',
                                      prctile_cap=[0,98], 
                                      signif_only=False, 
                                      highlight_signif=True, 
-                                     axis_handle=None)
+                                     axis_handle=ax3)
 
-# fig 3c overall response probability
+
+# issue here is also with the 20th session in M2 data which is NCCR77 2024-01-12
+# made kludgy fix for now in analyzeEvoked2P.get_prop_responding_neurons line 145
+# recheck the session though this is not good solution.
+
+# fig 3c overall response probability analayzeEvoked2P.get_prop_responding_neurons
+
 resp_prob_summary, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
                                                                       expt_type='standard', 
-                                                                      resp_type='dff', 
-                                                                      axis_handle=None, 
-                                                                      plot_what='response_probability')
+                                                                      resp_type='dff',                                      
+                                                                      plot_what='response_probability',
+                                                                      axis_handle=None)
+# issue with division by zero here session 20 from M2 data
+# had to for a semi kludgy fix for now in AnalyzeEvoked2P lines 558
 
 # fig 3d response magnitude
 full_resp_stats, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
@@ -179,7 +208,8 @@ full_resp_stats, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_
                                                                     axis_handle=None, 
                                                                     plot_what='response_magnitude',
                                                                     signif_only=True, 
-                                                                    overlay_non_sig=True)
+                                                                    overlay_non_sig=True,
+                                                                    axis_handle=ax5)
 
 # fig 3e response vs distance
 _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
@@ -187,10 +217,12 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
                                                       resp_type='dff', 
                                                       which_neurons='non_stimd', 
                                                       response_stats=full_resp_stats, 
-                                                      axis_handle=None, 
+                                                      axis_handle=ax6, 
                                                       plot_what='prop_by_dist_of_sig',
                                                       signif_only=True, 
                                                       overlay_non_sig=False)
+
+# %%
 
 # === Fig S4: 2p opto controls ===
 
@@ -235,6 +267,14 @@ fig4_params = {'sess_eg_v1' : 0,
                'sess_eg_m2' : 0,
                'stim_eg_m2' : 1}
 
+fig_handle = plt.plot()
+ax1 = plt.subplot(231)
+ax2 = plt.subplot(232)
+ax3 = plt.subplot(233)
+ax4 = plt.subplot(234)
+ax5 = plt.subplot(235)
+ax6 = plt.subplot(236)
+
 # get data
 v1_avgs = analyzeEvoked2P.get_avg_trig_responses('V1', params=opto_params, expt_type='standard', resp_type='dff')
 m2_avgs = analyzeEvoked2P.get_avg_trig_responses('M2', params=opto_params, expt_type='standard', resp_type='dff')
@@ -253,6 +293,7 @@ _, _ = analyzeEvoked2P.plot_resp_fov('V1',
                                      signif_only=False, 
                                      highlight_signif=True, 
                                      axis_handle=None)
+
 _, _ = analyzeEvoked2P.plot_resp_fov('M2', 
                                      which_sess=fig4_params['sess_eg_m2'], 
                                      which_stim=fig4_params['stim_eg_m2'], 
@@ -265,20 +306,18 @@ _, _ = analyzeEvoked2P.plot_resp_fov('M2',
                                      axis_handle=None)
 
 # fig 4b average timecourse
-# these look different than Neto's need to figure out why. 
-# maybe here we should plot the grand average regardless of significance
+
 _, _, _, = analyzeEvoked2P.plot_response_grand_average(params=opto_params, 
                                                        expt_type='standard', 
                                                        resp_type='dff', 
                                                        signif_only=True, 
                                                        which_neurons='non_stimd', 
                                                        v1_data=v1_avgs, 
-                                                        m2_data=m2_avgs, 
-                                                       axis_handle=None, 
+                                                       m2_data=m2_avgs,
+                                                       axis_handle=ax3, 
                                                        norm_type='peak')
     
 # fig 4c neuron heatmaps over time. 
-# these look different than Neto's need to figure out why
 _, _, _, = analyzeEvoked2P.plot_avg_response_heatmap('V1', 
                                                      params=opto_params, 
                                                      expt_type='standard', 
@@ -302,6 +341,7 @@ _, _, _, = analyzeEvoked2P.plot_avg_response_heatmap('M2',
                                                      norm_type='minmax')
 
 
+
 # running into division by zero issues , might be too stringent settings but not sure let me come back to this
 
 # fig 4d response time distributions
@@ -309,12 +349,13 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
                                                       expt_type='standard', 
                                                       resp_type='dff', 
                                                       which_neurons='non_stimd', 
-                                                      # response_stats=full_resp_stats, 
-                                                      response_stats=None,
+                                                      response_stats=full_resp_stats, 
+                                                      # response_stats=None,
                                                       axis_handle=None, 
                                                       plot_what='response_time',
-                                                      signif_only=False)
+                                                      signif_only=True)
 
+# works well but pretty slow
 
 # fig 4e: sequence xval
 _, _, xval_results = analyzeEvoked2P.plot_trial_xval(area='M2', 
@@ -325,8 +366,10 @@ _, _, xval_results = analyzeEvoked2P.plot_trial_xval(area='M2',
                                                      which_neurons='non_stimd', 
                                                      axis_handle=None, 
                                                      fig_handle=None)
+# %%
 
 # === Fig S6: timing with deconvolved traces ===
+
 v1_avgs_deconv = analyzeEvoked2P.get_avg_trig_responses('V1', params=opto_params, expt_type='standard', resp_type='deconv')
 m2_avgs_deconv = analyzeEvoked2P.get_avg_trig_responses('M2', params=opto_params, expt_type='standard', resp_type='deconv')
 full_resp_stats_deconv = analyzeEvoked2P.compare_response_stats(params=opto_params, 

@@ -142,12 +142,13 @@ def get_prop_responding_neurons(area, params=params, expt_type='standard', resp_
         this_key['trigdff_param_set_id']           = trigdff_param_set_id
         this_key['trigdff_inclusion_param_set_id'] = trigdff_inclusion_param_set_id
         prop, num = (twop_opto_analysis.TrigDffSummaryStats & this_key).fetch('prop_significant_rois', 'num_included_rois')
-        prop_neurons.append(prop)
-        num_stimd.append(len(num))
-        if len(num) > 1:
-            num_neurons.append(num[0])
-        else:
-            num_neurons.append(num)
+        if  len(prop)>0:  
+            prop_neurons.append(prop)
+            num_stimd.append(len(num))
+            if len(num) > 1:
+                num_neurons.append(num[0])
+            else:
+                num_neurons.append(num)
         
     # compile resluts in a dictionary
     prop_neurons = np.array(prop_neurons).flatten()
@@ -555,7 +556,10 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
             dist        = np.array(dist).flatten()
             sig         = np.array(sig).flatten()
             unique_sids = np.unique(sid)
-            n           = n / len(unique_sids)
+            if unique_sids>0:
+                n           = n / len(unique_sids)
+            else:
+                n=0
             vs_total    = np.zeros(num_bins)
             vs_sig      = np.zeros(num_bins)
             for this_id in unique_sids:
