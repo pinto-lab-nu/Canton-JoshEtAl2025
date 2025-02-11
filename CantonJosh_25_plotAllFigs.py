@@ -195,7 +195,7 @@ resp_prob_summary, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opt
                                                                       expt_type='standard', 
                                                                       resp_type='dff',                                      
                                                                       plot_what='response_probability',
-                                                                      axis_handle=None)
+                                                                      axis_handle=ax4)
 # issue with division by zero here session 20 from M2 data
 # had to for a semi kludgy fix for now in AnalyzeEvoked2P lines 558
 
@@ -205,7 +205,7 @@ full_resp_stats, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_
                                                                     resp_type='dff', 
                                                                     which_neurons='non_stimd', 
                                                                     response_stats=None, 
-                                                                    axis_handle=None, 
+                                                                    # axis_handle=None, 
                                                                     plot_what='response_magnitude',
                                                                     signif_only=True, 
                                                                     overlay_non_sig=True,
@@ -217,10 +217,11 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
                                                       resp_type='dff', 
                                                       which_neurons='non_stimd', 
                                                       response_stats=full_resp_stats, 
-                                                      axis_handle=ax6, 
+                                                      # axis_handle=None, 
                                                       plot_what='prop_by_dist_of_sig',
                                                       signif_only=True, 
-                                                      overlay_non_sig=False)
+                                                      overlay_non_sig=False,
+                                                      axis_handle=ax6)
 
 # %%
 
@@ -525,3 +526,5 @@ _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None,
 # def plot_spont_tau(params=tau_params):
     
 #     return fig_handle, fig_data
+
+
