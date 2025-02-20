@@ -334,6 +334,7 @@ def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None
     ax.legend()
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
+    
 
     return tau_stats, ax 
 
@@ -602,7 +603,9 @@ def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_
     
     # send to generic function
     ax, fig = plot_fov_heatmap(roi_vals=taus, roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
-                              prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=axis_handle, figHandle=fig_handle,plot_colorbar=False)
+                              prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=axis_handle, figHandle=fig_handle,plot_colorbar=True)
+        
+   
     
     return ax, fig
 

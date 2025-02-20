@@ -59,50 +59,68 @@ import analyzeEvoked2P
 
 # === Fig S2: merfish regression controls ===
 # [LYN INSERT HERE]
-
+# %%
+def letter_annotation(ax, xoffset, yoffset, letter):
+ ax.text(xoffset, yoffset, letter, transform=ax.transAxes,
+         size=12, weight='bold')
 # %% =========================================
 # ===== Fig 2: spontaneous 2p timescales =====
 # ============================================
+fig = plt.figure(figsize=(8, 10))
 
-# we should preferably create methods at the bottom for each figure and call them from here
-# makes it a lot easier to follow what's going on
-# fig2_handle, fig2_data = plot_spont_tau(params=tau_params)
+# Creating subfigures for each row
+(row1fig, row2fig, row3fig) = fig.subfigures(3, 1, height_ratios=[1, 1, 1])
 
+# Splitting the second-row subfigure into two panels
+(fig_row2left, fig_row2right) = row2fig.subfigures(1, 2, wspace=0.08, width_ratios=(1, 1))
 
-#Working well
+# Creating subplots within each row with fixed width ratios
+row1_axs = row1fig.subplots(1, 2, gridspec_kw={'width_ratios': [1.2, 1]})
+row2_axs = row2fig.subplots(1, 2, gridspec_kw={'width_ratios': [1.2, 1]})
+row3_axs = row3fig.subplots(1, 2, gridspec_kw={'width_ratios': [1.2, 1]})
 
-v1_taus, v1_keys, v1_total = analyzeSpont2P.get_all_tau('V1', params = tau_params, dff_type = 'residuals_dff')
-m2_taus, m2_keys, m2_total = analyzeSpont2P.get_all_tau('M2', params = tau_params, dff_type = 'residuals_dff')
+# Adjusting layout for consistent alignment
+left_margin = 0.12  
+right_margin = 0.88  # Ensuring right edges align
 
-# generate layout here and pass axis handles 
-fig_handle = plt.plot()
+row1fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspace=0.25)
+row2fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspace=0.25)
+row3fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspace=0.25)
 
-# fig 2a: FOV and cranial window egs with raw traces for each area
-ax1 = plt.subplot(231)
-# >>> TO DO
+# Analyzing data
+v1_taus, v1_keys, v1_total = analyzeSpont2P.get_all_tau('V1', params=tau_params, dff_type='residuals_dff')
+m2_taus, m2_keys, m2_total = analyzeSpont2P.get_all_tau('M2', params=tau_params, dff_type='residuals_dff')
 
-# fig 2b: 2p tau summary
-ax2 = plt.subplot(232)
-tau_stats, ax_tau = analyzeSpont2P.plot_area_tau_comp(v1_taus=v1_taus, m2_taus=m2_taus, axis_handle = ax2, params = tau_params)
+# Fig 2a: FOV and cranial window examples with raw traces
+ax = row1_axs[0]
+ax.text(-0.1, 1.05, 'A', transform=ax.transAxes, fontsize=12, fontweight='bold', va='bottom', ha='left')
+ax.set_aspect('auto')
+
+# Fig 2b: 2p tau summary
+ax = row1_axs[1]
+tau_stats, ax_tau = analyzeSpont2P.plot_area_tau_comp(v1_taus=v1_taus, m2_taus=m2_taus, axis_handle=ax, params=tau_params)
 tau_stats['V1_total_num_cells'] = v1_total
 tau_stats['M2_total_num_cells'] = m2_total
+ax.text(-0.1, 1.05, 'B', transform=ax.transAxes, fontsize=12, fontweight='bold', va='bottom', ha='left')
 
-# fig 2c: clustering FOV example
-ax3a = plt.subplot(233)
-ax3b = plt.subplot(234)
+# Fig 2c: Clustering FOV example
 v1_centr, v1_rec_ids = analyzeSpont2P.get_centroids_by_rec(v1_keys)
 m2_centr, m2_rec_ids = analyzeSpont2P.get_centroids_by_rec(m2_keys)
 
-fov_v1 = analyzeSpont2P.plot_tau_fov(v1_keys, v1_rec_ids, which_sess=2, do_zscore=False, prctile_cap=[0,95], axis_handle = ax3a,fig_handle=fig_handle)  #Error on this line for now
-fov_m2 = analyzeSpont2P.plot_tau_fov(v1_keys, v1_rec_ids, which_sess=17, do_zscore=False, prctile_cap=[0,95], axis_handle = ax3b,fig_handle=fig_handle)
-# good ones m2: 0, 4, 5, 10 (95th prct), 17, 22
-# good ones v1: 0 , 2 
+ax = row2_axs[0]
+fov_v1 = analyzeSpont2P.plot_tau_fov(v1_keys, v1_rec_ids, which_sess=2, do_zscore=False, prctile_cap=[0, 95], axis_handle=ax, fig_handle=fig)
+ax.text(-0.1, 1.05, 'C', transform=ax.transAxes, fontsize=12, fontweight='bold', va='bottom', ha='left')
 
-# fig 2d: clustering
-ax4 = plt.subplot(235)
-clust_stats_v1 , tau_diff_mat_v1 = analyzeSpont2P.clustering_by_tau(v1_taus, v1_centr, v1_rec_ids, params = tau_params)
-clust_stats_m2 , tau_diff_mat_m2 = analyzeSpont2P.clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, params = tau_params)
-cax = analyzeSpont2P.plot_clustering_comp(v1_clust=clust_stats_v1,m2_clust=clust_stats_m2, params = tau_params,axis_handle = ax4)
+ax = row2_axs[1]
+fov_m2 = analyzeSpont2P.plot_tau_fov(v1_keys, v1_rec_ids, which_sess=17, do_zscore=False, prctile_cap=[0, 95], axis_handle=ax, fig_handle=fig)
+
+# Fig 2d: Clustering
+ax = row3_axs[0]
+clust_stats_v1, tau_diff_mat_v1 = analyzeSpont2P.clustering_by_tau(v1_taus, v1_centr, v1_rec_ids, params=tau_params)
+clust_stats_m2, tau_diff_mat_m2 = analyzeSpont2P.clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, params=tau_params)
+cax = analyzeSpont2P.plot_clustering_comp(v1_clust=clust_stats_v1, m2_clust=clust_stats_m2, params=tau_params, axis_handle=ax)
+ax.text(-0.1, 1.05, 'D', transform=ax.transAxes, fontsize=12, fontweight='bold', va='bottom', ha='left')
+
 
 # %% Figure S3
 
@@ -146,23 +164,38 @@ fig3_params = {'sess_eg_v1' : 0,
                'stim_eg_m2' : 1}
 
 
-plt.figure()
-ax1 = plt.subplot(231)
-ax2 = plt.subplot(232)
-ax3 = plt.subplot(233)
-ax4 = plt.subplot(234)
-ax5 = plt.subplot(235)
-ax6 = plt.subplot(236)
+fig = plt.figure(figsize=(10, 8))
+
+# Creating a subfigure for the first and second row
+(row1fig, row2fig) = fig.subfigures(2, 1, height_ratios=[1, 1])
+
+# Splitting the bottom row subfigure in two subfigures
+(fig_row2left, fig_row2right) = row2fig.subfigures(1, 2, wspace=.08, width_ratios = (1, 2))
+
+
+# Make 4 subplots for the first row subfigure
+row1_axs = row1fig.subplots(1, 4)
+row2_axs = row2fig.subplots(1, 4)
+
+row1fig.subplots_adjust(wspace=0.5, left=0.05, right=1, bottom=.16)
+fig_row2right.subplots_adjust(left=0.1, right=1, hspace=.5)
+
 
 # fig 3a raw evoked traces and/or pixel-wise dff example (or suppl movie)
 # >>> TO DO
+ax = row1_axs[0]
+letter_annotation(ax, -.25, 1, 'A')
 
 # fig 3b area eg response map
 # >>>>>>>>>>> still need to pick best which_sess and which_stim
+ax = row1_axs[1]
+
+letter_annotation(ax, -.25, 1, 'B')
 
 # Some issues with the arrows in second plot.
 
-_, _ = analyzeEvoked2P.plot_resp_fov('V1', 
+ax = row1_axs[2]
+_,_ = analyzeEvoked2P.plot_resp_fov('V1', 
                                      which_sess=fig3_params['sess_eg_v1'], 
                                      which_stim=fig3_params['stim_eg_v1'], 
                                      expt_type='standard', 
@@ -171,7 +204,9 @@ _, _ = analyzeEvoked2P.plot_resp_fov('V1',
                                      prctile_cap=[0,98], 
                                      signif_only=False, 
                                      highlight_signif=True, 
-                                     axis_handle=ax2)
+                                     axis_handle=row1_axs[2])
+
+letter_annotation(ax, -.25, 1, 'C')
 
 _, _ = analyzeEvoked2P.plot_resp_fov('M2', 
                                      which_sess=fig3_params['sess_eg_m2'], 
@@ -182,7 +217,8 @@ _, _ = analyzeEvoked2P.plot_resp_fov('M2',
                                      prctile_cap=[0,98], 
                                      signif_only=False, 
                                      highlight_signif=True, 
-                                     axis_handle=ax3)
+                                     axis_handle=row1_axs[3])
+
 
 
 # issue here is also with the 20th session in M2 data which is NCCR77 2024-01-12
@@ -195,7 +231,11 @@ resp_prob_summary, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opt
                                                                       expt_type='standard', 
                                                                       resp_type='dff',                                      
                                                                       plot_what='response_probability',
-                                                                      axis_handle=ax4)
+                                                                      # axis_handle=row2_axs[0],
+                                                                      axis_handle=None,
+                                                                      response_stats=None)
+
+letter_annotation(row2_axs[0], -.25, 1, 'D')
 # issue with division by zero here session 20 from M2 data
 # had to for a semi kludgy fix for now in AnalyzeEvoked2P lines 558
 
@@ -205,11 +245,13 @@ full_resp_stats, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_
                                                                     resp_type='dff', 
                                                                     which_neurons='non_stimd', 
                                                                     response_stats=None, 
-                                                                    # axis_handle=None, 
+                                                                    axis_handle=None, 
                                                                     plot_what='response_magnitude',
                                                                     signif_only=True, 
                                                                     overlay_non_sig=True,
-                                                                    axis_handle=ax5)
+                                                                    # axis_handle=row2_axs[1]
+                                                                    )
+letter_annotation(row2_axs[1], -.25, 1, 'E')
 
 # fig 3e response vs distance
 _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
@@ -221,7 +263,9 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
                                                       plot_what='prop_by_dist_of_sig',
                                                       signif_only=True, 
                                                       overlay_non_sig=False,
-                                                      axis_handle=ax6)
+                                                      axis_handle=row2_axs[2])
+
+letter_annotation(row2_axs[2], -.25, 1, 'F')
 
 # %%
 
@@ -268,13 +312,27 @@ fig4_params = {'sess_eg_v1' : 0,
                'sess_eg_m2' : 0,
                'stim_eg_m2' : 1}
 
-fig_handle = plt.plot()
-ax1 = plt.subplot(231)
-ax2 = plt.subplot(232)
-ax3 = plt.subplot(233)
-ax4 = plt.subplot(234)
-ax5 = plt.subplot(235)
-ax6 = plt.subplot(236)
+
+fig = plt.figure(figsize=(8, 10))
+
+# Creating subfigures for each row
+(row1fig, row2fig, row3fig) = fig.subfigures(3, 1, height_ratios=[1, 1, 1])
+
+
+
+# Creating subplots within each row with fixed width ratios
+row1_axs = row1fig.subplots(1, 3, gridspec_kw={'width_ratios': [1.2, 1,1]})
+row2_axs = row2fig.subplots(1, 3, gridspec_kw={'width_ratios': [1.2, 1,1]})
+row3_axs = row3fig.subplots(1, 3, gridspec_kw={'width_ratios': [1.2, 1,1]})
+
+# Adjusting layout for consistent alignment
+left_margin = 0.12  
+right_margin = 0.88  # Ensuring right edges align
+
+row1fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspace=0.25)
+row2fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspace=0.25)
+row3fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspace=0.25)
+
 
 # get data
 v1_avgs = analyzeEvoked2P.get_avg_trig_responses('V1', params=opto_params, expt_type='standard', resp_type='dff')
@@ -315,7 +373,8 @@ _, _, _, = analyzeEvoked2P.plot_response_grand_average(params=opto_params,
                                                        which_neurons='non_stimd', 
                                                        v1_data=v1_avgs, 
                                                        m2_data=m2_avgs,
-                                                       axis_handle=ax3, 
+                                                       # axis_handle=row1_axs[2],
+                                                       axis_handle=None,
                                                        norm_type='peak')
     
 # fig 4c neuron heatmaps over time. 
@@ -326,8 +385,9 @@ _, _, _, = analyzeEvoked2P.plot_avg_response_heatmap('V1',
                                                      signif_only=True, 
                                                      which_neurons='non_stimd', 
                                                      avg_data=v1_avgs, 
-                                                     axis_handle=None, 
-                                                     fig_handle=None, 
+                                                     # axis_handle=row2_axs[0],
+                                                     axis_handle=None,
+                                                     fig_handle=fig, 
                                                      norm_type='minmax')
 
 _, _, _, = analyzeEvoked2P.plot_avg_response_heatmap('M2', 
@@ -337,8 +397,9 @@ _, _, _, = analyzeEvoked2P.plot_avg_response_heatmap('M2',
                                                      signif_only=True, 
                                                      which_neurons='non_stimd', 
                                                      avg_data=m2_avgs, 
-                                                     axis_handle=None, 
-                                                     fig_handle=None, 
+                                                     # axis_handle=row2_axs[1],
+                                                     axis_handle=None,
+                                                     fig_handle=fig, 
                                                      norm_type='minmax')
 
 
@@ -352,9 +413,11 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
                                                       which_neurons='non_stimd', 
                                                       response_stats=full_resp_stats, 
                                                       # response_stats=None,
-                                                      axis_handle=None, 
+                                                       axis_handle=None, 
                                                       plot_what='response_time',
-                                                      signif_only=True)
+                                                      signif_only=True,
+                                                      # axis_handle=row2_axs[2]
+                                                      )
 
 # works well but pretty slow
 
@@ -365,8 +428,9 @@ _, _, xval_results = analyzeEvoked2P.plot_trial_xval(area='M2',
                                                      resp_type='dff', 
                                                      signif_only=False, 
                                                      which_neurons='non_stimd', 
-                                                     axis_handle=None, 
-                                                     fig_handle=None)
+                                                     # axis_handle=row3_axs[0],
+                                                     axis_handle=None,
+                                                     fig_handle=fig)
 # %%
 
 # === Fig S6: timing with deconvolved traces ===
@@ -413,6 +477,8 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
 # %% ======================================
 # ===== Fig 5: PCA trial trajectories =====
 # =========================================
+#  Not working giving an error IndexError: index 20 is out of bounds for axis 0 with size 16
+# Need to be careful as some of the sessions have less that 20 cells so need to set pcs below that
 
 # generate layout here and pass axis handles 
 
@@ -423,7 +489,8 @@ v1_pca_results = analyzeEvoked2P.batch_trial_pca('V1',
                                                 resp_type='dff')
 m2_pca_results = analyzeEvoked2P.batch_trial_pca('M2', 
                                                 params=opto_params, 
-                                                expt_type='standard+high_trial_count', 
+                                                expt_type='standard+high_trial_count',
+                                                # expt_type='high_trial_count', 
                                                 resp_type='dff')
 
 # fig 5a trajectory examples for each area:  
@@ -439,6 +506,7 @@ _, _ = analyzeEvoked2P.plot_pca_dist_scatter('V1',
                                              eg_ids=None, 
                                              trial_pca_results=v1_pca_results, 
                                              axis_handle=None)
+
 _, _ = analyzeEvoked2P.plot_pca_dist_scatter('M2', 
                                              params=opto_params, 
                                              expt_type='standard+high_trial_count', 
@@ -457,6 +525,28 @@ _, _ = analyzeEvoked2P.plot_pca_dist_scatter('M2',
 # ===== Fig 6: responses vs. spont timescales =====
 # =================================================
 
+
+fig = plt.figure(figsize=(8, 10))
+
+# Creating subfigures for each row
+(row1fig, row2fig, row3fig) = fig.subfigures(3, 1, height_ratios=[1, 1, 1])
+
+
+
+# Creating subplots within each row with fixed width ratios
+row1_axs = row1fig.subplots(1, 2, gridspec_kw={'width_ratios': [1.2, 1]})
+row2_axs = row2fig.subplots(1, 2, gridspec_kw={'width_ratios': [1.2, 1]})
+row3_axs = row3fig.subplots(1, 2, gridspec_kw={'width_ratios': [1.2, 1]})
+
+# Adjusting layout for consistent alignment
+left_margin = 0.12  
+right_margin = 0.88  # Ensuring right edges align
+
+row1fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspace=0.25)
+row2fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspace=0.25)
+row3fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspace=0.25)
+
+
 # generate layout here and pass axis handles 
 
 # related to the timing differences in fig 4 (compared to previous versions):
@@ -469,16 +559,18 @@ _, _, tau_vs_opto_comp_summary = analyzeEvoked2P.plot_opto_vs_tau_comparison(are
                                                                              resp_type='dff', 
                                                                              dff_type='residuals_dff', 
                                                                              tau_vs_opto_comp_summary=None, 
-                                                                             axis_handles=None)
+                                                                             axis_handles=None,
+                                                                             fig_handle=fig)
 
-analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None, 
-                                                                              plot_what='peak_time', 
-                                                                              params=opto_params, 
-                                                                              expt_type='standard', 
-                                                                              resp_type='dff', 
-                                                                              dff_type='residuals_dff', 
-                                                                              tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
-                                                                              axis_handles=None)
+_, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None,
+                                                      plot_what='prob', 
+                                                      params=opto_params, 
+                                                      expt_type='standard', 
+                                                      resp_type='dff', 
+                                                      dff_type='residuals_dff', 
+                                                      tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
+                                                      axis_handles=None,
+                                                      fig_handle=fig)
 
 
 # fig 6b peak magnitude
@@ -489,7 +581,7 @@ _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None,
                                                     resp_type='dff', 
                                                     dff_type='residuals_dff', 
                                                     tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
-                                                    axis_handles=None)
+                                                    axis_handles=row2_axs[0])
 
 # fig 6c maybe, peak width: I forgot to write that into the dj tables. 
 # will need to be coded posthoc and added as a category to:
@@ -505,7 +597,7 @@ _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None,
                                                     resp_type='dff', 
                                                     dff_type='residuals_dff', 
                                                     tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
-                                                    axis_handles=None)
+                                                    axis_handles=row2_axs[1])
 
 # fig 6e, maybe evolution of tau vs stimd/reponding probability over time
 # (this expects a list of 2 x 10 axis handles)
@@ -516,7 +608,7 @@ _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None,
                                                     resp_type='dff', 
                                                     dff_type='residuals_dff', 
                                                     tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
-                                                    axis_handles=None)
+                                                    axis_handles=row3_axs[0])
 
 
 # %% ==============================================

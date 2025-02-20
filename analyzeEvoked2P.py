@@ -48,7 +48,7 @@ params = {
         'tau_vs_opto_max_tau'            : 3, # max tau to include a cell in tau_vs_opto
         'prob_plot_same_scale'           : False, # in tau_vs_opto, plot all prob plots on same scale
         'pca_smooth_win_sec'             : 0.3, # window for smoothing in PCA
-        'pca_num_components'             : 20, # number of PCA for trial projections
+        'pca_num_components'             : 10, # number of PCA for trial projections
         'pca_basel_sec'                  : 2, # baseline length for pca trial analysis
         'pca_resp_sec'                   : 8, # post-stim response for pca trial analysis
         }
@@ -138,10 +138,11 @@ def get_prop_responding_neurons(area, params=params, expt_type='standard', resp_
     prop_neurons = list()
     num_neurons  = list()
     num_stimd    = list()
+    
     for this_key in expt_keys:
         this_key['trigdff_param_set_id']           = trigdff_param_set_id
         this_key['trigdff_inclusion_param_set_id'] = trigdff_inclusion_param_set_id
-        prop, num = (twop_opto_analysis.TrigDffSummaryStats & this_key).fetch('prop_significant_rois', 'num_included_rois')
+        prop, num = (twop_opto_analysis.TrigDffSummaryStats & this_key & 'stim_id=1').fetch('prop_significant_rois', 'num_included_rois')
         if  len(prop)>0:  
             prop_neurons.append(prop)
             num_stimd.append(len(num))
@@ -1920,7 +1921,7 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
 
 # ---------------
 # %% plot opto response properties vs tau
-def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt_type='standard', resp_type='dff', dff_type='residuals_dff', tau_vs_opto_comp_summary=None, analysis_results_v1=None, analysis_results_m2=None, axis_handles=None):
+def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt_type='standard', resp_type='dff', dff_type='residuals_dff', tau_vs_opto_comp_summary=None, analysis_results_v1=None, analysis_results_m2=None, axis_handles=None, fig_handle=None):
     
     """
     plot_opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_type = 'residuals_dff', opto_data=None, tau_data=None, axis_handle=None)
@@ -2049,7 +2050,7 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
                     print('need two axis handles for this plot, returning just the stats')
                     return None, None, tau_vs_opto_comp_summary
                 ax  = axis_handles
-                fig = axis_handles[0].get_figure()
+                fig = fig_handle
 
 
 
@@ -2303,6 +2304,8 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
     return ax, fig, tau_vs_opto_comp_summary
                     
 # ---------------
+                    
+# ---------------
 # %% plot taus on FOV
 def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_type='dff', plot_what='peak_mag', prctile_cap=[0,98], signif_only=False, highlight_signif=True, axis_handle=None):
 
@@ -2407,7 +2410,7 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
                 
             iax, fig = plot_fov_heatmap(roi_vals=fvals[:,iF].tolist(), roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
                                         prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=ax[iF], figHandle=fig, \
-                                        cmap='coolwarm', background_cl = 'grey', plot_colorbar=cbar, max_min=[-imax,imax])
+                                        cmap='coolwarm', background_cl = 'k', plot_colorbar=cbar, max_min=[-imax,imax])
             
             iax.set_title('{} sec'.format(faxis[iF]))
             
@@ -2424,7 +2427,7 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
                         continue
                     x = np.median(roi_coords[1][isig]) + 8
                     y = np.median(roi_coords[0][isig]) + 14
-                    iax.text(x,y,'*',color='k',fontsize=8)
+                    iax.text(x,y,'*',color='w',fontsize=8)
                 
             ax[iF] = iax
     else:
@@ -2439,7 +2442,7 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
             
         ax, fig = plot_fov_heatmap(roi_vals=vals.tolist(), roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
                                     prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=ax, figHandle=fig, \
-                                    cmap=cmap_name, background_cl = 'grey',max_min=maxmin)
+                                    cmap=cmap_name, background_cl = 'k',max_min=maxmin)
 
         # add arrow on stim'd neuron
         for istim in stimd_idx:
@@ -2454,7 +2457,7 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
                     continue
                 x = np.median(roi_coords[1][isig]) + 8
                 y = np.median(roi_coords[0][isig]) + 14
-                ax.text(x,y,'*',color='k',fontsize=12)
+                ax.text(x,y,'*',color='w',fontsize=12)
         
     if fig is None:
         fig = axis_handle.get_figure() 
