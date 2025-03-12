@@ -16,6 +16,9 @@ from schemas import spont_timescales
 from schemas import twop_opto_analysis
 from utils.stats import general_stats
 from utils.plotting import plot_fov_heatmap
+from utils.plotting import plot_fov_heatmap_circle
+from utils.plotting import plot_fov_heatmap_blur
+from utils.plotting import highlight_rois
 from analyzeSpont2P import params as tau_params
 import analyzeSpont2P
 
@@ -29,7 +32,7 @@ params = {
         'random_seed'                    : 42, 
         'trigdff_param_set_id_dff'       : 4, 
         'trigdff_param_set_id_deconv'    : 5, 
-        'trigdff_inclusion_param_set_id' : 2,
+        'trigdff_inclusion_param_set_id' : 4,
         'trigdff_inclusion_param_set_id_notiming' : 3, # for some analyses (e.g. inhibition), we may want to relax trough timing constraint
         'trigspeed_param_set_id'         : 1,
         'prop_resp_bins'                 : np.arange(0,.41,.01),
@@ -142,7 +145,7 @@ def get_prop_responding_neurons(area, params=params, expt_type='standard', resp_
     for this_key in expt_keys:
         this_key['trigdff_param_set_id']           = trigdff_param_set_id
         this_key['trigdff_inclusion_param_set_id'] = trigdff_inclusion_param_set_id
-        prop, num = (twop_opto_analysis.TrigDffSummaryStats & this_key & 'stim_id=1').fetch('prop_significant_rois', 'num_included_rois')
+        prop, num = (twop_opto_analysis.TrigDffSummaryStats & this_key).fetch('prop_significant_rois', 'num_included_rois')
         if  len(prop)>0:  
             prop_neurons.append(prop)
             num_stimd.append(len(num))
@@ -2408,9 +2411,9 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
             else:
                 cbar = False
                 
-            iax, fig = plot_fov_heatmap(roi_vals=fvals[:,iF].tolist(), roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
+            iax, fig = plot_fov_heatmap_blur(roi_vals=fvals[:,iF].tolist(), roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
                                         prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=ax[iF], figHandle=fig, \
-                                        cmap='coolwarm', background_cl = 'k', plot_colorbar=cbar, max_min=[-imax,imax])
+                                        cmap='coolwarm', background_cl = 'gray', plot_colorbar=cbar, max_min=[-imax,imax])
             
             iax.set_title('{} sec'.format(faxis[iF]))
             
@@ -2438,11 +2441,11 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
             cmap_name = 'coolwarm'
         else:
             maxmin    = None
-            cmap_name = 'viridis'
+            cmap_name = 'Blues'
             
-        ax, fig = plot_fov_heatmap(roi_vals=vals.tolist(), roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
+        ax, fig = plot_fov_heatmap_blur(roi_vals=vals.tolist(), roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
                                     prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=ax, figHandle=fig, \
-                                    cmap=cmap_name, background_cl = 'k',max_min=maxmin)
+                                    cmap=cmap_name, background_cl = 'gray',max_min=maxmin)
 
         # add arrow on stim'd neuron
         for istim in stimd_idx:
@@ -2451,13 +2454,24 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
             ax.plot(x,y,'kv',ms=6)
         
         # draw a circle around significant neurons 
+        
         if highlight_signif:
             for isig in is_sig.tolist():
                 if isig in stimd_idx:
-                    continue
-                x = np.median(roi_coords[1][isig]) + 8
-                y = np.median(roi_coords[0][isig]) + 14
-                ax.text(x,y,'*',color='w',fontsize=12)
+                    continue  # Skip stimulated ROIs
+                else:
+                # Compute asterisk position
+                    x = np.median(roi_coords[1][isig]) + 8
+                    y = np.median(roi_coords[0][isig]) + 14
+            
+                    # Debugging: Print coordinates to check values
+                    print(f"Adding asterisk at ({x}, {y}) for ROI index {isig}")
+            
+                    # Add text to plot
+                    ax.text(x, y, '*', color='k', fontsize=20)
+        
+        # If using an interactive plot, refresh it
+        plt.draw()
         
     if fig is None:
         fig = axis_handle.get_figure() 

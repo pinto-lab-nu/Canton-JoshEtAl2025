@@ -204,7 +204,7 @@ _,_ = analyzeEvoked2P.plot_resp_fov('V1',
                                      prctile_cap=[0,98], 
                                      signif_only=False, 
                                      highlight_signif=True, 
-                                     axis_handle=row1_axs[2])
+                                     axis_handle=None)
 
 letter_annotation(ax, -.25, 1, 'C')
 
@@ -217,9 +217,30 @@ _, _ = analyzeEvoked2P.plot_resp_fov('M2',
                                      prctile_cap=[0,98], 
                                      signif_only=False, 
                                      highlight_signif=True, 
-                                     axis_handle=row1_axs[3])
+                                     axis_handle=None)
 
 
+_, _ = analyzeEvoked2P.plot_resp_fov('V1', 
+                                      which_sess=fig3_params['sess_eg_m2'], 
+                                      which_stim=fig3_params['stim_eg_m2'], 
+                                      expt_type='standard', 
+                                      resp_type='dff', 
+                                      plot_what='peak_time', 
+                                      prctile_cap=[0,98], 
+                                      signif_only=False, 
+                                      highlight_signif=True, 
+                                      axis_handle=None)
+
+_, _ = analyzeEvoked2P.plot_resp_fov('M2', 
+                                      which_sess=fig3_params['sess_eg_m2'], 
+                                      which_stim=fig3_params['stim_eg_m2'], 
+                                      expt_type='standard', 
+                                      resp_type='dff', 
+                                      plot_what='peak_time', 
+                                      prctile_cap=[0,98], 
+                                      signif_only=False, 
+                                      highlight_signif=True, 
+                                      axis_handle=None)
 
 # issue here is also with the 20th session in M2 data which is NCCR77 2024-01-12
 # made kludgy fix for now in analyzeEvoked2P.get_prop_responding_neurons line 145
@@ -259,11 +280,12 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
                                                       resp_type='dff', 
                                                       which_neurons='non_stimd', 
                                                       response_stats=full_resp_stats, 
-                                                      # axis_handle=None, 
+                                                       axis_handle=None, 
                                                       plot_what='prop_by_dist_of_sig',
                                                       signif_only=True, 
                                                       overlay_non_sig=False,
-                                                      axis_handle=row2_axs[2])
+                                                      # axis_handle=row2_axs[2]
+                                                      )
 
 letter_annotation(row2_axs[2], -.25, 1, 'F')
 
@@ -365,7 +387,6 @@ _, _ = analyzeEvoked2P.plot_resp_fov('M2',
                                      axis_handle=None)
 
 # fig 4b average timecourse
-
 _, _, _, = analyzeEvoked2P.plot_response_grand_average(params=opto_params, 
                                                        expt_type='standard', 
                                                        resp_type='dff', 
@@ -487,16 +508,19 @@ v1_pca_results = analyzeEvoked2P.batch_trial_pca('V1',
                                                 params=opto_params, 
                                                 expt_type='standard', 
                                                 resp_type='dff')
+ 
 m2_pca_results = analyzeEvoked2P.batch_trial_pca('M2', 
                                                 params=opto_params, 
-                                                expt_type='standard+high_trial_count',
-                                                # expt_type='high_trial_count', 
+                                                # expt_type='standard+high_trial_count',
+                                                expt_type='high_trial_count', 
                                                 resp_type='dff')
+
 
 # fig 5a trajectory examples for each area:  
 # [NETO TO DO]
 # area_pca_resluts above already have the trajectories
 # just a matter of writing a method that takes an exaple and plots 3d trajectories
+
 
 # fig 5b baseline x response distance for V1 and M2
 _, _ = analyzeEvoked2P.plot_pca_dist_scatter('V1', 
@@ -515,8 +539,10 @@ _, _ = analyzeEvoked2P.plot_pca_dist_scatter('M2',
                                              trial_pca_results=m2_pca_results, 
                                              axis_handle=None)
 
+
 # fig 5c comparison of V1 and M2 (single-expt distributions of correlations / pvals)
 # [NETO TO DO]
+
 # here I was just thinking to write a simple method to plot simple histograms of 
 # corr coefficients across experiments for the two area and compare statistically
 # these are already collected in area_pca_results['corr_by_expt'] and ['p_by_expt']
