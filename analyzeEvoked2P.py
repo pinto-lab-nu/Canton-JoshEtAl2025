@@ -30,9 +30,9 @@ VM     = connect_to_dj.get_virtual_modules()
 # %% declare default params, inherit general params from tau_params
 params = {
         'random_seed'                    : 42, 
-        'trigdff_param_set_id_dff'       : 4, 
+        'trigdff_param_set_id_dff'       : 2,      #Z-scored etc.
         'trigdff_param_set_id_deconv'    : 5, 
-        'trigdff_inclusion_param_set_id' : 4,
+        'trigdff_inclusion_param_set_id' : 4,    #timing, distance,etc
         'trigdff_inclusion_param_set_id_notiming' : 3, # for some analyses (e.g. inhibition), we may want to relax trough timing constraint
         'trigspeed_param_set_id'         : 1,
         'prop_resp_bins'                 : np.arange(0,.41,.01),
@@ -291,9 +291,11 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
         
         # for some downstream analyses we need to keep track of roi order, so separate by stim
         these_stim_ids = list((twop_opto_analysis.Opto2PSummary & this_key).fetch1('stim_ids'))
+        # these_stim_ids2 = ((twop_opto_analysis.Opto2PSummary & this_key).fetch1('stim_ids'))
+
  
         for this_stim in these_stim_ids:
-            this_key['stim_id'] = this_stim
+            this_key['stim_id'] = this_stim   #Theres was a bug here due to float
             
             # do selecion at the fetching level for speed
             if which_neurons == 'stimd':
@@ -672,6 +674,7 @@ def compare_response_stats(params=params, expt_type='standard', resp_type='dff',
         [prop_sig.append(ii) for ii in list(v1_data['prop_by_dist_of_sig'][iEx])]
         [dists.append(ii) for ii in list(dist_vals)]
         [areas.append(ii) for ii in ['V1']*num_bins]
+        
     for iEx in range(m2_data['num_experiments']):
         [prop_total.append(ii) for ii in list(m2_data['prop_by_dist_vs_total'][iEx])]
         [prop_sig.append(ii) for ii in list(m2_data['prop_by_dist_of_sig'][iEx])]
@@ -1244,7 +1247,7 @@ def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count'
         elif which_neurons == 'non_stimd':
             avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=0').fetch('KEY')
             sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & avg_keys).fetch('is_significant', 'is_included', 'KEY')
-            idx  = np.argwhere(np.array(incl)==1).flatten()
+            idx  = np.argwhere(np.array(incl)==1).flatten()   #need to comment this in, but worried about distance cutoff
             keys = list(np.array(keys)[idx])
             sig  = list(np.array(sig)[idx])
             

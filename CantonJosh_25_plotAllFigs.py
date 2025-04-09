@@ -60,6 +60,12 @@ import analyzeEvoked2P
 # === Fig S2: merfish regression controls ===
 # [LYN INSERT HERE]
 # %%
+import matplotlib as mpl
+new_rc_params = {'text.usetex': False,
+"svg.fonttype": 'none'
+}
+mpl.rcParams.update(new_rc_params)
+
 def letter_annotation(ax, xoffset, yoffset, letter):
  ax.text(xoffset, yoffset, letter, transform=ax.transAxes,
          size=12, weight='bold')
@@ -119,6 +125,65 @@ ax = row3_axs[0]
 clust_stats_v1, tau_diff_mat_v1 = analyzeSpont2P.clustering_by_tau(v1_taus, v1_centr, v1_rec_ids, params=tau_params)
 clust_stats_m2, tau_diff_mat_m2 = analyzeSpont2P.clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, params=tau_params)
 cax = analyzeSpont2P.plot_clustering_comp(v1_clust=clust_stats_v1, m2_clust=clust_stats_m2, params=tau_params, axis_handle=ax)
+ax.text(-0.1, 1.05, 'D', transform=ax.transAxes, fontsize=12, fontweight='bold', va='bottom', ha='left')
+
+# %% =========================================
+# ===== Fig 2: spontaneous 2p timescales =====
+# ============================================
+fig = plt.figure(figsize=(8, 10))
+
+# Creating subfigures for each row
+(row1fig, row2fig, row3fig) = fig.subfigures(3, 1, height_ratios=[1, 1, 1])
+
+# Splitting the second-row subfigure into two panels
+(fig_row2left, fig_row2right) = row2fig.subfigures(1, 2, wspace=0.08, width_ratios=(1, 1))
+
+# Creating subplots within each row with fixed width ratios
+row1_axs = row1fig.subplots(1, 2, gridspec_kw={'width_ratios': [1.2, 1]})
+row2_axs = row2fig.subplots(1, 2, gridspec_kw={'width_ratios': [1.2, 1]})
+row3_axs = row3fig.subplots(1, 2, gridspec_kw={'width_ratios': [1.2, 1]})
+
+# Adjusting layout for consistent alignment
+left_margin = 0.12  
+right_margin = 0.88  # Ensuring right edges align
+
+row1fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspace=0.25)
+row2fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspace=0.25)
+row3fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspace=0.25)
+
+# Analyzing data
+v1_taus, v1_keys, v1_total = analyzeSpont2P.get_all_tau('V1', params=tau_params, dff_type='residuals_dff')
+m2_taus, m2_keys, m2_total = analyzeSpont2P.get_all_tau('M2', params=tau_params, dff_type='residuals_dff')
+
+# Fig 2a: FOV and cranial window examples with raw traces
+ax = row1_axs[0]
+ax.text(-0.1, 1.05, 'A', transform=ax.transAxes, fontsize=12, fontweight='bold', va='bottom', ha='left')
+ax.set_aspect('auto')
+
+# Fig 2b: 2p tau summary
+ax = row1_axs[1]
+tau_stats, ax_tau = analyzeSpont2P.plot_area_tau_comp(v1_taus=v1_taus, m2_taus=m2_taus, axis_handle=None, params=tau_params)
+tau_stats['V1_total_num_cells'] = v1_total
+tau_stats['M2_total_num_cells'] = m2_total
+ax.text(-0.1, 1.05, 'B', transform=ax.transAxes, fontsize=12, fontweight='bold', va='bottom', ha='left')
+
+# Fig 2c: Clustering FOV example
+v1_centr, v1_rec_ids = analyzeSpont2P.get_centroids_by_rec(v1_keys)
+m2_centr, m2_rec_ids = analyzeSpont2P.get_centroids_by_rec(m2_keys)
+
+ax = row2_axs[0]
+fov_v1 = analyzeSpont2P.plot_tau_fov(v1_keys, v1_rec_ids, which_sess=9, do_zscore=False, prctile_cap=[0, 95], axis_handle=None, fig_handle=fig,max_min=[0.25,3],cmap='Blues')
+ax.text(-0.1, 1.05, 'C', transform=ax.transAxes, fontsize=12, fontweight='bold', va='bottom', ha='left')
+
+ax = row2_axs[1]
+# for i in range(15,30):
+#     fov_m2 = analyzeSpont2P.plot_tau_fov(m2_keys, m2_rec_ids, which_sess=i, do_zscore=False, prctile_cap=[0, 95], axis_handle=None, fig_handle=fig)
+fov_m2 = analyzeSpont2P.plot_tau_fov(m2_keys, m2_rec_ids, which_sess=19, do_zscore=False, prctile_cap=[0, 95], axis_handle=None, fig_handle=fig,max_min=[0.25,6],cmap='viridis')
+# Fig 2d: Clustering
+ax = row3_axs[0]
+clust_stats_v1, tau_diff_mat_v1 = analyzeSpont2P.clustering_by_tau(v1_taus, v1_centr, v1_rec_ids, params=tau_params)
+clust_stats_m2, tau_diff_mat_m2 = analyzeSpont2P.clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, params=tau_params)
+cax = analyzeSpont2P.plot_clustering_comp(v1_clust=clust_stats_v1, m2_clust=clust_stats_m2, params=tau_params, axis_handle=None)
 ax.text(-0.1, 1.05, 'D', transform=ax.transAxes, fontsize=12, fontweight='bold', va='bottom', ha='left')
 
 
@@ -196,6 +261,7 @@ letter_annotation(ax, -.25, 1, 'B')
 
 ax = row1_axs[2]
 _,_ = analyzeEvoked2P.plot_resp_fov('V1', 
+
                                      which_sess=fig3_params['sess_eg_v1'], 
                                      which_stim=fig3_params['stim_eg_v1'], 
                                      expt_type='standard', 
@@ -282,7 +348,7 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
                                                       response_stats=full_resp_stats, 
                                                        axis_handle=None, 
                                                       plot_what='prop_by_dist_of_sig',
-                                                      signif_only=True, 
+                                                      signif_only=False, 
                                                       overlay_non_sig=False,
                                                       # axis_handle=row2_axs[2]
                                                       )
@@ -364,33 +430,56 @@ m2_avgs = analyzeEvoked2P.get_avg_trig_responses('M2', params=opto_params, expt_
 
 # fig 4a roi-wise dff timecourse heatmaps
 # >>>>>>>>>>> still need to pick best which_sess and which_stim
+# _, _ = analyzeEvoked2P.plot_resp_fov('V1', 
+#                                      which_sess=fig4_params['sess_eg_v1'], 
+#                                      which_stim=fig4_params['stim_eg_v1'], 
+#                                      expt_type='standard', 
+#                                      resp_type='dff', 
+#                                      plot_what='full_seq', 
+#                                      prctile_cap=[0,98], 
+#                                      signif_only=False, 
+#                                      highlight_signif=True, 
+#                                      axis_handle=None)
+
+# _, _ = analyzeEvoked2P.plot_resp_fov('M2', 
+#                                      which_sess=fig4_params['sess_eg_m2'], 
+#                                      which_stim=fig4_params['stim_eg_m2'], 
+#                                      expt_type='standard', 
+#                                      resp_type='dff', 
+#                                      plot_what='full_seq', 
+#                                      prctile_cap=[0,98], 
+#                                      signif_only=False, 
+#                                      highlight_signif=True, 
+#                                      axis_handle=None)
+
+
 _, _ = analyzeEvoked2P.plot_resp_fov('V1', 
-                                     which_sess=fig4_params['sess_eg_v1'], 
-                                     which_stim=fig4_params['stim_eg_v1'], 
-                                     expt_type='standard', 
-                                     resp_type='dff', 
-                                     plot_what='full_seq', 
-                                     prctile_cap=[0,98], 
-                                     signif_only=False, 
-                                     highlight_signif=True, 
-                                     axis_handle=None)
+                                      which_sess=fig3_params['sess_eg_m2'], 
+                                      which_stim=fig3_params['stim_eg_m2'], 
+                                      expt_type='standard', 
+                                      resp_type='dff', 
+                                      plot_what='peak_time', 
+                                      prctile_cap=[0,98], 
+                                      signif_only=False, 
+                                      highlight_signif=True, 
+                                      axis_handle=None)
 
 _, _ = analyzeEvoked2P.plot_resp_fov('M2', 
-                                     which_sess=fig4_params['sess_eg_m2'], 
-                                     which_stim=fig4_params['stim_eg_m2'], 
-                                     expt_type='standard', 
-                                     resp_type='dff', 
-                                     plot_what='full_seq', 
-                                     prctile_cap=[0,98], 
-                                     signif_only=False, 
-                                     highlight_signif=True, 
-                                     axis_handle=None)
+                                      which_sess=fig3_params['sess_eg_m2'], 
+                                      which_stim=fig3_params['stim_eg_m2'], 
+                                      expt_type='standard', 
+                                      resp_type='dff', 
+                                      plot_what='peak_time', 
+                                      prctile_cap=[0,98], 
+                                      signif_only=False, 
+                                      highlight_signif=True, 
+                                      axis_handle=None)
 
 # fig 4b average timecourse
 _, _, _, = analyzeEvoked2P.plot_response_grand_average(params=opto_params, 
                                                        expt_type='standard', 
                                                        resp_type='dff', 
-                                                       signif_only=True, 
+                                                       signif_only=False, 
                                                        which_neurons='non_stimd', 
                                                        v1_data=v1_avgs, 
                                                        m2_data=m2_avgs,
@@ -403,7 +492,7 @@ _, _, _, = analyzeEvoked2P.plot_avg_response_heatmap('V1',
                                                      params=opto_params, 
                                                      expt_type='standard', 
                                                      resp_type='dff', 
-                                                     signif_only=True, 
+                                                     signif_only=False, 
                                                      which_neurons='non_stimd', 
                                                      avg_data=v1_avgs, 
                                                      # axis_handle=row2_axs[0],
@@ -415,8 +504,8 @@ _, _, _, = analyzeEvoked2P.plot_avg_response_heatmap('M2',
                                                      params=opto_params, 
                                                      expt_type='standard', 
                                                      resp_type='dff', 
-                                                     signif_only=True, 
-                                                     which_neurons='non_stimd', 
+                                                     signif_only=False, 
+                                                     which_neurons='all', 
                                                      avg_data=m2_avgs, 
                                                      # axis_handle=row2_axs[1],
                                                      axis_handle=None,
@@ -447,7 +536,7 @@ _, _, xval_results = analyzeEvoked2P.plot_trial_xval(area='M2',
                                                      params=opto_params, 
                                                      expt_type='high_trial_count', 
                                                      resp_type='dff', 
-                                                     signif_only=False, 
+                                                     signif_only=True, 
                                                      which_neurons='non_stimd', 
                                                      # axis_handle=row3_axs[0],
                                                      axis_handle=None,
@@ -607,7 +696,7 @@ _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None,
                                                     resp_type='dff', 
                                                     dff_type='residuals_dff', 
                                                     tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
-                                                    axis_handles=row2_axs[0])
+                                                    axis_handles=None)
 
 # fig 6c maybe, peak width: I forgot to write that into the dj tables. 
 # will need to be coded posthoc and added as a category to:
@@ -623,7 +712,7 @@ _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None,
                                                     resp_type='dff', 
                                                     dff_type='residuals_dff', 
                                                     tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
-                                                    axis_handles=row2_axs[1])
+                                                    axis_handles=None)
 
 # fig 6e, maybe evolution of tau vs stimd/reponding probability over time
 # (this expects a list of 2 x 10 axis handles)
@@ -634,7 +723,7 @@ _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None,
                                                     resp_type='dff', 
                                                     dff_type='residuals_dff', 
                                                     tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
-                                                    axis_handles=row3_axs[0])
+                                                    axis_handles=None)
 
 
 # %% ==============================================

@@ -13,7 +13,7 @@ from schemas import twop_opto_analysis
 from utils.stats import general_stats
 from utils.plotting import plot_pval_circles
 from utils.plotting import plot_fov_heatmap
-
+from utils.plotting import plot_fov_heatmap_blur
 import time
 
 # connect to dj 
@@ -315,6 +315,7 @@ def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None
     # plot
     if axis_handle is None:
         plt.figure()
+        # plt.axis('square')
         ax = plt.gca()
     else:
         ax = axis_handle
@@ -328,14 +329,17 @@ def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None
     ax.plot(tau_stats['M2_median'],0.03,'v',color=params['general_params']['M2_cl'])
     ax.text(.18,.8,'p = {:1.2g}'.format(tau_stats['pval']))
 
-    ax.set_xscale('log')
+    # ax.set_xscale('log')
     ax.set_xlabel('$\\tau$ (sec)')
     ax.set_ylabel('Prop. ' + n_is)        
     ax.legend()
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
+    ax.set_xlim((0,5))
+    plt.ylim((0,1))
+    plt.xlim((0,6))
+    # ax.set_aspect('equal')
     
-
     return tau_stats, ax 
 
 # ---------------
@@ -564,7 +568,7 @@ def plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axis_handl
 
 # ---------------
 # %% plot taus on FOV
-def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_zscore_taus'], prctile_cap=[0,95], axis_handle=None, fig_handle=None):
+def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_zscore_taus'], prctile_cap=[0,95], axis_handle=None, fig_handle=None,max_min=None,cmap=None):
 
     """
     plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_zscore_taus'], prctile_cap=[0,95], axis_handle=None, fig_handle=None)
@@ -583,6 +587,8 @@ def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_
     ax: axis handle of plot
     fig: figure handle of plot
     """
+    if cmap==None:
+        cmap='rocket'
     
     # fetch roi coordinates for desired session
     idx  = np.argwhere(sess_ids == which_sess)
@@ -602,8 +608,9 @@ def plot_tau_fov(tau_keys, sess_ids, which_sess=0, do_zscore=params['clustering_
         lbl  = '$\\tau$ (sec)'
     
     # send to generic function
-    ax, fig = plot_fov_heatmap(roi_vals=taus, roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
-                              prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=axis_handle, figHandle=fig_handle,plot_colorbar=True)
+    ax, fig = plot_fov_heatmap_blur(roi_vals=taus, roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
+                              prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=axis_handle, figHandle=fig_handle,plot_colorbar=True,
+                              max_min=max_min,cmap=cmap)
         
    
     
