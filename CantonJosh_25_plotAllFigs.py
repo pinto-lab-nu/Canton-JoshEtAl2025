@@ -193,7 +193,7 @@ ax.text(-0.1, 1.05, 'D', transform=ax.transAxes, fontsize=12, fontweight='bold',
 
 plt.figure()
 ax1 = plt.subplot(221)
-ax2 = plt.subplot(222)
+ax2 = plt.subplot(222)♣
 # === Fig S3: taus controls ===
 # taus without glm and on deconvolved data
 tau_stats_noregr, _ = analyzeSpont2P.plot_area_tau_comp(axis_handle = ax1, params = tau_params, dff_type = 'noGlm_dff')
@@ -563,6 +563,7 @@ _, _, _, = analyzeEvoked2P.plot_avg_response_heatmap('V1',
                                                      axis_handle=None, 
                                                      fig_handle=None, 
                                                      norm_type='minmax')
+
 _, _, _, = analyzeEvoked2P.plot_avg_response_heatmap('M2', 
                                                      params=opto_params, 
                                                      expt_type='standard', 
@@ -640,13 +641,10 @@ _, _ = analyzeEvoked2P.plot_pca_dist_scatter('M2',
 # ===== Fig 6: responses vs. spont timescales =====
 # =================================================
 
-
 fig = plt.figure(figsize=(8, 10))
 
 # Creating subfigures for each row
 (row1fig, row2fig, row3fig) = fig.subfigures(3, 1, height_ratios=[1, 1, 1])
-
-
 
 # Creating subplots within each row with fixed width ratios
 row1_axs = row1fig.subplots(1, 2, gridspec_kw={'width_ratios': [1.2, 1]})
@@ -666,6 +664,8 @@ row3fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspac
 
 # related to the timing differences in fig 4 (compared to previous versions):
 # no differences here, given that most cells peak very late. need to figure this out 
+
+
 # fig 6a peak time vs tau
 _, _, tau_vs_opto_comp_summary = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None, 
                                                                              plot_what='peak_time', 
@@ -698,10 +698,13 @@ _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None,
                                                     tau_vs_opto_comp_summary=tau_vs_opto_comp_summary, 
                                                     axis_handles=None)
 
+
 # fig 6c maybe, peak width: I forgot to write that into the dj tables. 
 # will need to be coded posthoc and added as a category to:
 #    - analyzeEvoked2P.tau_vs_opto_comp_summary
 #    - analyzeEvoked2P.opto_vs_tau
+
+
 
 # fig 6d overall tau vs stimd/reponding probability
 # (this expects a list of two axis handles)

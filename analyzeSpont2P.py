@@ -23,7 +23,7 @@ VM     = connect_to_dj.get_virtual_modules()
 params = {
         'random_seed'               : 42, 
         'max_tau'                   : None,
-        'min_tau'                   : None,
+        'min_tau'                   : 0.1,
         'tau_hist_bins'             : np.arange(0,10.2,.2),
         'tau_hist_bins_xcorr'       : np.arange(0,20.2,.2),
         'tau_hist_bins_eigen'       : np.arange(0,101,1),
@@ -100,12 +100,65 @@ def get_single_sess_keys(area, params=params, dff_type='residuals_dff'):
 
 # ---------------
 # %% retrieve all taus for a given area and set of parameters, from dj database
-def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
+# def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
     
+#     """
+#     get_all_tau(area, params=params, dff_type='residuals_dff')
+#     fetches timescales for every neuron in a given area
+    
+#     INPUT:
+#     area: 'V1' or 'M2'
+#     params: dictionary as the one on top of this file, used to determine
+#             mice to look for and which parameter sets correspond to desired
+#             dff_type
+#     dff_type: 'residuals_dff' for residuals of running linear regression (default)
+#               'residuals_deconv' for residuals of running Poisson GLM on deconvolved traces
+#               'noGlm_dff' for plain dff traces
+              
+#     OUTPUT:
+#     taus: vector with taus that pass inclusion criteria 
+#           in params['general_params']['twop_inclusion_param_set_id']
+#     keys: list of keys corresponding to each tau
+#     total_soma: total number of somas regardless of inclusion criteria
+#     """
+    
+#     start_time      = time.time()
+#     print('Fetching all taus for {}...'.format(area))
+        
+#     # get primary keys for query
+#     mice              = params['general_params']['{}_mice'.format(area)]
+#     corr_param_set_id = params['general_params']['corr_param_id_{}'.format(dff_type)]
+#     tau_param_set_id  = params['general_params']['tau_param_set_id']
+#     incl_set_id       = params['general_params']['twop_inclusion_param_set_id']
+    
+#     # get relavant keys, filtering for inclusion for speed
+#     keys = list()
+#     for mouse in mice:
+#         primary_key = {'subject_fullname': mouse, 'corr_param_set_id': corr_param_set_id, 'tau_param_set_id': tau_param_set_id, 'twop_inclusion_param_set_id': incl_set_id}
+#         keys.append((spont_timescales.TwopTauInclusion & primary_key & 'is_good_tau_roi=1').fetch('KEY'))
+#     keys    = [entries for subkeys in keys for entries in subkeys] # flatten
+    
+#     # retrieve taus 
+#     taus    = np.array((spont_timescales.TwopTau & keys).fetch('tau'))
+#     taus = taus[taus > 0.1]
+
+#     # figure out how many of those are somas
+#     seg_keys   = VM['twophoton'].Segmentation2P & keys
+#     is_soma    = np.array((VM['twophoton'].Roi2P & seg_keys).fetch('is_soma'))
+#     total_soma = np.sum(is_soma)
+    
+#     end_time = time.time()
+#     print("     done after {: 1.1f} min".format((end_time-start_time)/60))
+    
+#     return taus, keys, total_soma
+# %% retrieve all taus for a given area and set of parameters, from dj database
+# added cutoff for tau
+
+def get_all_tau(area, params=params, dff_type='residuals_dff'):
     """
     get_all_tau(area, params=params, dff_type='residuals_dff')
     fetches timescales for every neuron in a given area
-    
+
     INPUT:
     area: 'V1' or 'M2'
     params: dictionary as the one on top of this file, used to determine
@@ -114,41 +167,50 @@ def get_all_tau(area, params = params, dff_type = 'residuals_dff'):
     dff_type: 'residuals_dff' for residuals of running linear regression (default)
               'residuals_deconv' for residuals of running Poisson GLM on deconvolved traces
               'noGlm_dff' for plain dff traces
-              
+
     OUTPUT:
     taus: vector with taus that pass inclusion criteria 
           in params['general_params']['twop_inclusion_param_set_id']
     keys: list of keys corresponding to each tau
     total_soma: total number of somas regardless of inclusion criteria
     """
-    
-    start_time      = time.time()
+
+    start_time = time.time()
     print('Fetching all taus for {}...'.format(area))
-        
+
     # get primary keys for query
-    mice              = params['general_params']['{}_mice'.format(area)]
+    mice = params['general_params']['{}_mice'.format(area)]
     corr_param_set_id = params['general_params']['corr_param_id_{}'.format(dff_type)]
-    tau_param_set_id  = params['general_params']['tau_param_set_id']
-    incl_set_id       = params['general_params']['twop_inclusion_param_set_id']
-    
-    # get relavant keys, filtering for inclusion for speed
+    tau_param_set_id = params['general_params']['tau_param_set_id']
+    incl_set_id = params['general_params']['twop_inclusion_param_set_id']
+
+    # get relevant keys, filtering for inclusion for speed
     keys = list()
     for mouse in mice:
-        primary_key = {'subject_fullname': mouse, 'corr_param_set_id': corr_param_set_id, 'tau_param_set_id': tau_param_set_id, 'twop_inclusion_param_set_id': incl_set_id}
+        primary_key = {
+            'subject_fullname': mouse,
+            'corr_param_set_id': corr_param_set_id,
+            'tau_param_set_id': tau_param_set_id,
+            'twop_inclusion_param_set_id': incl_set_id
+        }
         keys.append((spont_timescales.TwopTauInclusion & primary_key & 'is_good_tau_roi=1').fetch('KEY'))
-    keys    = [entries for subkeys in keys for entries in subkeys] # flatten
-    
-    # retrieve taus 
-    taus    = np.array((spont_timescales.TwopTau & keys).fetch('tau'))
+    keys = [entry for sublist in keys for entry in sublist]  # flatten
+
+    # fetch taus and associated keys, then filter for tau > 0.1
+    tau_entries = (spont_timescales.TwopTau & keys).fetch('tau', 'KEY')
+    taus_all, keys_all = tau_entries
+    mask = taus_all > 0.1
+    taus = taus_all[mask]
+    keys = [keys_all[i] for i in np.where(mask)[0]]
 
     # figure out how many of those are somas
-    seg_keys   = VM['twophoton'].Segmentation2P & keys
-    is_soma    = np.array((VM['twophoton'].Roi2P & seg_keys).fetch('is_soma'))
+    seg_keys = VM['twophoton'].Segmentation2P & keys
+    is_soma = np.array((VM['twophoton'].Roi2P & seg_keys).fetch('is_soma'))
     total_soma = np.sum(is_soma)
-    
+
     end_time = time.time()
-    print("     done after {: 1.1f} min".format((end_time-start_time)/60))
-    
+    print("     done after {: 1.1f} min".format((end_time - start_time) / 60))
+
     return taus, keys, total_soma
 
 # ---------------
@@ -186,6 +248,7 @@ def get_tau_from_roi_keys(roi_keys, params = params, dff_type = 'residuals_dff',
     # retrieve taus and inclusion
     taus    = np.array((spont_timescales.TwopTau & roi_keys & param_key).fetch('tau'))
     is_good = np.array((spont_timescales.TwopTauInclusion & roi_keys & param_key).fetch('is_good_tau_roi'))
+    
 
     taus_dict = {
                 'roi_keys'    : roi_keys,
@@ -193,13 +256,74 @@ def get_tau_from_roi_keys(roi_keys, params = params, dff_type = 'residuals_dff',
                 'is_good_tau' : is_good,
                 'params'      : deepcopy(params),
                 'dff_type'    : dff_type
-                 }
+                  }
     
     if verbose:
         end_time = time.time()
         print("     done after {: 1.1f} min".format((end_time-start_time)/60))
     
     return taus_dict
+# # %%
+# def get_tau_from_roi_keys(roi_keys, params=params, dff_type='residuals_dff', verbose=True):
+#     """
+#     get_tau_from_roi_keys(roi_keys, params=params, dff_type='residuals_dff')
+#     fetches timescales for every neuron for a list of roi keys
+
+#     INPUT:
+#     roi_keys: list of roi segmentation keys
+#     params: dictionary as the one on top of this file, used to determine
+#             mice to look for and which parameter sets correspond to desired
+#             dff_type
+#     dff_type: 'residuals_dff' for residuals of running linear regression (default)
+#               'residuals_deconv' for residuals of running Poisson GLM on deconvolved traces
+#               'noGlm_dff' for plain dff traces
+#     verbose: whether to print progress (default is True)
+
+#     OUTPUT:
+#     taus_dict: dictionary with taus and inclusion for each roi
+#     """
+
+#     if verbose:
+#         start_time = time.time()
+#         print('Fetching all taus from roi keys...')
+
+#     # get primary keys for query
+#     corr_param_set_id = params['general_params']['corr_param_id_{}'.format(dff_type)]
+#     tau_param_set_id = params['general_params']['tau_param_set_id']
+#     incl_set_id = params['general_params']['twop_inclusion_param_set_id']
+#     param_key = {
+#         'corr_param_set_id': corr_param_set_id,
+#         'tau_param_set_id': tau_param_set_id,
+#         'twop_inclusion_param_set_id': incl_set_id
+#     }
+
+#     # retrieve taus and associated keys
+#     tau_entries = (spont_timescales.TwopTau & roi_keys & param_key).fetch('tau', 'KEY')
+#     taus_all, keys_all = tau_entries
+#     mask = taus_all > 0.1
+#     taus = taus_all[mask]
+#     filtered_keys = [keys_all[i] for i in np.where(mask)[0]]
+
+#     # retrieve inclusion only for filtered keys
+#     is_good = np.array((spont_timescales.TwopTauInclusion & filtered_keys & param_key).fetch('is_good_tau_roi'))
+
+#     taus_dict = {
+#         'roi_keys': filtered_keys,
+#         'taus': taus,
+#         'is_good_tau': is_good,
+#         'params': deepcopy(params),
+#         'dff_type': dff_type
+#     }
+
+#     if verbose:
+#         end_time = time.time()
+#         print("     done after {: 1.1f} min".format((end_time - start_time) / 60))
+
+#     return taus_dict
+
+
+
+
 
 # ---------------
 # %% retrieve all x-corr taus for a given area and set of parameters, from dj database

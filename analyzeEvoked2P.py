@@ -30,15 +30,15 @@ VM     = connect_to_dj.get_virtual_modules()
 # %% declare default params, inherit general params from tau_params
 params = {
         'random_seed'                    : 42, 
-        'trigdff_param_set_id_dff'       : 2,      #Z-scored etc.
+        'trigdff_param_set_id_dff'       : 4,      #Z-scored etc.
         'trigdff_param_set_id_deconv'    : 5, 
-        'trigdff_inclusion_param_set_id' : 4,    #timing, distance,etc
+        'trigdff_inclusion_param_set_id' : 9,    #timing, distance,etc
         'trigdff_inclusion_param_set_id_notiming' : 3, # for some analyses (e.g. inhibition), we may want to relax trough timing constraint
         'trigspeed_param_set_id'         : 1,
         'prop_resp_bins'                 : np.arange(0,.41,.01),
         'dist_bins_resp_prob'            : np.arange(30,480,50),
         'response_magnitude_bins'        : np.arange(-2.5,7.75,.25),
-        'tau_bins'                       : np.arange(0,3.5,.5),
+        'tau_bins'                       : np.arange(0,3,.5),
         'tau_by_time_bins'               : np.arange(0,3,.5),
         'response_time_bins'             : np.arange(0,3.1,.1),
         'fov_seq_time_bins'              : np.arange(0,12,2),
@@ -1716,7 +1716,7 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
     
     # get data for opto. this must contain both stimd and non-stimd cells
     if opto_data is None:
-        opto_data = get_full_resp_stats(area=area, params=params, expt_type=expt_type, resp_type=resp_type, which_neurons='all')
+        opto_data = get_full_resp_stats(area=area, params=params, expt_type=expt_type, resp_type=resp_type, which_neurons='non_stimd')
     
     # here we need to be clunky and loop to enforce correspondence between opto and tau data
     if tau_data is None:
@@ -1735,6 +1735,9 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
                 this_stim = np.logical_and(this_sess,stim_ids==stim)
                 keys = list(np.array(opto_data['roi_keys'])[this_stim])
                 td  = analyzeSpont2P.get_tau_from_roi_keys(keys, params=params, dff_type=dff_type, verbose=False)
+                
+                
+                
                 [taus.append(t) for t in td['taus']]
                 [is_good_tau.append(ig) for ig in td['is_good_tau']]
                 
