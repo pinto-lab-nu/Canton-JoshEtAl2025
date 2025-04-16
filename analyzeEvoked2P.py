@@ -47,7 +47,7 @@ params = {
         'xval_recompute_timing'          : True, # set to true will recompute peak (com) for every xval iteration, false just averages existing peak times
         'xval_timing_metric'             : 'peak', # 'peak' or 'com'. peak is time of peak or trough
         'xval_num_iter'                  : 1000, # number if iters in trial_xval
-        'tau_vs_opto_do_prob_by_expt'    : False, # in tau_vs_opto, do probability by experiment (vs overall)
+        'tau_vs_opto_do_prob_by_expt'    : True, # in tau_vs_opto, do probability by experiment (vs overall)
         'tau_vs_opto_max_tau'            : 3, # max tau to include a cell in tau_vs_opto
         'prob_plot_same_scale'           : False, # in tau_vs_opto, plot all prob plots on same scale
         'pca_smooth_win_sec'             : 0.3, # window for smoothing in PCA
@@ -1716,7 +1716,7 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
     
     # get data for opto. this must contain both stimd and non-stimd cells
     if opto_data is None:
-        opto_data = get_full_resp_stats(area=area, params=params, expt_type=expt_type, resp_type=resp_type, which_neurons='non_stimd')
+        opto_data = get_full_resp_stats(area=area, params=params, expt_type=expt_type, resp_type=resp_type, which_neurons='all')
     
     # here we need to be clunky and loop to enforce correspondence between opto and tau data
     if tau_data is None:
@@ -1741,6 +1741,8 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
                 [taus.append(t) for t in td['taus']]
                 [is_good_tau.append(ig) for ig in td['is_good_tau']]
                 
+                
+        is_good_tau = np.where(np.array(taus) < 0.2, 0, is_good_tau)
         tau_data = {'taus':np.array(taus).flatten(),'is_good_tau':np.array(is_good_tau).flatten()}
         
         end_time = time.time()
@@ -1774,6 +1776,7 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
     peakm_by_tau_avg  = np.zeros(num_bins)
     peakm_by_tau_sem  = np.zeros(num_bins)
     peakm_by_tau_expt = [None]*num_bins
+    
     for iBin in range(num_bins):
         # idx     = np.logical_and(is_good_tau==1,np.logical_and(tau>bins[iBin], tau<=bins[iBin+1]))
         idx     = np.logical_and(tau>bins[iBin], tau<=bins[iBin+1])

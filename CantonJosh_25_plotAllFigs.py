@@ -668,12 +668,23 @@ row3fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspac
 
 # fig 6a peak time vs tau
 _, _, tau_vs_opto_comp_summary = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None, 
+                                                                              plot_what='peak_time', 
+                                                                              params=opto_params, 
+                                                                              expt_type='standard', 
+                                                                              resp_type='dff', 
+                                                                              dff_type='residuals_dff', 
+                                                                              tau_vs_opto_comp_summary=None, 
+                                                                              axis_handles=None,
+                                                                              fig_handle=fig)
+
+
+_, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None, 
                                                                              plot_what='peak_time', 
                                                                              params=opto_params, 
                                                                              expt_type='standard', 
                                                                              resp_type='dff', 
                                                                              dff_type='residuals_dff', 
-                                                                             tau_vs_opto_comp_summary=None, 
+                                                                             tau_vs_opto_comp_summary= tau_vs_opto_comp_summary, 
                                                                              axis_handles=None,
                                                                              fig_handle=fig)
 

@@ -263,6 +263,8 @@ def get_tau_from_roi_keys(roi_keys, params = params, dff_type = 'residuals_dff',
         print("     done after {: 1.1f} min".format((end_time-start_time)/60))
     
     return taus_dict
+
+
 # # %%
 # def get_tau_from_roi_keys(roi_keys, params=params, dff_type='residuals_dff', verbose=True):
 #     """
