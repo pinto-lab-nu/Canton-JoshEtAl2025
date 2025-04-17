@@ -32,14 +32,14 @@ params = {
         'random_seed'                    : 42, 
         'trigdff_param_set_id_dff'       : 4,      #Z-scored etc.
         'trigdff_param_set_id_deconv'    : 5, 
-        'trigdff_inclusion_param_set_id' : 9,    #timing, distance,etc
+        'trigdff_inclusion_param_set_id' : 6,    #timing, distance,etc
         'trigdff_inclusion_param_set_id_notiming' : 3, # for some analyses (e.g. inhibition), we may want to relax trough timing constraint
         'trigspeed_param_set_id'         : 1,
         'prop_resp_bins'                 : np.arange(0,.41,.01),
         'dist_bins_resp_prob'            : np.arange(30,480,50),
         'response_magnitude_bins'        : np.arange(-2.5,7.75,.25),
         'tau_bins'                       : np.arange(0,3,.5),
-        'tau_by_time_bins'               : np.arange(0,3,.5),
+        'tau_by_time_bins'               : np.arange(0,5,.5),
         'response_time_bins'             : np.arange(0,3.1,.1),
         'fov_seq_time_bins'              : np.arange(0,12,2),
         'expression_level_type'          : 'intensity_zscore_stimdcells', # which expression level normalization to use 
@@ -47,7 +47,7 @@ params = {
         'xval_recompute_timing'          : True, # set to true will recompute peak (com) for every xval iteration, false just averages existing peak times
         'xval_timing_metric'             : 'peak', # 'peak' or 'com'. peak is time of peak or trough
         'xval_num_iter'                  : 1000, # number if iters in trial_xval
-        'tau_vs_opto_do_prob_by_expt'    : True, # in tau_vs_opto, do probability by experiment (vs overall)
+        'tau_vs_opto_do_prob_by_expt'    : False, # in tau_vs_opto, do probability by experiment (vs overall)
         'tau_vs_opto_max_tau'            : 3, # max tau to include a cell in tau_vs_opto
         'prob_plot_same_scale'           : False, # in tau_vs_opto, plot all prob plots on same scale
         'pca_smooth_win_sec'             : 0.3, # window for smoothing in PCA
@@ -1693,6 +1693,7 @@ def plot_response_grand_average(params=params, expt_type='standard', resp_type='
 
 # ---------------
 # %% analyze opto response probability vs tau
+
 def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_type='residuals_dff', opto_data=None, tau_data=None):
     
     """
@@ -1742,7 +1743,10 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
                 [is_good_tau.append(ig) for ig in td['is_good_tau']]
                 
                 
-        is_good_tau = np.where(np.array(taus) < 0.2, 0, is_good_tau)
+        # is_good_tau = np.where(np.array(taus) > -0.2, 1, is_good_tau)
+        # is_good_tau = np.where(np.array(taus) > -0.2, 1, is_good_tau)
+
+        
         tau_data = {'taus':np.array(taus).flatten(),'is_good_tau':np.array(is_good_tau).flatten()}
         
         end_time = time.time()
@@ -1762,6 +1766,7 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
     # select out very long taus if desired
     if params['tau_vs_opto_max_tau'] is not None:
         is_good_tau[tau>params['tau_vs_opto_max_tau']] = 0
+        
         
     # do median split on tau
     tau_th      = np.median(tau[is_good_tau==1])
@@ -1797,6 +1802,8 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
         peakt_by_tau_expt[iBin] = peaks
         peakm_by_tau_expt[iBin] = mags
     
+    
+    # This is where Probability calc start
     # get responding stats by stimd and non-stimd tau, overall and across time
     unique_sess = list(np.unique(sess_ids))
     ct_short    = 0
@@ -1804,11 +1811,21 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
     tau_mat_counts       = np.zeros((2,2))
     tau_mat              = np.zeros((2,2))
     tau_t_bins           = params['tau_by_time_bins']
-    tau_mat_t_counts     = [np.zeros((2,2))]*(len(tau_t_bins)-1)
-    tau_mat_t            = [np.zeros((2,2))]*(len(tau_t_bins)-1) # normed by cells in each bin
-    tau_mat_t_by_overall = [np.zeros((2,2))]*(len(tau_t_bins)-1) # normed by overall responding cells
-    t_counts             = [np.zeros(2)]*(len(tau_t_bins)-1)
+    
+    ### NO THESE ARE ALL INITIALIZED AS shared References!! Avoid in future will lead to each array being exactly 
+    # the same even after setting new values
+    
+    # tau_mat_t_counts     = [np.zeros((2,2))]*(len(tau_t_bins)-1)
+    # tau_mat_t            = [np.zeros((2,2))]*(len(tau_t_bins)-1) # normed by cells in each bin
+    # tau_mat_t_by_overall = [np.zeros((2,2))]*(len(tau_t_bins)-1) # normed by overall responding cells
+    # t_counts             = [np.zeros(2)]*(len(tau_t_bins)-1)   
 
+    tau_mat_t_counts     = [np.zeros((2,2)) for _ in range(len(tau_t_bins)-1)]
+    tau_mat_t            = [np.zeros((2,2)) for _ in range(len(tau_t_bins)-1)] # normed by cells in each bin
+    tau_mat_t_by_overall = [np.zeros((2,2)) for _ in range(len(tau_t_bins)-1)] # normed by overall responding cells
+    t_counts = [np.zeros(2) for _ in range(len(tau_t_bins)-1)]
+    
+   
     if params['tau_vs_opto_do_prob_by_expt']: # take averages across expts
         for sess in unique_sess:
             unique_stim = list(np.unique(stim_ids[sess_ids==sess]))
@@ -1878,7 +1895,11 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
         short_tau_stimd    = np.logical_and(tau_stimd <= tau_th,is_good_tau==1)
         long_tau_nonstimd  = np.logical_and(np.logical_and(is_sig==1,np.logical_and(tau > tau_th, is_stimd==0)),is_good_tau==1)
         short_tau_nonstimd = np.logical_and(np.logical_and(is_sig==1,np.logical_and(tau <= tau_th, is_stimd==0)),is_good_tau==1)
-    
+        
+        
+        long_tau_nonstimd_denominator  = np.logical_and(np.logical_and(tau > tau_th, is_stimd==0),is_good_tau==1)
+        short_tau_nonstimd_denominator = np.logical_and(np.logical_and(tau <= tau_th, is_stimd==0),is_good_tau==1)
+        
         tau_mat_counts[0,0] = np.sum(np.logical_and(short_tau_stimd,short_tau_nonstimd))
         tau_mat_counts[0,1] = np.sum(np.logical_and(short_tau_stimd,long_tau_nonstimd))
         tau_mat_counts[1,0] = np.sum(np.logical_and(long_tau_stimd,short_tau_nonstimd))

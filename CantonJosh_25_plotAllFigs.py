@@ -719,6 +719,8 @@ _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None,
 
 # fig 6d overall tau vs stimd/reponding probability
 # (this expects a list of two axis handles)
+# Always keep in mind, exclusion for short and long taus
+# also keep in ming whether the prob is by expt or total, makes a difference
 _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None, 
                                                     plot_what='prob', 
                                                     params=opto_params, 
@@ -730,6 +732,8 @@ _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None,
 
 # fig 6e, maybe evolution of tau vs stimd/reponding probability over time
 # (this expects a list of 2 x 10 axis handles)
+# Some issue here with low cell counts 
+# might be bug... need to double check
 _, _, _ = analyzeEvoked2P.plot_opto_vs_tau_comparison(area=None, 
                                                     plot_what='prob_by_time_by_overall', 
                                                     params=opto_params, 
