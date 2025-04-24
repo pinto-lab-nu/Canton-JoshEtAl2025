@@ -32,7 +32,7 @@ params = {
         'random_seed'                    : 42, 
         'trigdff_param_set_id_dff'       : 4,      #Z-scored etc.
         'trigdff_param_set_id_deconv'    : 5, 
-        'trigdff_inclusion_param_set_id' : 6,    #timing, distance,etc
+        'trigdff_inclusion_param_set_id' : 9,    #timing, distance,etc
         'trigdff_inclusion_param_set_id_notiming' : 3, # for some analyses (e.g. inhibition), we may want to relax trough timing constraint
         'trigspeed_param_set_id'         : 1,
         'prop_resp_bins'                 : np.arange(0,.41,.01),
@@ -1745,6 +1745,8 @@ def opto_vs_tau(area, params=params, expt_type='standard', resp_type='dff', dff_
                 
         # is_good_tau = np.where(np.array(taus) > -0.2, 1, is_good_tau)
         # is_good_tau = np.where(np.array(taus) > -0.2, 1, is_good_tau)
+        is_good_tau = np.where(np.array(taus) < 0.1, 0, is_good_tau)
+
 
         
         tau_data = {'taus':np.array(taus).flatten(),'is_good_tau':np.array(is_good_tau).flatten()}
@@ -2536,6 +2538,7 @@ def baseline_sess_pca(expt_key,params=params,resp_type='dff'):
                 }
 
     incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & sess_key).fetch('is_included', 'KEY')
+    
     stimd      = (twop_opto_analysis.TrigDffTrialAvg & keys).fetch('is_stimd')
     taxis      = (twop_opto_analysis.TrigDffTrialAvg & keys[0]).fetch1('time_axis_sec')
     idx        = np.argwhere(np.logical_and(np.array(incl)==1,np.array(stimd)==0)).flatten()
@@ -2725,7 +2728,21 @@ def batch_trial_pca(area, params=params, expt_type='standard+high_trial_count', 
         expt_keys  = expt_keys1 + expt_keys2
     else:
         expt_keys  = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
-        
+    
+    # I wrote this to exclude session that had no included cells
+    valid_expt_keys = []
+    for expt_key in expt_keys:
+        sess_key = {'subject_fullname': expt_key['subject_fullname'],
+                    'session_date'    : expt_key['session_date'],
+                    'trigdff_param_set_id': params['trigdff_param_set_id_{}'.format('dff')],
+                    'trigdff_inclusion_param_set_id': params['trigdff_inclusion_param_set_id'],
+                    }
+        incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & sess_key).fetch('is_included', 'KEY')
+        if incl.size > 0:
+            valid_expt_keys.append(expt_key)
+            
+    expt_keys=valid_expt_keys
+    
     # restrict to only desired rec/stim if applicable
     if eg_ids is not None:
         if isinstance(eg_ids,list) == False:

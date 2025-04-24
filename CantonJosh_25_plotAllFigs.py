@@ -598,11 +598,11 @@ v1_pca_results = analyzeEvoked2P.batch_trial_pca('V1',
                                                 params=opto_params, 
                                                 expt_type='standard', 
                                                 resp_type='dff')
- 
+
 m2_pca_results = analyzeEvoked2P.batch_trial_pca('M2', 
                                                 params=opto_params, 
-                                                # expt_type='standard+high_trial_count',
-                                                expt_type='high_trial_count', 
+                                                expt_type='standard+high_trial_count',
+                                                # expt_type='high_trial_count', 
                                                 resp_type='dff')
 
 
