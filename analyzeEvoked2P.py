@@ -66,52 +66,99 @@ params['general_params'] = deepcopy(tau_params['general_params'])
 # %% get list of dj keys for sessions of a certain type
 # 'standard' is single neurons with <= 10 trials & 5 spirals, 'short_stim' is single neurons <= 10 trials & < 5 spirals, 
 # 'high_trial_count' is single neurons with > 10 trials, 'multi_cell' has at least one group with mutiple stim'd neurons
+# def get_keys_for_expt_types(area, params=params, expt_type='standard'):
+    
+#     """
+#     get_keys_for_expt_types(area, params=params, expt_type='standard')
+#     retrieves dj keys for experiments of a certain type for a given area
+    
+#     INPUTS:
+#         area      : str, 'V1' or 'M2'
+#         params    : dict, analysis parameters (default is params from top of this script)
+#         expt_type : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+    
+#     OUTPUTS:
+#         keys : list of dj keys for experiments of the desired type
+#     """
+    
+#     # get primary keys for query
+#     mice              = params['general_params']['{}_mice'.format(area)]
+    
+#     # get relavant keys 
+#     keys = list()
+#     for mouse in mice:
+#         opto_data = (twop_opto_analysis.Opto2PSummary & {'subject_fullname': mouse}).fetch(as_dict=True)
+#         opto_keys = (twop_opto_analysis.Opto2PSummary & {'subject_fullname': mouse}).fetch("KEY",as_dict=True)
+#         spiral_data=(VM['twophoton'].Opto2P & opto_keys).fetch(as_dict=True)
+        
+#         for ct, this_sess in enumerate(opto_data):
+#             has_multicell_stim = bool(np.sum(np.array(this_sess['num_cells_per_stim'])>1)>1)
+#             max_num_trials     = np.max(np.array(this_sess['num_trials_per_stim']))
+#             max_dur            = np.max(np.array(this_sess['dur_sec_per_stim']))
+            
+#             # spiral_size        = np.max(np.array(this_sess['stim_spiral_size_um']))
+            
+#             # choose experiments that match type
+#             if expt_type == 'standard':
+#                 if np.logical_and((not has_multicell_stim), np.logical_and(max_num_trials <= 10 , max_dur >= 0.2)):
+#                     keys.append(opto_keys[ct])
+#             elif expt_type == 'short_stim':
+#                 if np.logical_and((not has_multicell_stim), np.logical_and(max_num_trials <= 10 , max_dur >= 0.2)):   #OKKKKKK This needs fixing long term used spiral size since there is issue with max_dur and 'trials_num_spirals' (need repetition)
+#                     keys.append(opto_keys[ct])
+#             elif expt_type == 'high_trial_count':
+#                 if np.logical_and((not has_multicell_stim) , max_num_trials > 10):
+#                     keys.append(opto_keys[ct])
+#             elif expt_type == 'multi_cell':
+#                 if has_multicell_stim:
+#                     keys.append(opto_keys[ct])
+#             else:
+#                 print('Unknown experiment type, doing nothing')
+#                 return None
+    
+#     return keys
+
+# %% get list of dj keys for sessions of a certain type
+# 'standard' is single neurons with <= 10 trials & 5 spirals, 'short_stim' is single neurons <= 10 trials & < 5 spirals, 
+# 'high_trial_count' is single neurons with > 10 trials, 'multi_cell' has at least one group with mutiple stim'd neurons
+
 def get_keys_for_expt_types(area, params=params, expt_type='standard'):
-    
     """
-    get_keys_for_expt_types(area, params=params, expt_type='standard')
-    retrieves dj keys for experiments of a certain type for a given area
-    
-    INPUTS:
-        area      : str, 'V1' or 'M2'
-        params    : dict, analysis parameters (default is params from top of this script)
-        expt_type : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
-    
-    OUTPUTS:
-        keys : list of dj keys for experiments of the desired type
+    Retrieves dj keys for experiments of a certain type for a given area.
     """
-    
-    # get primary keys for query
-    mice              = params['general_params']['{}_mice'.format(area)]
-    
-    # get relavant keys 
-    keys = list()
+    mice = params['general_params']['{}_mice'.format(area)]
+    keys = []
+
     for mouse in mice:
-        opto_data = (twop_opto_analysis.Opto2PSummary & {'subject_fullname': mouse}).fetch(as_dict=True)
-        opto_keys = (twop_opto_analysis.Opto2PSummary & {'subject_fullname': mouse}).fetch("KEY",as_dict=True)
-        for ct, this_sess in enumerate(opto_data):
-            has_multicell_stim = bool(np.sum(np.array(this_sess['num_cells_per_stim'])>1)>1)
+        opto_data   = (twop_opto_analysis.Opto2PSummary & {'subject_fullname': mouse}).fetch(as_dict=True)
+        opto_keys   = (twop_opto_analysis.Opto2PSummary & {'subject_fullname': mouse}).fetch("KEY", as_dict=True)
+        # spiral_data=(VM['twophoton'].Opto2P & opto_keys).fetch(as_dict=True)
+        spiral_sizes = (VM['twophoton'].Opto2P & opto_keys).fetch('stim_spiral_size_um')
+
+        for this_sess, spiral_size_array, key in zip(opto_data, spiral_sizes, opto_keys):
+            has_multicell_stim = np.sum(np.array(this_sess['num_cells_per_stim']) > 1) > 1
             max_num_trials     = np.max(np.array(this_sess['num_trials_per_stim']))
             max_dur            = np.max(np.array(this_sess['dur_sec_per_stim']))
-            
-            # choose experiments that match type
+            spiral_size        = np.max(np.array(spiral_size_array))
+       
+
             if expt_type == 'standard':
-                if np.logical_and((not has_multicell_stim), np.logical_and(max_num_trials <= 10 , max_dur >= 0.2)):
-                    keys.append(opto_keys[ct])
+                if not has_multicell_stim and max_num_trials <= 10 and max_dur >= 0.2 and spiral_size > 14:   #OKKKKKK This needs fixing long term used spiral size since there is issue with max_dur and 'trials_num_spirals' (need repetition)
+                    keys.append(key)
             elif expt_type == 'short_stim':
-                if np.logical_and((not has_multicell_stim), np.logical_and(max_num_trials <= 10 , max_dur < 0.2)):
-                    keys.append(opto_keys[ct])
+                if not has_multicell_stim and max_num_trials <= 10 and spiral_size < 14:  #OKKKKKK This needs fixing long term used spiral size since there is issue with max_dur and 'trials_num_spirals' (need repetition)
+                    keys.append(key)
             elif expt_type == 'high_trial_count':
-                if np.logical_and((not has_multicell_stim) , max_num_trials > 10):
-                    keys.append(opto_keys[ct])
+                if not has_multicell_stim and max_num_trials > 10:
+                    keys.append(key)
             elif expt_type == 'multi_cell':
                 if has_multicell_stim:
-                    keys.append(opto_keys[ct])
+                    keys.append(key)
             else:
                 print('Unknown experiment type, doing nothing')
                 return None
-    
+
     return keys
+
 
 # ---------------
 # %% get proportion of significantly responding neurons for an area and experiment type
@@ -280,6 +327,7 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
     peak_ts   = list()
     roi_keys  = list()
     num_expt  = len(expt_keys)
+    maxmins    = list()
     
     for ct, ikey in enumerate(expt_keys):
         print('     {} of {}...'.format(ct+1,num_expt))
@@ -296,11 +344,12 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
  
         for this_stim in these_stim_ids:
             this_key['stim_id'] = this_stim   #Theres was a bug here due to float
-            
+            sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
+
             # do selecion at the fetching level for speed
             if which_neurons == 'stimd':
                 # stimd neurons bypass inclusion criteria
-                avgs, sems, ts, stimd, com, peak, sids, nkeys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall', 'stim_id', 'KEY')
+                avgs, sems, ts, stimd, com, peak, sids, maxmin, nkeys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall', 'stim_id', 'max_or_min_dff', 'KEY')
             else:
                 sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
                 idx  = np.argwhere(np.array(incl)==1).flatten()
@@ -312,11 +361,11 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
                     keys = list(np.array(keys)[idx])
                     sig  = list(np.array(sig)[idx]) 
                 
-                avgs, sems, ts, stimd, com, peak, sids, nkeys = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall', 'stim_id', 'KEY')
+                avgs, sems, ts, stimd, com, peak, sids, maxmin, nkeys = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall', 'stim_id', 'max_or_min_dff', 'KEY')
                 
                 # get stimd neurons if desired (bypass inclusion because of distance criterion)
                 if which_neurons == 'all':
-                    avgsst, semsst, tsst, stimdst, comst, peakst, sidsst, nkeysst = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall', 'stim_id', 'KEY')
+                    avgsst, semsst, tsst, stimdst, comst, peakst, sidsst, maxminst, nkeysst  = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('trig_dff_avg', 'trig_dff_sem', 'time_axis_sec', 'is_stimd', 'center_of_mass_sec_overall', 'time_of_peak_sec_overall', 'stim_id', 'max_or_min_dff', 'KEY')
                     sigst   = list(np.ones(len(avgsst)))
                     avgs    = list(avgs)
                     sems    = list(sems)
@@ -337,6 +386,7 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
                     [nkeys.append(nk) for nk in nkeysst]
                     [sig.append(sg) for sg in sigst]
                     [sids.append(ss) for ss in sidsst]
+                    [maxmin.append(mm) for mm in maxminst]
                         
             # get roi keys for fetching from other tables (eg tau)
             rkeys = (VM['twophoton'].Roi2P & nkeys).fetch('KEY')
@@ -351,6 +401,7 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
             [peak_ts.append(pt) for pt in peak]
             [stim_ids.append(ss) for ss in sids]
             [roi_keys.append(rr) for rr in rkeys]
+            [maxmins.append(mm) for mm in maxmin]
             
     is_stimd = np.array(is_stimd).flatten()
     is_sig   = np.array(is_sig).flatten()
@@ -420,7 +471,8 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
                     'experiment_type': expt_type, 
                     'which_neurons'  : which_neurons,
                     'roi_keys'       : roi_keys,
-                    'analysis_params': deepcopy(params)
+                    'analysis_params': deepcopy(params),
+                    'max_or_min_vals': np.array(maxmins).flatten()
                     }
     
     end_time = time.time()
@@ -1228,6 +1280,7 @@ def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count'
     stim_ids    = list()
     roi_ids     = list()
     peak_ts     = list()
+    peak_amp    = list()
     coms        = list()
     t_axes      = list()
     num_expt    = len(expt_keys)
@@ -1243,7 +1296,16 @@ def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count'
         if which_neurons == 'stimd':
             # stimd neurons bypass inclusion criteria
             avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('KEY')
-            tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & avg_keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
+            # tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & avg_keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
+            sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & avg_keys).fetch('is_significant', 'is_included', 'KEY')
+            
+            if signif_only:
+                idx  = np.argwhere(np.array(sig)==1).flatten()
+                keys = list(np.array(keys)[idx])
+                sig  = list(np.array(sig)[idx]) 
+        
+            tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
+
         elif which_neurons == 'non_stimd':
             avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=0').fetch('KEY')
             sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & avg_keys).fetch('is_significant', 'is_included', 'KEY')
@@ -1277,6 +1339,7 @@ def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count'
         [t_axes.append(t) for t in ts]
         [coms.append(co) for co in com]
         [peak_ts.append(pt) for pt in maxmin_t]
+        [peak_amp.append(pa) for pa in maxmin]
             
     # convert to arrays for easy indexing, trial and time vectors remain lists
     trial_ids = np.array(trial_ids)
@@ -1284,6 +1347,7 @@ def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count'
     roi_ids   = np.array(roi_ids)
     coms      = np.array(coms)
     peak_ts   = np.array(peak_ts)
+    peak_amp  = np.array(peak_amp)
         
     # collect summary data   
     trial_data = {
@@ -1295,11 +1359,13 @@ def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count'
                 'roi_ids'                 : roi_ids, 
                 'com_sec'                 : coms, 
                 'peak_or_trough_time_sec' : peak_ts, 
+                'peak_amp_value'          : peak_amp,
                 'relax_timing_criteria'   : relax_timing_criteria,
                 'which_neurons'           : which_neurons,
                 'response_type'           : resp_type, 
                 'experiment_type'         : expt_type, 
-                'analysis_params'         : deepcopy(params)
+                'analysis_params'         : deepcopy(params),
+                'sig'                     : sig
                 }
     
     end_time = time.time()
@@ -2700,6 +2766,8 @@ def project_trial_responses(expt_key, params=params, resp_type='dff'):
     return trial_proj_results
     
 # ---------------
+
+
 # %% batch PCA trial projection, baseline vs. post-stim
 def batch_trial_pca(area, params=params, expt_type='standard+high_trial_count', resp_type='dff', eg_ids=None):
     
@@ -2729,7 +2797,7 @@ def batch_trial_pca(area, params=params, expt_type='standard+high_trial_count', 
     else:
         expt_keys  = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
     
-    # I wrote this to exclude session that had no included cells
+    # NC wrote this to exclude session that had no included cells
     valid_expt_keys = []
     for expt_key in expt_keys:
         sess_key = {'subject_fullname': expt_key['subject_fullname'],
@@ -2851,3 +2919,101 @@ def plot_pca_dist_scatter(area, params=params, expt_type='standard+high_trial_co
     ax.spines['top'].set_visible(False)
     
     return ax, trial_pca_results
+# %%
+
+import matplotlib.pyplot as plt
+import statsmodels.api as sm
+import numpy as np
+
+def plot_pca_dist_scatter_dual(
+    area,
+    params,
+    expt_type='standard+high_trial_count',
+    resp_type='dff',
+    eg_ids=None,
+    trial_pca_results_1=None,
+    trial_pca_results_2=None,
+    label_1='Dataset 1',
+    label_2='Dataset 2',
+    color_1='blue',
+    color_2='green',
+    axis_handle=None
+):
+    """
+    Plots baseline vs. post-stim PCA distance scatter for up to two datasets.
+
+    Inputs:
+        area               : str, brain area ('V1' or 'M2')
+        params             : dict, analysis parameters
+        expt_type          : str, experiment type for PCA calculation if not provided
+        resp_type          : str, response type ('dff' or 'deconv')
+        eg_ids             : list of int, experiment group IDs to restrict to (optional)
+        trial_pca_results_1: dict, PCA results for first dataset (optional)
+        trial_pca_results_2: dict, PCA results for second dataset (optional)
+        label_1            : str, label for dataset 1
+        label_2            : str, label for dataset 2
+        color_1            : str, color for dataset 1
+        color_2            : str, color for dataset 2
+        axis_handle        : matplotlib axis (optional)
+
+    Returns:
+        ax                 : matplotlib axis
+        trial_pca_results_1: dict of PCA results (if computed inside)
+    """
+
+    # Run analysis if necessary
+    if trial_pca_results_1 is None:
+        trial_pca_results_1 = batch_trial_pca(
+            area=area,
+            params=params,
+            expt_type=expt_type,
+            resp_type=resp_type,
+            eg_ids=eg_ids
+        )
+
+    if axis_handle is None:
+        plt.figure()
+        ax = plt.gca()
+    else:
+        ax = axis_handle
+
+    # Helper function for plotting a single dataset
+    def plot_dataset(trial_pca_results, color, label):
+        ax.plot(
+            trial_pca_results['basel_dists'],
+            trial_pca_results['resp_dists'],
+            'o', color=color, mew=0, label=label
+        )
+        olsfit = sm.OLS(trial_pca_results['resp_dists'],
+                        sm.add_constant(trial_pca_results['basel_dists'])).fit()
+        x_vals = np.linspace(min(trial_pca_results['basel_dists']),
+                             max(trial_pca_results['basel_dists']), 100)
+        y_vals = olsfit.predict(sm.add_constant(x_vals))
+        predci = olsfit.get_prediction(sm.add_constant(x_vals)).summary_frame()
+        ci_up = predci['mean_ci_upper']
+        ci_low = predci['mean_ci_lower']
+
+        ax.plot(x_vals, y_vals, '-', color=color)
+        ax.plot(x_vals, ci_up, '--', color=color, lw=.4)
+        ax.plot(x_vals, ci_low, '--', color=color, lw=.4)
+
+        # Show correlation on first dataset only
+        if label == label_1:
+            yl = ax.get_ylim()
+            xl = ax.get_xlim()
+            ax.text(xl[0] * 1.05, yl[1] * .95, 'r = {:1.2f}'.format(trial_pca_results['corr_basel_vs_resp']))
+            ax.text(xl[0] * 1.05, yl[1] * .90, 'p = {:1.2g}'.format(trial_pca_results['p_basel_vs_resp']))
+
+    # Plot both datasets
+    plot_dataset(trial_pca_results_1, color_1, label_1)
+
+    if trial_pca_results_2 is not None:
+        plot_dataset(trial_pca_results_2, color_2, label_2)
+
+    ax.set_xlabel('Trial Euclidean dist. (baseline)')
+    ax.set_ylabel('Trial Euclidean dist. (post-stim)')
+    ax.legend()
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
+    return ax, trial_pca_results_1

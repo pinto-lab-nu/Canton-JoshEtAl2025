@@ -66,66 +66,16 @@ new_rc_params = {'text.usetex': False,
 }
 mpl.rcParams.update(new_rc_params)
 
+ # Illustrator-compatible settings
+mpl.rcParams['pdf.fonttype'] = 42 # To make text editable
+mpl.rcParams['ps.fonttype']  = 42 # To make text editable
+mpl.rcParams['svg.fonttype'] = 'none' # To make text editable
+
+
 def letter_annotation(ax, xoffset, yoffset, letter):
  ax.text(xoffset, yoffset, letter, transform=ax.transAxes,
          size=12, weight='bold')
-# %% =========================================
-# ===== Fig 2: spontaneous 2p timescales =====
-# ============================================
-fig = plt.figure(figsize=(8, 10))
 
-# Creating subfigures for each row
-(row1fig, row2fig, row3fig) = fig.subfigures(3, 1, height_ratios=[1, 1, 1])
-
-# Splitting the second-row subfigure into two panels
-(fig_row2left, fig_row2right) = row2fig.subfigures(1, 2, wspace=0.08, width_ratios=(1, 1))
-
-# Creating subplots within each row with fixed width ratios
-row1_axs = row1fig.subplots(1, 2, gridspec_kw={'width_ratios': [1.2, 1]})
-row2_axs = row2fig.subplots(1, 2, gridspec_kw={'width_ratios': [1.2, 1]})
-row3_axs = row3fig.subplots(1, 2, gridspec_kw={'width_ratios': [1.2, 1]})
-
-# Adjusting layout for consistent alignment
-left_margin = 0.12  
-right_margin = 0.88  # Ensuring right edges align
-
-row1fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspace=0.25)
-row2fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspace=0.25)
-row3fig.subplots_adjust(left=left_margin, right=right_margin, bottom=0.16, wspace=0.25)
-
-# Analyzing data
-v1_taus, v1_keys, v1_total = analyzeSpont2P.get_all_tau('V1', params=tau_params, dff_type='residuals_dff')
-m2_taus, m2_keys, m2_total = analyzeSpont2P.get_all_tau('M2', params=tau_params, dff_type='residuals_dff')
-
-# Fig 2a: FOV and cranial window examples with raw traces
-ax = row1_axs[0]
-ax.text(-0.1, 1.05, 'A', transform=ax.transAxes, fontsize=12, fontweight='bold', va='bottom', ha='left')
-ax.set_aspect('auto')
-
-# Fig 2b: 2p tau summary
-ax = row1_axs[1]
-tau_stats, ax_tau = analyzeSpont2P.plot_area_tau_comp(v1_taus=v1_taus, m2_taus=m2_taus, axis_handle=ax, params=tau_params)
-tau_stats['V1_total_num_cells'] = v1_total
-tau_stats['M2_total_num_cells'] = m2_total
-ax.text(-0.1, 1.05, 'B', transform=ax.transAxes, fontsize=12, fontweight='bold', va='bottom', ha='left')
-
-# Fig 2c: Clustering FOV example
-v1_centr, v1_rec_ids = analyzeSpont2P.get_centroids_by_rec(v1_keys)
-m2_centr, m2_rec_ids = analyzeSpont2P.get_centroids_by_rec(m2_keys)
-
-ax = row2_axs[0]
-fov_v1 = analyzeSpont2P.plot_tau_fov(v1_keys, v1_rec_ids, which_sess=2, do_zscore=False, prctile_cap=[0, 95], axis_handle=ax, fig_handle=fig)
-ax.text(-0.1, 1.05, 'C', transform=ax.transAxes, fontsize=12, fontweight='bold', va='bottom', ha='left')
-
-ax = row2_axs[1]
-fov_m2 = analyzeSpont2P.plot_tau_fov(v1_keys, v1_rec_ids, which_sess=17, do_zscore=False, prctile_cap=[0, 95], axis_handle=ax, fig_handle=fig)
-
-# Fig 2d: Clustering
-ax = row3_axs[0]
-clust_stats_v1, tau_diff_mat_v1 = analyzeSpont2P.clustering_by_tau(v1_taus, v1_centr, v1_rec_ids, params=tau_params)
-clust_stats_m2, tau_diff_mat_m2 = analyzeSpont2P.clustering_by_tau(m2_taus, m2_centr, m2_rec_ids, params=tau_params)
-cax = analyzeSpont2P.plot_clustering_comp(v1_clust=clust_stats_v1, m2_clust=clust_stats_m2, params=tau_params, axis_handle=ax)
-ax.text(-0.1, 1.05, 'D', transform=ax.transAxes, fontsize=12, fontweight='bold', va='bottom', ha='left')
 
 # %% =========================================
 # ===== Fig 2: spontaneous 2p timescales =====
@@ -193,7 +143,7 @@ ax.text(-0.1, 1.05, 'D', transform=ax.transAxes, fontsize=12, fontweight='bold',
 
 plt.figure()
 ax1 = plt.subplot(221)
-ax2 = plt.subplot(222)♣
+ax2 = plt.subplot(222)
 # === Fig S3: taus controls ===
 # taus without glm and on deconvolved data
 tau_stats_noregr, _ = analyzeSpont2P.plot_area_tau_comp(axis_handle = ax1, params = tau_params, dff_type = 'noGlm_dff')
@@ -248,14 +198,14 @@ fig_row2right.subplots_adjust(left=0.1, right=1, hspace=.5)
 
 # fig 3a raw evoked traces and/or pixel-wise dff example (or suppl movie)
 # >>> TO DO
-ax = row1_axs[0]
-letter_annotation(ax, -.25, 1, 'A')
+# ax = row1_axs[0]
+# letter_annotation(ax, -.25, 1, 'A')
 
 # fig 3b area eg response map
 # >>>>>>>>>>> still need to pick best which_sess and which_stim
-ax = row1_axs[1]
+# ax = row1_axs[1]
 
-letter_annotation(ax, -.25, 1, 'B')
+# letter_annotation(ax, -.25, 1, 'B')
 
 # Some issues with the arrows in second plot.
 
@@ -272,7 +222,7 @@ _,_ = analyzeEvoked2P.plot_resp_fov('V1',
                                      highlight_signif=True, 
                                      axis_handle=None)
 
-letter_annotation(ax, -.25, 1, 'C')
+# letter_annotation(ax, -.25, 1, 'C')
 
 _, _ = analyzeEvoked2P.plot_resp_fov('M2', 
                                      which_sess=fig3_params['sess_eg_m2'], 
@@ -322,7 +272,7 @@ resp_prob_summary, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opt
                                                                       axis_handle=None,
                                                                       response_stats=None)
 
-letter_annotation(row2_axs[0], -.25, 1, 'D')
+# letter_annotation(row2_axs[0], -.25, 1, 'D')
 # issue with division by zero here session 20 from M2 data
 # had to for a semi kludgy fix for now in AnalyzeEvoked2P lines 558
 
@@ -334,11 +284,51 @@ full_resp_stats, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_
                                                                     response_stats=None, 
                                                                     axis_handle=None, 
                                                                     plot_what='response_magnitude',
+                                                                    signif_only=False, 
+                                                                    overlay_non_sig=True,
+                                                                    # axis_handle=row2_axs[1]
+                                                                    )
+
+
+full_resp_stats_sig, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
+                                                                    expt_type='standard', 
+                                                                    resp_type='dff', 
+                                                                    which_neurons='non_stimd', 
+                                                                    response_stats=None, 
+                                                                    axis_handle=None, 
+                                                                    plot_what='response_magnitude',
                                                                     signif_only=True, 
                                                                     overlay_non_sig=True,
                                                                     # axis_handle=row2_axs[1]
                                                                     )
-letter_annotation(row2_axs[1], -.25, 1, 'E')
+
+
+# looking at stimulated cells
+full_resp_stats, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
+                                                                    expt_type='standard', 
+                                                                    resp_type='dff', 
+                                                                    which_neurons='stimd', 
+                                                                    response_stats=None, 
+                                                                    axis_handle=None, 
+                                                                    plot_what='response_magnitude',
+                                                                    signif_only=False, 
+                                                                    overlay_non_sig=True,
+                                                                    # axis_handle=row2_axs[1]
+                                                                    )
+
+full_resp_stats, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
+                                                                    expt_type='standard', 
+                                                                    resp_type='dff', 
+                                                                    which_neurons='stimd', 
+                                                                    response_stats=None, 
+                                                                    axis_handle=None, 
+                                                                    plot_what='response_time',
+                                                                    signif_only=False, 
+                                                                    overlay_non_sig=True,
+                                                                    # axis_handle=row2_axs[1]
+                                                                    )
+
+# letter_annotation(row2_axs[1], -.25, 1, 'E')
 
 # fig 3e response vs distance
 _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
@@ -346,7 +336,7 @@ _, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params,
                                                       resp_type='dff', 
                                                       which_neurons='non_stimd', 
                                                       response_stats=full_resp_stats, 
-                                                       axis_handle=None, 
+                                                      axis_handle=None, 
                                                       plot_what='prop_by_dist_of_sig',
                                                       signif_only=False, 
                                                       overlay_non_sig=False,
@@ -372,7 +362,21 @@ resp_prob_summary_short_stim, _ = analyzeEvoked2P.plot_response_stats_comparison
                                                                                 expt_type='short_stim', 
                                                                                 resp_type='dff', 
                                                                                 axis_handle=None, 
-                                                                                plot_what='response_probability')
+                                                                                plot_what='response_probability',
+                                                                                signif_only=False)
+
+
+full_resp_stats_short, _ = analyzeEvoked2P.plot_response_stats_comparison(params=opto_params, 
+                                                                    expt_type='short_stim', 
+                                                                    resp_type='dff', 
+                                                                    which_neurons='non_stimd', 
+                                                                    response_stats=None, 
+                                                                    axis_handle=None, 
+                                                                    plot_what='response_magnitude',
+                                                                    signif_only=False, 
+                                                                    overlay_non_sig=True,
+                                                                    # axis_handle=row2_axs[1]
+                                                                    )
 
 # trig running
 speed_stats, _ = analyzeEvoked2P.plot_trig_speed(params=opto_params, expt_type='standard')
@@ -486,7 +490,8 @@ _, _, _, = analyzeEvoked2P.plot_response_grand_average(params=opto_params,
                                                        # axis_handle=row1_axs[2],
                                                        axis_handle=None,
                                                        norm_type='peak')
-    
+
+
 # fig 4c neuron heatmaps over time. 
 _, _, _, = analyzeEvoked2P.plot_avg_response_heatmap('V1', 
                                                      params=opto_params, 
@@ -605,6 +610,7 @@ m2_pca_results = analyzeEvoked2P.batch_trial_pca('M2',
                                                 # expt_type='high_trial_count', 
                                                 resp_type='dff')
 
+# %%
 
 # fig 5a trajectory examples for each area:  
 # [NETO TO DO]
@@ -629,6 +635,16 @@ _, _ = analyzeEvoked2P.plot_pca_dist_scatter('M2',
                                              trial_pca_results=m2_pca_results, 
                                              axis_handle=None)
 
+ax, results = plot_pca_dist_scatter_dual(
+    area='V1',
+    params=params,
+    trial_pca_results_1=v1_pca_results,
+    trial_pca_results_2=m2_pca_results,
+    label_1='V1',
+    label_2='M2',
+    color_1='blue',
+    color_2='orange'
+)
 
 # fig 5c comparison of V1 and M2 (single-expt distributions of correlations / pvals)
 # [NETO TO DO]

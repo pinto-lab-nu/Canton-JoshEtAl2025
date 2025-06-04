@@ -6,6 +6,8 @@ Created on Wed Apr 16 11:20:42 2025
 """
 
 opto_data = get_full_resp_stats(area='M2', params=opto_params, expt_type='standard', resp_type='dff', which_neurons='all')
+
+# opto_data =
 # %%
 
 sess_ids    = analyzeSpont2P.sess_ids_from_tau_keys(opto_data['roi_keys']) 
@@ -13,6 +15,9 @@ stim_ids    = deepcopy(opto_data['stim_ids'])
 taus = list()
 is_good_tau = list()
 r2=list()
+acorr_index_1_values=list()
+SNR=list()
+
 tau_single_list=list()
 
 for sess in np.unique(sess_ids):
@@ -35,6 +40,15 @@ for sess in np.unique(sess_ids):
         tau_single=(spont_timescales.TwopTau & keys).fetch('single_fit_params', 'KEY')
         tau_single_list.extend(tau_single[0])
         
+        snr=(VM['twophoton'].Snr2P & keys).fetch('snr')
+        SNR.extend(snr)
+
+        
+        # acorr  = (spont_timescales.TwopAutocorr & keys).fetch('autocorr_vals')
+        # index_1_values = [subarray[1] for subarray in acorr]
+        # is_good_acorr=np.array([value > 0.1 for value in index_1_values])
+
+        
 # is_good_tau = np.where(np.array(taus) > -0.2, 1, is_good_tau)
 # is_good_tau = np.where(np.array(taus) > -0.2, 1, is_good_tau)
 
@@ -44,19 +58,37 @@ for sess in np.unique(sess_ids):
 
 # a=np.array(r2)
 
-# c= (a> 0.9)
+# c= (a> 0.2)
+
+# is_good_tau=c
+
 tau_fit_mono_list = [d['tau_fit_mono'] for d in tau_single_list]
+
+# tau_data = {'taus':np.array(tau_fit_mono_list).flatten(),'is_good_tau':np.array(is_good_tau).flatten()}
+
+
 tau_data = {'taus':np.array(taus).flatten(),'is_good_tau':np.array(is_good_tau).flatten()}
+
 
 # %%%
 
- # easy access variables    
- is_stimd    = deepcopy(opto_data['is_stimd'])
- is_sig      = deepcopy(opto_data['is_sig'])
- peak_ts     = deepcopy(opto_data['max_or_min_times_sec'])
- peak_mag    = deepcopy(opto_data['max_or_min_vals'])
- tau         = deepcopy(tau_data['taus'])
- is_good_tau = deepcopy(tau_data['is_good_tau'])
+# easy access variables    
+is_stimd    = deepcopy(opto_data['is_stimd'])
+is_sig      = deepcopy(opto_data['is_sig'])
+peak_ts     = deepcopy(opto_data['max_or_min_times_sec'])
+peak_mag    = deepcopy(opto_data['max_or_min_vals'])
+tau         = deepcopy(tau_data['taus'])
+is_good_tau = deepcopy(tau_data['is_good_tau'])
+is_good_SNR=np.array([value > 8 for value in SNR])
+
+ 
+aa=np.logical_and(is_good_tau==1,is_stimd==0)
+aaa=np.logical_and(aa,is_sig==1)
+
+ 
+ # %%
+ 
+ 
  
   # select out very long taus if desired
    # if opto_params['tau_vs_opto_max_tau'] is not None:
@@ -68,7 +100,11 @@ tau_data = {'taus':np.array(taus).flatten(),'is_good_tau':np.array(is_good_tau).
  is_short    = tau < tau_th
  
  # response properties by tau (need to implement peak width)
- bins     = opto_params['tau_bins']
+ # bins     = opto_params['tau_bins']
+bins = np.arange(0, 2.5, 0.25)
+num_bins = np.size(bins) - 1
+bin_centers = (bins[:-1] + bins[1:]) / 2  # For plotting on x-axis
+
  num_bins = np.size(bins)-1
  peakt_by_tau_avg  = np.zeros(num_bins)
  peakt_by_tau_sem  = np.zeros(num_bins)
@@ -83,7 +119,9 @@ tau_data = {'taus':np.array(taus).flatten(),'is_good_tau':np.array(is_good_tau).
      
      
      idx     = np.logical_and(tau>bins[iBin], tau<=bins[iBin+1])
-     idx     = np.logical_and(is_good_tau==1,idx)
+     # idx     = np.logical_and(is_good_tau==1,idx)
+     # idx     = np.logical_and(is_good_SNR==True,idx)
+
      idx     = np.logical_and(is_sig==1,idx)
      idx     = np.logical_and(is_stimd==0,idx)
      
@@ -103,7 +141,8 @@ tau_data = {'taus':np.array(taus).flatten(),'is_good_tau':np.array(is_good_tau).
      peakt_by_tau_expt[iBin] = peaks
      peakm_by_tau_expt[iBin] = mags
  
-
+plt.figure()
+plt.plot(peakt_by_tau_avg)
 # %%
 tau_stimd   = np.zeros(np.size(tau))-1
 for sess in unique_sess:
