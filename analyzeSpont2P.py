@@ -34,7 +34,7 @@ params = {
         }
 params['general_params'] = {
         # 'V1_mice'     : ['jec822_NCCR62','jec822_NCCR63','jec822_NCCR66','jec822_NCCR86'] ,
-        'V1_mice'     : ['jec822_NCCR63','jec822_NCCR66','jec822_NCCR86'],
+        'V1_mice'     : ['jec822_NCCR63','jec822_NCCR66','jec822_NCCR86','jec822_NCCR121','jec822_NCCR150'],
         'M2_mice'     : ['jec822_NCCR32','jec822_NCCR72','jec822_NCCR73','jec822_NCCR77'] ,
         'V1_cl'       : np.array([180, 137, 50])/255 ,
         'M2_cl'       : np.array([43, 67, 121])/255 ,

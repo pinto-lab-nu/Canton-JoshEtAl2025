@@ -216,8 +216,13 @@ plot_autocorrelation_and_fit(
     color_raw=params['general_params']['M2_cl'],
     color_mono="orange",
     color_dual="blue",
-    figsize=(6,6),
-    custom_filename="M2_fit_plot"
+    figsize=(2,2),
+    custom_filename="M2_fit_plot",
+    text_size=8,
+    num_ticks=3,
+    tick_bounds=((0, 30), (0, 1)),
+    xlim=(-1,30),
+    ylim=(-0.1,1)
 )
 
 # %%
@@ -257,6 +262,11 @@ plot_autocorrelation_and_fit(
     color_raw=params['general_params']['V1_cl'],
     color_mono="orange",
     color_dual="blue",
-    figsize=(6,6),
-    custom_filename="V1_fit_plot"
+    figsize=(2,2),
+    custom_filename="V1_fit_plot",
+    text_size=8,
+    num_ticks=3,
+    tick_bounds=((0, 30), (0, 1)),
+    xlim=(-1,30),
+    ylim=(-0.1,1)
 )
