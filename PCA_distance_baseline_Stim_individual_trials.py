@@ -152,64 +152,6 @@ def plot_distance_histogram(all_distance_matrices, bins=30, color='blue', alpha=
     return flattened_distances
 
 
-# %%
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import rcParams
-
-# Ensure font is editable in SVG (for Illustrator)
-rcParams['svg.fonttype'] = 'none'
-
-def plot_ecdf_comparison(distances1, distances2,
-                         label1='Group 1', label2='Group 2',
-                         line_color1='blue', line_color2='red',
-                         line_width=2, figsize=(4, 4),
-                         xlabel='Distance', ylabel='ECDF',
-                         title='ECDF Comparison of 3D Transition Distances'):
-    """
-    Plots ECDFs of two distance arrays for comparison, ready for export to Illustrator as SVG.
-    
-    Parameters:
-        distances1, distances2 (np.ndarray): 1D arrays of distances
-        label1, label2 (str): Labels for the two groups
-        line_color1, line_color2 (str): Colors for the ECDF lines
-        line_width (float): Width of the ECDF lines
-        figsize (tuple): Size of the figure in inches (width, height)
-        xlabel, ylabel (str): Axis labels
-        title (str): Plot title
-    """
-    # Remove NaNs
-    distances1 = distances1[~np.isnan(distances1)]
-    distances2 = distances2[~np.isnan(distances2)]
-
-    # Sort values
-    x1 = np.sort(distances1)
-    y1 = np.arange(1, len(x1)+1) / len(x1)
-
-    x2 = np.sort(distances2)
-    y2 = np.arange(1, len(x2)+1) / len(x2)
-
-    # Plot ECDFs
-    plt.figure(figsize=figsize)
-    plt.plot(x1, y1, label=label1, color=line_color1, lw=line_width)
-    plt.plot(x2, y2, label=label2, color=line_color2, lw=line_width)
-
-    plt.xlabel(xlabel, fontsize=12)
-    plt.ylabel(ylabel, fontsize=12)
-    plt.title(title, fontsize=14)
-    plt.legend(fontsize=10)
-
-    # Styling
-    plt.grid(False)
-    # plt.axis('equal')
-    # plt.xlim(left=0)
-
-    ax = plt.gca()
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-
-    plt.tight_layout()
-    plt.show()
 
 
 # %%
