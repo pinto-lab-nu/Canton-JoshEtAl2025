@@ -151,9 +151,6 @@ def plot_distance_histogram(all_distance_matrices, bins=30, color='blue', alpha=
     
     return flattened_distances
 
-
-
-
 # %%
 
 v1_all_distance_matrices = compute_3d_transition_distances(v1_pca_results,num_pcs=3)

@@ -40,8 +40,7 @@ from scipy.optimize import curve_fit
 
 from scipy.signal import find_peaks
 import statsmodels.api as sm 
-
-
+import analyzeEvoked2P
 
 
 
@@ -110,196 +109,6 @@ def plot_heatmap(data, vmin=None, vmax=None, start_index=6.9, sampling_interval=
     plt.show()
 
     
-    
-#%%
-def heatmap_of_responses_sorted(result1,result2,max_COM="max"):
-    
-    conditional_zscores_no_nan_df=result1.get("conditional_zscores_no_nan_df").T
-    
-    if max_COM=="max":
-        moving_avg=result2.get("moving_avg")
-        conditional_zscores_no_nan_df_max=conditional_zscores_no_nan_df.iloc[moving_avg.idxmax(axis=1).argsort()]
-
-    if max_COM=="COM":
-        center_of_mass_stim_time=result2.get("conditional_zscores_no_nan_df_max_time").to_numpy()
-        conditional_zscores_no_nan_df_max=conditional_zscores_no_nan_df.iloc[center_of_mass_stim_time.argsort()]
-    
-    
-    
-    
-    # conditional_zscores_no_nan_df_max=conditional_zscores_no_nan_df
-    
-    plt.figure(figsize=(10, 10))
-    vmin=-2
-    vmax=2
-    
-    sns.heatmap(conditional_zscores_no_nan_df_max,annot=False,vmin=vmin, vmax=vmax,cmap="coolwarm",cbar_kws={'label': 'Z-Score'})
-    # sns.ecdfplot(conditional_zscores_no_nan_df_max_time) 
-    
-
-# %%
-
-def scatter_plots_of_stim_responses(result):
-    
-    peaktimes_mean = result.get("peaktimes_mean")
-    peaktimes_std = result.get("peaktimes_std")
-    peaks_mean = result.get("peaks_mean")
-    peaks_std = result.get("peaks_std")
-    peak_width_mean = result.get("peak_width_mean")
-    peak_width_std = result.get("peak_width_std")
-    peak_count = result.get("peak_count")
-    Stim_cell_mean_peak = result.get("Stim_cell_mean_peak")
-    
-    
-    # plt.scatter(peaktimes_mean,peaktimes_std)
-    
-    # plt.scatter(peaks_mean,peaks_std)
-    
-    # plt.scatter(peaktimes_mean,peaktimes_std)
-    
-    # plt.scatter(peak_width_mean,peak_width_std)
-    
-    
-    # plt.scatter(peak_width_mean,peaks_mean)
-    
-    # plt.scatter(peak_count,peaks_mean)
-    
-    # plt.scatter(Stim_cell_mean_peak,peaks_mean)
-    
-    # plt.scatter(peak_count,peaktimes_mean)
-    # plt.scatter(Stim_cell_mean_peak,peak_count)
-    
-    
-    # plt.scatter(dist_opto,peak_count)
-    
-    # plt.scatter(dist_opto,peaktimes_std)
-    
-    
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    ax.scatter(peaktimes_mean,peaks_mean,peak_count)
-    
-    print(np.mean(peak_count.to_numpy().flatten()))
-    # %%
-def plot_tau(result1,result2):
-   
-    sampling_interval=0.032958316
-    data_samples=len(np.nanmean(result1.get("normalizedDataIndividual"),axis=1))
-    time=np.linspace(sampling_interval, sampling_interval*data_samples, data_samples)
-    tau=result1.get("tau")
-    
-    
-    plt.figure()
-    ecdf = sm.distributions.ECDF(tau)
-    
-    x = np.linspace(min(tau), max(tau),1000)
-    y = ecdf(x)
-    plt.step(x, y)
-    plt.show()
-    
-    
-    # plt.xlim(0,300)
-    plt.title('Distribution of taus', fontsize=20)
-    plt.xlabel('Tau of imaged cell');
-    
-    
-    tau=result2.get("tau")
-    plt.figure()
-    ecdf = sm.distributions.ECDF(tau)
-    
-    x = np.linspace(min(tau), max(tau),1000)
-    y = ecdf(x)
-    plt.step(x, y)
-    plt.show()
-    
-    # fig, ax = plt.subplots()
-    # # ax.step(x, y)
-    # # ax.spines[['right', 'top']].set_visible(False)
-    plt.xlim(0,300)
-    plt.ylim(0,1)
-    plt.show()
-    # plt.axis('square')
-    
-    
-    
-# %%
-def plot_mean_trace(result1,result2,y_limits=[-8,8]):
-    
-    sampling_interval=0.032958316
-    data_samples=len(np.nanmean(result1.get("normalizedDataIndividual"),axis=1))
-    time=np.linspace(sampling_interval, sampling_interval*data_samples, data_samples)
-    
-    
-    # x = np.linspace(min(tau), max(tau),1000)
-    # # x=x*sampling_interval
-    # y = ecdf(x)
-    # x=x*sampling_interval
-    
-    fig, ax = plt.subplots()
-    # ax.step(x, y)
-    # ax.spines[['right', 'top']].set_visible(False)
-    # # plt.xlim(0,300)
-    # # plt.ylim(0,1)
-    # # plt.show()
-    # # plt.axis('square')
-    
-    
-    
-    # ax.set_ylim(-.5, 1)
-    ax.set_box_aspect(1)
-    ax.spines[['right', 'top']].set_visible(False)
-    
-    # y1=np.nanmean(result1.get("normalizedDataIndividual"),axis=1)
-    # y1=result1.get("normalizedData_all")
-    # y1_sem=result1.get("normalizedDataSem")
-    
-    # y2=result2.get("normalizedData_all")
-    # y2_sem=result2.get("normalizedDataSem")
-    
-    # plt.plot(time,y1)
-    # plt.plot(time,y2)
-    
-        
-    # plt.fill_between(time, (y1+y1_sem).flatten(), (y1-y1_sem).flatten(), facecolor='black', alpha=0.75)
-    # plt.fill_between(time, (y2+y2_sem).flatten(), (y2-y2_sem).flatten(), facecolor='red', alpha=0.75)
-    
-    # plt.fill_between(time, (y1+y1_sem).to_numpy().flatten(), (y1-y1_sem).to_numpy().flatten(), facecolor='black', alpha=0.75)
-    # plt.fill_between(time, (y2+y2_sem).to_numpy().flatten(), (y2-y2_sem).to_numpy().flatten(), facecolor='red', alpha=0.75)
-
-    # plt.ylim(-.4,1.2)
-    
-    
-    # plt.plot(time,mPFC_long_result.get("normalizedData"))
-    # plt.plot(time,mPFC_short_result.get("normalizedData"))
-    
-    # plt.plot(time,V1_long_result.get("normalizedData"))
-    # plt.plot(time,V1_short_result.get("normalizedData"))
-    
-    
-    # plt.plot(time,mPFC_late_result.get("normalizedData"))
-    # plt.plot(time,mPFC_early_result.get("normalizedData"))
-    
-    # plt.plot(time,V1_late_result.get("normalizedData"))
-    # plt.plot(time,V1_early_result.get("normalizedData"))
-    
-    # ax.legend(['mPFC_long_tau', 'mPFC_short_tau','V1_long_tau', 'V1_short_tau'])
-    
-    
-    
-    y1=result1.get("conditional_zscores_no_nan_mean_across_cells")
-    y1_sem=result1.get("average_trace_sem")
-    
-    y2=result2.get("conditional_zscores_no_nan_mean_across_cells")
-    y2_sem=result2.get("average_trace_sem")
-    
-    plt.plot(time,y1)
-    plt.plot(time,y2)
-    
-    plt.fill_between(time, (y1+y1_sem).flatten(), (y1-y1_sem).flatten(), facecolor='black', alpha=0.75)
-    plt.fill_between(time, (y2+y2_sem).flatten(), (y2-y2_sem).flatten(), facecolor='red', alpha=0.75)
-    
-    
-    plt.ylim(y_limits[0],y_limits[1])
-# 
 
 # %%
 
@@ -396,99 +205,142 @@ def plot_mean_trace_multiple(result1, result2=None, result3=None, result4=None, 
     plt.ylim(y_limits[0], y_limits[1])
     plt.legend()
     plt.show()
-
 # %%
 
+def normalize_rows(df, norm_type='minmax', min_window=None, max_window=None, peak_window=None):
+    """
+    Normalize each row of the DataFrame using the specified normalization type.
+
+    Parameters:
+        df (pd.DataFrame): Input data (each row is a trace).
+        norm_type (str): 'minmax' or 'peak'.
+        min_window (tuple): (start, end) for min (used only if norm_type == 'minmax').
+        max_window (tuple): (start, end) for max (used only if norm_type == 'minmax').
+        peak_window (tuple): (start, end) for peak (used only if norm_type == 'peak').
+
+    Returns:
+        pd.DataFrame: Normalized DataFrame.
+    """
+    df_norm = df.copy()
+    n_cols = df.shape[1]
+
+    for i in range(df.shape[0]):
+        row = df.iloc[i, :]
+
+        if norm_type == 'minmax':
+            # Get min from specified window
+            if min_window is not None:
+                min_start, min_end = min_window
+                min_start = max(0, min_start)
+                min_end = min(n_cols, min_end)
+                min_val = np.nanmin(row.iloc[min_start:min_end])
+            else:
+                min_val = np.nanmin(row)
+
+            # Get max from specified window
+            if max_window is not None:
+                max_start, max_end = max_window
+                max_start = max(0, max_start)
+                max_end = min(n_cols, max_end)
+                max_val = np.nanmax(row.iloc[max_start:max_end])
+            else:
+                max_val = np.nanmax(row)
+
+            if max_val > min_val:
+                df_norm.iloc[i, :] = (row - min_val) / (max_val - min_val)
+
+        elif norm_type == 'peak':
+            if peak_window is not None:
+                peak_start, peak_end = peak_window
+                peak_start = max(0, peak_start)
+                peak_end = min(n_cols, peak_end)
+                peak_val = np.nanmax(np.abs(row.iloc[peak_start:peak_end]))
+            else:
+                peak_val = np.nanmax(np.abs(row))
+
+            if peak_val > 0:
+                df_norm.iloc[i, :] = row / peak_val
+
+        else:
+            raise ValueError(f"Unknown normalization type: {norm_type}")
+
+    return df_norm
+
+# %%
+import numpy as np
+import matplotlib.pyplot as plt
+
 def plot_mean_trace_multiple_dataframe_input(result1, result2=None, result3=None, result4=None, result5=None, 
-                             y_limits=[-8, 8], legend_names=None, normalize=False, exclude_windows=None):
+                                             y_limits=[-8, 8], legend_names=None, norm_mean=False,
+                                             norm_type_row=None,norm_rows=True, time_array=None, exclude_windows=None):
     
     sampling_interval = 0.032958316
-    data_samples = result1.shape[1]  # Direct access to DataFrame columns
-    time = np.linspace(sampling_interval, sampling_interval * data_samples, data_samples)
+    data_samples = result1.shape[1]
 
-    # Generate HSV color scheme for up to 5 results
+    # Time vector logic
+    if time_array is not None:
+        time = np.array(time_array)
+    else:
+        time = np.linspace(sampling_interval, sampling_interval * data_samples, data_samples)
+
+    # Colors and legend
     colors = plt.cm.jet(np.linspace(0, 1, 5))
-
-    # Default legend names if none provided
     if legend_names is None:
         legend_names = ["Result 1", "Result 2", "Result 3", "Result 4", "Result 5"]
 
-    # Function to normalize a trace and its SEM to the peak value of the trace
+    
+    
+
+    # Normalize trace and SEM to peak
     def normalize_trace_and_sem(trace, sem):
         max_val = np.nanmax(trace)
         if max_val != 0:
             return trace / max_val, sem / max_val
         return trace, sem
 
-    # Function to exclude windows of data
+    # Exclude time windows
     def exclude_trace_windows(trace, sem, time, exclude_windows):
         if exclude_windows:
-            for window in exclude_windows:
-                start, end = window
-                exclude_mask = (time >= start) & (time <= end)
-                trace[exclude_mask] = np.nan
-                sem[exclude_mask] = np.nan
+            for start, end in exclude_windows:
+                mask = (time >= start) & (time <= end)
+                trace[mask] = np.nan
+                sem[mask] = np.nan
         return trace, sem
 
+    # Plotting function
+    def process_and_plot(df, label, color):
+        if normalize_rows:
+            if norm_type_row=='minmax':
+                df = normalize_rows(df,norm_type_row,min_window=(0,80),max_window=(100,300))
+            else:
+                df = normalize_rows(df,norm_type_row,peak_window=(100,300))
+
+
+        y = df.mean(axis=0).to_numpy()
+        y_sem = (df.std(axis=0) / np.sqrt(df.shape[0])).to_numpy()
+
+        if norm_mean:
+            y, y_sem = normalize_trace_and_sem(y, y_sem)
+
+        if exclude_windows:
+            y, y_sem = exclude_trace_windows(y, y_sem, time, exclude_windows)
+
+        plt.plot(time, y, label=label, color=color)
+        plt.fill_between(time, (y + y_sem).flatten(), (y - y_sem).flatten(), color=color, alpha=0.75)
+
+    # Begin plotting
     fig, ax = plt.subplots()
     ax.set_box_aspect(1)
     ax.spines[['right', 'top']].set_visible(False)
 
-    # Plot result1
-    y1 = result1.mean(axis=0).to_numpy()  # Access columns in DataFrame
-    y1_sem = result1.std(axis=0).to_numpy()  # Access columns in DataFrame
-    if normalize:
-        y1, y1_sem = normalize_trace_and_sem(y1, y1_sem)
-    if exclude_windows:
-        y1, y1_sem = exclude_trace_windows(y1, y1_sem, time, exclude_windows)
-    plt.plot(time, y1, label=legend_names[0], color=colors[0])
-    plt.fill_between(time, (y1 + y1_sem).flatten(), (y1 - y1_sem).flatten(), facecolor=colors[0], alpha=0.75)
+    for idx, (result, name) in enumerate(zip(
+        [result1, result2, result3, result4, result5],
+        legend_names
+    )):
+        if result is not None:
+            process_and_plot(result, name, colors[idx])
 
-    # Plot result2 if provided
-    if result2 is not None:
-        y2 = result2.mean(axis=0).to_numpy()
-        y2_sem = result2.std(axis=0).to_numpy()
-        if normalize:
-            y2, y2_sem = normalize_trace_and_sem(y2, y2_sem)
-        if exclude_windows:
-            y2, y2_sem = exclude_trace_windows(y2, y2_sem, time, exclude_windows)
-        plt.plot(time, y2, label=legend_names[1], color=colors[1])
-        plt.fill_between(time, (y2 + y2_sem).flatten(), (y2 - y2_sem).flatten(), facecolor=colors[1], alpha=0.75)
-
-    # Plot result3 if provided
-    if result3 is not None:
-        y3 = result3.mean(axis=0)
-        y3_sem = result3.std(axis=0)
-        if normalize:
-            y3, y3_sem = normalize_trace_and_sem(y3, y3_sem)
-        if exclude_windows:
-            y3, y3_sem = exclude_trace_windows(y3, y3_sem, time, exclude_windows)
-        plt.plot(time, y3, label=legend_names[2], color=colors[2])
-        plt.fill_between(time, (y3 + y3_sem).flatten(), (y3 - y3_sem).flatten(), facecolor=colors[2], alpha=0.75)
-
-    # Plot result4 if provided
-    if result4 is not None:
-        y4 = result4.mean(axis=0)
-        y4_sem = result4.std(axis=0)
-        if normalize:
-            y4, y4_sem = normalize_trace_and_sem(y4, y4_sem)
-        if exclude_windows:
-            y4, y4_sem = exclude_trace_windows(y4, y4_sem, time, exclude_windows)
-        plt.plot(time, y4, label=legend_names[3], color=colors[3])
-        plt.fill_between(time, (y4 + y4_sem).flatten(), (y4 - y4_sem).flatten(), facecolor=colors[3], alpha=0.75)
-
-    # Plot result5 if provided
-    if result5 is not None:
-        y5 = result5.mean(axis=0)
-        y5_sem = result5.std(axis=0)
-        if normalize:
-            y5, y5_sem = normalize_trace_and_sem(y5, y5_sem)
-        if exclude_windows:
-            y5, y5_sem = exclude_trace_windows(y5, y5_sem, time, exclude_windows)
-        plt.plot(time, y5, label=legend_names[4], color=colors[4])
-        plt.fill_between(time, (y5 + y5_sem).flatten(), (y5 - y5_sem).flatten(), facecolor=colors[4], alpha=0.75)
-
-    plt.ylim(y_limits[0], y_limits[1])
+    plt.ylim(y_limits)
     plt.legend()
     plt.show()
 
@@ -671,153 +523,6 @@ def plot_curve_with_sem(data, labels=None, color=None, alpha=0.3):
     plt.legend()
     plt.show()
 
-# %%
-
-def plot_mean_trace_by_tau(result1,result2,result3,result4):
-
-    sampling_interval=0.032958316
-    data_samples=len(np.nanmean(result1.get("normalizedDataIndividual"),axis=1))
-    time=np.linspace(sampling_interval, sampling_interval*data_samples, data_samples)
-    
-    
-    # x = np.linspace(min(tau), max(tau),1000)
-    # # x=x*sampling_interval
-    # y = ecdf(x)
-    # x=x*sampling_interval
-    
-    fig, ax = plt.subplots()
-    
-    # ax.set_ylim(-.5, 1)
-    ax.set_box_aspect(1)
-    ax.spines[['right', 'top']].set_visible(False)
-    
-    
-    
-    y1=result1.get("normalizedData_all")
-    y1_sem=result1.get("normalizedDataSem")
-    
-    y2=result2.get("normalizedData_all")
-    y2_sem=result2.get("normalizedDataSem")
-    
-    y3=result3.get("normalizedData_all")
-    y3_sem=result3.get("normalizedDataSem")
-    
-    y4=result4.get("normalizedData_all")
-    y4_sem=result4.get("normalizedDataSem")
-    
-    
-    
-    # y1=result1.get("conditional_zscores_no_nan_mean_across_cells")
-    # y1_sem=result1.get("average_trace_sem")
-    
-    # y2=result2.get("conditional_zscores_no_nan_mean_across_cells")
-    # y2_sem=result2.get("average_trace_sem")
-    
-    # y3=result3.get("conditional_zscores_no_nan_mean_across_cells")
-    # y3_sem=result3.get("average_trace_sem")
-    
-    # y4=result4.get("conditional_zscores_no_nan_mean_across_cells")
-    # y4_sem=result4.get("average_trace_sem")
- 
-    plt.plot(time,y1)
-    plt.plot(time,y2)
-    plt.plot(time,y3)
-    plt.plot(time,y4)
-    
-    
-    plt.fill_between(time, (y1+y1_sem).flatten(), (y1-y1_sem).flatten(), facecolor='black', alpha=0.75)
-    plt.fill_between(time, (y2+y2_sem).flatten(), (y2-y2_sem).flatten(), facecolor='red', alpha=0.75)
-    
-    plt.fill_between(time, (y3+y3_sem).flatten(), (y3-y3_sem).flatten(), facecolor='black', alpha=0.75)
-    plt.fill_between(time, (y4+y4_sem).flatten(), (y4-y4_sem).flatten(), facecolor='red', alpha=0.75)
-    
-       
-       
-    
-    # plt.plot(time,mPFC_long_long.get("conditional_zscores_no_nan_mean_across_cells"))
-    # plt.plot(time,mPFC_long_short.get("conditional_zscores_no_nan_mean_across_cells"))
-    
-    # plt.plot(time,mPFC_short_long.get("conditional_zscores_no_nan_mean_across_cells"))
-    # plt.plot(time,mPFC_short_short.get("conditional_zscores_no_nan_mean_across_cells"))
-    
-    
-    # plt.plot(time,V1_long_long.get("normalizedData"))
-    # plt.plot(time,V1_long_short.get("normalizedData"))
-    
-    # plt.plot(time,V1_short_long.get("normalizedData"))
-    # plt.plot(time,V1_short_short.get("normalizedData"))
-    
-    # plt.plot(time,V1_long_long.get("conditional_zscores_no_nan_mean_across_cells"))
-    # plt.plot(time,V1_long_short.get("conditional_zscores_no_nan_mean_across_cells"))
-    
-    # plt.plot(time,V1_short_long.get("conditional_zscores_no_nan_mean_across_cells"))
-    # plt.plot(time,V1_short_short.get("conditional_zscores_no_nan_mean_across_cells"))
-    
-    ax.legend(['long_long', 'long_short','short_long', 'short_short'])
-    
-    
-    # plt.plot(time,mPFC_result.get("conditional_zscores_no_nan_mean_across_cells"))
-    # plt.plot(time,V1_result.get("conditional_zscores_no_nan_mean_across_cells"))
-
-    plt.ylim(-2,2)
-  # %%
-def plot_cum_dist_response(result1,result2,limit=1.96):  
-    
-  
-    fig, ax = plt.subplots()
-
-    sns.ecdfplot(result1.get("stim_responsive").flatten(), ax = ax)
-    sns.ecdfplot(result2.get("stim_responsive").flatten(), ax = ax)
-    
-    # ax.set_xlim(0, 10)
-    ax.set_box_aspect(1)
-    ax.spines[['right', 'top']].set_visible(False)
-    
-    
-    plt.text(.2, .2, 'median= '+ str(np.nanmedian(result1.get("stim_responsive").flatten())), fontsize = 10)
-    plt.text(.2, .1, 'median= '+ str(np.nanmedian(result2.get("stim_responsive").flatten())), fontsize = 10)
-    
-    
-    a=(stats.ks_2samp(result1.get("stim_responsive").flatten(),result2.get("stim_responsive").flatten()))
-    
-    plt.text(.2, .3, 'p= '+ str(a[1]), fontsize = 10)
-    
-    ax.set_xlabel('Proportion of total cells responding');
-    ax.set_ylabel('Cumulative Proportion');
-    
-    
-    ax.set_title('Average_proportion_of_cells_responding_to_stim_above_a_z-score_of: ' + str(limit), fontsize=20)
-
-    return a
- # %%
-def plot_cum_dist_succesful_stim(result1,result2,limit=1.96):  
-    
-    plt.figure(figsize=(25, 25))
-       
-    # stim_responsive=Stim_cell_mean_peak_above_threshold.count().to_numpy('int')/len(Stim_cell_mean_peak_above_threshold)
-    
-    temp1=result1.get("peak_count").to_numpy().flatten()
-    temp2=result2.get("peak_count").to_numpy().flatten()
-    
-    sns.ecdfplot(temp1) 
-    sns.ecdfplot(temp2) 
-    # plt.xlim(0,5)
-    
-    plt.xlabel('Proportion of total cells responding');
-    plt.ylabel('Cumulative Proportion');
-    
-    
-    plt.text(.2, .2, 'median= '+ str(np.nanmedian(temp1)), fontsize = 10)
-    plt.text(.2, .1, 'median= '+ str(np.nanmedian(temp2)), fontsize = 10)
-    
-    
-    a=(stats.ks_2samp(temp1,temp2))
-    
-    plt.text(.2, .3, 'p= '+ str(a[1]), fontsize = 10)
-    
-    plt.title('Average_proportion_of_cells_responding_to_stim_above_a_z-score_of: ' + str(limit), fontsize=20)
-
-
 
     
 
@@ -942,777 +647,7 @@ def plot_dist_responses_sorted(result1, result2, limit=1.96, sort_order=None, la
     return a
 
 
-# %% Plot distance  vs reponse amplitude
 
-def plot_dist_relationships(result1,result2,yvalues):
-    
-    sampling_interval=0.032958316
-
-    # plt.figure(figsize=(25, 25))
-    
-    # plt.scatter(mPFC_result.get("dist_opto"),result1.get("Stim_cell_mean_peak").to_numpy().flatten())
-    # plt.scatter(V1_result.get("dist_opto"),V1_result.get("Stim_cell_mean_peak").to_numpy().flatten())
-    
-    # plt.scatter(result1.get("dist_opto"),result1.get("ccc").to_numpy().flatten())
-    # plt.scatter(V1_result.get("dist_opto"),V1_result.get("ccc").to_numpy().flatten())
-    # def count_excluding_nan(arr):
-    #     return np.count_nonzero(~np.isnan(arr))/len(arr)
-    
-    Stim_cell_peaks_trials_count = result1.get("ccc").count(axis='columns').to_numpy()
-    fig, ax = plt.subplots()
-
-    # np.count_nonzero(~np.isnan(arr))/len(arr)
-    bins=[10,200,11]
-    bins_list=np.linspace(bins[0],bins[1],bins[2])
-    bins_list=bins_list+(bins_list[1]-bins_list[0])*.5
-    
-    if yvalues=="peaks":
-        aes=bin_data(bins,result1.get("dist_opto"),result1.get("ccc").to_numpy().flatten(),result1.get("dist_opto"))
-        aes2=bin_data(bins,result2.get("dist_opto"),result2.get("ccc").to_numpy().flatten(),result1.get("dist_opto"))
-        
-        y1=np.nanmean(aes,axis=1)
-        y2=np.nanmean(aes2,axis=1)
-    # aes=bin_data(bins,result1.get("dist_opto").to_numpy()[:,0],Stim_cell_peaks_trials_count,result1.get("dist_opto"))
-        # ax.set_ylim([3,8]);
-        
-        y_tau_dist_err=pd.DataFrame(aes).sem(axis=1)
-        y_tau_dist_err2=pd.DataFrame(aes2).sem(axis=1)
-    
-    if yvalues=="number_of_cells":
-        # aes=bin_data(bins,result1.get("dist_opto"),result1.get("ccc").to_numpy().flatten(),result1.get("dist_opto"))
-        # aes2=bin_data(bins,result2.get("dist_opto"),result2.get("ccc").to_numpy().flatten(),result1.get("dist_opto"))
-        
-        # binned_dist=bin_data(bins,result1.get("dist_opto"),result1.get("dist_opto"),result1.get("dist_opto"))
-        # binned_dist2=bin_data(bins,result2.get("dist_opto"),result2.get("dist_opto"),result1.get("dist_opto"))
-        
-        # y1=pd.DataFrame(aes).count(axis=1)
-        # y2=pd.DataFrame(aes2).count(axis=1)
-        
-        # dist_y1=pd.DataFrame(binned_dist).count(axis=1)
-        # dist_y2=pd.DataFrame(binned_dist2).count(axis=1)
-        
-        
-        
-        # y1=y1/dist_y1
-        # y2=y2/dist_y2
-        
-        y1=result1.get("responsive_cells_by_dist_bin")
-        y2=result2.get("responsive_cells_by_dist_bin")
-        
-        y_tau_dist_err=pd.DataFrame(y1).sem(axis=1)
-        y_tau_dist_err2=pd.DataFrame(y2).sem(axis=1)
-        
-        y1=np.nanmean(y1,axis=1)
-        y2=np.nanmean(y2,axis=1)
-        
-    # aes=bin_data(bins,result1.get("dist_opto").to_numpy()[:,0],Stim_cell_peaks_trials_count,result1.get("dist_opto"))
-    
-    if yvalues=="peaktimes":
-        
-        temp1=(result1.get("peaktimes_mean").where(~result1.get("ccc").isnull() & (result1.get("peaktimes_mean")>300) ,float("nan"))-300)*sampling_interval
-        temp2=(result2.get("peaktimes_mean").where(~result2.get("ccc").isnull() & (result2.get("peaktimes_mean")>300),float("nan"))-300)*sampling_interval
-        
-        # temp1=(result1.get("peaktimes_mean").where(~result1.get("ccc").isnull() & (result1.get("peaktimes_mean")>300) ,float("nan"))-300)
-        # temp2=(result2.get("peaktimes_mean").where(~result2.get("ccc").isnull() & (result2.get("peaktimes_mean")>300),float("nan"))-300)
-        
-        aes=bin_data(bins,result1.get("dist_opto"),temp1.to_numpy().flatten(),result1.get("dist_opto"))
-        aes2=bin_data(bins,result2.get("dist_opto"),temp2.to_numpy().flatten(),result1.get("dist_opto"))
-    
-        # ax.set_ylim([3,8]);
-        # aes=bin_data(bins,result1.get("dist_opto").to_numpy(),result1.get("peaktimes_mean").to_numpy().flatten(),result1.get("dist_opto"))
-        # aes2=bin_data(bins,result2.get("dist_opto").to_numpy(),result2.get("peaktimes_mean").to_numpy().flatten(),result1.get("dist_opto"))
-        
-        y1=np.nanmean(aes,axis=1)
-        y2=np.nanmean(aes2,axis=1)
-        
-        y_tau_dist_err=pd.DataFrame(y1.sem(axis=1))
-        y_tau_dist_err=pd.DataFrame(y2.sem(axis=1))
-        
-    if yvalues=="peak_count":
-        temp1=result1.get("peak_count").where(~result1.get("ccc").isnull(),float("nan"))
-        temp2=result2.get("peak_count").where(~result2.get("ccc").isnull(),float("nan"))
-        
-        # aes=bin_data(bins,result1.get("dist_opto").to_numpy(),result1.get("peak_count").to_numpy().flatten(),result1.get("dist_opto"))
-        # aes2=bin_data(bins,result2.get("dist_opto").to_numpy(),result2.get("peak_count").to_numpy().flatten(),result1.get("dist_opto"))
-    
-
-        aes=bin_data(bins,result1.get("dist_opto"),temp1.to_numpy().flatten(),result1.get("dist_opto"))
-        aes2=bin_data(bins,result2.get("dist_opto"),temp2.to_numpy().flatten(),result1.get("dist_opto"))
-    
-        y1=np.nanmean(aes,axis=1)
-        y2=np.nanmean(aes2,axis=1)
-        
-        y_tau_dist_err=pd.DataFrame(aes).sem(axis=1)
-        y_tau_dist_err2=pd.DataFrame(aes2).sem(axis=1)
-  
-    # y_tau_dist_err=pd.DataFrame(aes).sem(axis=1)
-    # y_tau_dist_err2=pd.DataFrame(aes2).sem(axis=1)
-   
-    ax.errorbar(bins_list[0:-1],y1,y_tau_dist_err)
-    ax.errorbar(bins_list[0:-1],y2,y_tau_dist_err2)
-    
-    ax.plot(bins_list[0:-1],y1)
-    ax.plot(bins_list[0:-1],y2)
-    
-  
-    ax.set_box_aspect(1)
-    ax.spines[['right', 'top']].set_visible(False)
-    
-    # ax.set_xlim(0, 10)
-    # ax.set_ylim([3,8]);
-    # ax.set_ylabel('Mean z-score');
-    
-    ax.set_xlabel('Distance from stimulated cell');
-    ax.set_ylabel('Mean z-score');
-    
-    # plt.gca().set_aspect('square')
-
-# %% Plot tau of all cells binned vs etc
-
-def plot_tau_relationships(result1,result2,yvalues):
-
-    sampling_interval=0.032958316
-
-    # plt.figure(figsize=(25, 25))
-    
-    # plt.scatter(result1.get("dist_opto"),result1.get("Stim_cell_mean_peak").to_numpy().flatten())
-    # plt.scatter(result2.get("dist_opto"),result2.get("Stim_cell_mean_peak").to_numpy().flatten())
-    
-    # plt.scatter(result1.get("dist_opto"),result1.get("ccc").to_numpy().flatten())
-    # plt.scatter(result2.get("dist_opto"),result2.get("ccc").to_numpy().flatten())
-    # def count_excluding_nan(arr):
-    #     return np.count_nonzero(~np.isnan(arr))/len(arr)
-    
-    Stim_cell_peaks_trials_count = result1.get("ccc").count(axis='columns').to_numpy()
-    # 
-    # np.count_nonzero(~np.isnan(arr))/len(arr)
-    
-    bins=[0,60,15]
-    bins_list=np.linspace(bins[0],bins[1],bins[2])
-    bins_list=bins_list+(bins_list[1]-bins_list[0])*.5
-    bins_list=bins_list*sampling_interval
-    
-    fig, ax = plt.subplots()
-    
-   
-    if yvalues=="peaks":
-        aes=bin_data(bins,result1.get("tau_all_cells").to_numpy(),result1.get("ccc").to_numpy().flatten(),result1.get("tau_all_cells"))
-        aes2=bin_data(bins,result2.get("tau_all_cells").to_numpy(),result2.get("ccc").to_numpy().flatten(),result1.get("tau_all_cells"))
-        
-        # aes=bin_data(bins,result1.get("tau_all_cells").to_numpy(),result1.get("Stim_cell_mean_peak").to_numpy().flatten(),result1.get("tau_all_cells"))
-        # aes2=bin_data(bins,result2.get("tau_all_cells").to_numpy(),result2.get("Stim_cell_mean_peak").to_numpy().flatten(),result1.get("tau_all_cells"))
-        
-        
-        y1=np.nanmean(aes,axis=1)
-        y2=np.nanmean(aes2,axis=1)
-  
-       
-    if yvalues=="number_of_cells":
-        aes=bin_data(bins,result1.get("tau_all_cells").to_numpy(),result1.get("ccc").to_numpy().flatten(),result1.get("dist_opto"))
-        aes2=bin_data(bins,result2.get("tau_all_cells").to_numpy(),result2.get("ccc").to_numpy().flatten(),result1.get("dist_opto"))
-        
-        binned_dist=bin_data(bins,result1.get("tau_all_cells").to_numpy(),result1.get("tau_all_cells").to_numpy(),result1.get("dist_opto"))
-        binned_dist2=bin_data(bins,result2.get("tau_all_cells").to_numpy(),result2.get("tau_all_cells").to_numpy(),result1.get("dist_opto"))
-        
-        y1=pd.DataFrame(aes).count(axis=1)
-        y2=pd.DataFrame(aes2).count(axis=1)
-        
-        dist_y1=pd.DataFrame(binned_dist).count(axis=1)
-        dist_y2=pd.DataFrame(binned_dist2).count(axis=1)
-    
-         
-        y1=y1/dist_y1
-        y2=y2/dist_y2
-        
-        # y1=dist_y1
-        # y2=dist_y2
-        
-    # aes=bin_data(bins,result1.get("tau_all_cells").to_numpy()[:,0],Stim_cell_peaks_trials_count,result1.get("tau_all_cells"))
-    
-    if yvalues=="peaktimes":
-        
-        temp1=(result1.get("peaktimes_mean").where(~result1.get("ccc").isnull() & (result1.get("peaktimes_mean")>300) ,float("nan"))-300)*sampling_interval
-        temp2=(result2.get("peaktimes_mean").where(~result2.get("ccc").isnull() & (result2.get("peaktimes_mean")>300),float("nan"))-300)*sampling_interval
-        
-        aes=bin_data(bins,result1.get("tau_all_cells").to_numpy(),temp1.to_numpy().flatten(),result1.get("tau_all_cells"))
-        aes2=bin_data(bins,result2.get("tau_all_cells").to_numpy(),temp2.to_numpy().flatten(),result1.get("tau_all_cells"))
-        
-        y1=np.nanmean(aes,axis=1)
-        y2=np.nanmean(aes2,axis=1)
-        
-        # ax.set_ylim([3,8]);
-        # ax.set_ylabel('Mean z-score');
-    
-    if yvalues=="peak_width_mean":
-        
-        temp1=(result1.get("peak_width_mean").where(~result1.get("ccc").isnull() & (result1.get("peaktimes_mean")>300) ,float("nan")))*sampling_interval
-        temp2=(result2.get("peak_width_mean").where(~result2.get("ccc").isnull() & (result2.get("peaktimes_mean")>300),float("nan")))*sampling_interval
-        
-        # temp1=(result1.get("peak_width_mean").where(~result1.get("ccc").isnull() & (result1.get("peaktimes_mean")>300) ,float("nan")))
-        # temp2=(result2.get("peak_width_mean").where(~result2.get("ccc").isnull() & (result2.get("peaktimes_mean")>300),float("nan")))
-        
-        aes=bin_data(bins,result1.get("tau_all_cells").to_numpy(),temp1.to_numpy().flatten(),result1.get("tau_all_cells"))
-        aes2=bin_data(bins,result2.get("tau_all_cells").to_numpy(),temp2.to_numpy().flatten(),result1.get("tau_all_cells"))
-        
-        y1=np.nanmean(aes,axis=1)
-        y2=np.nanmean(aes2,axis=1)
-        
-        # aes=bin_data(bins,result1.get("tau_all_cells").to_numpy(),result1.get("peaktimes_mean").to_numpy().flatten(),result1.get("tau_all_cells"))
-        # aes2=bin_data(bins,result2.get("tau_all_cells").to_numpy(),result2.get("peaktimes_mean").to_numpy().flatten(),result1.get("tau_all_cells"))
-        
-    
-    if yvalues=="peak_count":
-        
-        temp1=result1.get("peak_count").where(~result1.get("ccc").isnull(),float("nan"))
-        temp2=result2.get("peak_count").where(~result2.get("ccc").isnull(),float("nan"))
-        
-        # aes=bin_data(bins,result1.get("tau_all_cells").to_numpy(),result1.get("peak_count").to_numpy().flatten(),result1.get("tau_all_cells"))
-        # aes2=bin_data(bins,result2.get("tau_all_cells").to_numpy(),result2.get("peak_count").to_numpy().flatten(),result1.get("tau_all_cells"))
-    
-
-        aes=bin_data(bins,result1.get("tau_all_cells").to_numpy(),temp1.to_numpy().flatten(),result1.get("tau_all_cells"))
-        aes2=bin_data(bins,result2.get("tau_all_cells").to_numpy(),temp2.to_numpy().flatten(),result1.get("tau_all_cells"))
-    
-        y1=np.nanmean(aes,axis=1)
-        y2=np.nanmean(aes2,axis=1)
-  
-    
-    y_tau_dist_err=pd.DataFrame(aes).sem(axis=1)
-    y_tau_dist_err2=pd.DataFrame(aes2).sem(axis=1)
-    # y_tau_dist_err=np.nanvar(aes,axis=1)/np.sqrt(len(binned_tau_expanded.iloc[0]))
-    
-    # plt.bar(bins_list[0:-1],np.nanmean(aes,axis=1),width=0.15)
-    # plt.bar(bins_list[0:-1],np.nanmean(aes2,axis=1),width=0.1)
-    
-    
-    # plt.gca().set_aspect('equal')
-    
-    
-    # fig, ax = plt.subplots()
-    # ax.step(x, y)
-    # ax.spines[['right', 'top']].set_visible(False)
-    # # plt.xlim(0,300)
-    # # plt.ylim(0,1)
-    # # plt.show()
-    # # plt.axis('square')
-    
-   
-    ax.errorbar(bins_list[0:-1],y1,y_tau_dist_err)
-    ax.errorbar(bins_list[0:-1],y2,y_tau_dist_err2)
-    
-    
-    # ax.set_xlim(0, 10)
-    ax.set_box_aspect(1)
-    ax.spines[['right', 'top']].set_visible(False)
-    
-    
-    # ax.set_ylim([3,8]);
-    # ax.set_ylabel('Mean z-score');
-    
-    ax.set_xlabel('Tau all cells');
-    # ax.set_ylabel('Mean z-score');
-    ax.set_ylabel('Peak_width_mean(second)');
-
-    # ax.set_ylabel('time_to_peak');
-    
-    
-    # ax.set_title('Average_proportion_of_cells_responding_to_stim_above_a_z-score_of: ' + str(limit), fontsize=20)
-    
-    # plt.ylim(([0,10]))
-    
-    # %% Plot delta tau of all cells binned vs etc
-
-def plot_delta_tau_relationships(result1,result2,yvalues):
-
-    sampling_interval=0.032958316
-
-    
-    Stim_cell_peaks_trials_count = result1.get("ccc").count(axis='columns').to_numpy()
-    # 
-    # np.count_nonzero(~np.isnan(arr))/len(arr)
-    
-    bins=[0,300,11]
-    bins_list=np.linspace(bins[0],bins[1],bins[2])
-    bins_list=bins_list+(bins_list[1]-bins_list[0])*.5
-    bins_list=bins_list*sampling_interval
-    
-    # temp1=(result1.get("peaktimes_mean").where(~result1.get("ccc").isnull() & (result1.get("peaktimes_mean")>300) ,float("nan"))-300)*sampling_interval
-    # temp2=(result2.get("peaktimes_mean").where(~result2.get("ccc").isnull() & (result2.get("peaktimes_mean")>300),float("nan"))-300)*sampling_interval
-    
-    delta_tau1=np.abs(result1.get("tau_all_cells")-result1.get("tau_stim_cells"))
-    delta_tau2=np.abs(result2.get("tau_all_cells")-result2.get("tau_stim_cells"))
-    
-    # delta_tau1=(result1.get("tau_all_cells")-result1.get("tau_stim_cells"))
-    # delta_tau2=(result2.get("tau_all_cells")-result2.get("tau_stim_cells"))
-    
-   
-    fig, ax = plt.subplots()
-
-    
-    if yvalues=="peaks":
-        aes=bin_data(bins,delta_tau1.to_numpy(),result1.get("ccc").to_numpy().flatten(),result1.get("tau_all_cells"))
-        aes2=bin_data(bins,delta_tau2.to_numpy(),result2.get("ccc").to_numpy().flatten(),result1.get("tau_all_cells"))
-        
-        # # ax.set_ylim([3,8]);
-        # aes=bin_data(bins,delta_tau1.to_numpy(),result1.get("Stim_cell_mean_peak").to_numpy().flatten(),result1.get("dist_opto"))
-        # aes2=bin_data(bins,delta_tau2.to_numpy(),result2.get("Stim_cell_mean_peak").to_numpy().flatten(),result1.get("dist_opto"))
-    
-    # aes=bin_data(bins,delta_tau1.to_numpy()[:,0],Stim_cell_peaks_trials_count,result1.get("tau_all_cells"))
-        y1=np.nanmean(aes,axis=1)
-        y2=np.nanmean(aes2,axis=1)
-        
-        y_tau_dist_err=pd.DataFrame(aes).sem(axis=1)
-        y_tau_dist_err2=pd.DataFrame(aes2).sem(axis=1)
-    
-    if yvalues=="number_of_cells":
-        
-        # aes=bin_data(bins,delta_tau1.to_numpy(),result1.get("ccc").to_numpy().flatten(),result1.get("dist_opto"))
-        # aes2=bin_data(bins,delta_tau2.to_numpy(),result2.get("ccc").to_numpy().flatten(),result1.get("dist_opto"))
-        
-        # binned_dist=bin_data(bins,delta_tau1.to_numpy(),delta_tau1.to_numpy(),result1.get("dist_opto"))
-        # binned_dist2=bin_data(bins,delta_tau2.to_numpy(),delta_tau2.to_numpy(),result1.get("dist_opto"))
-        
-        # y1=pd.DataFrame(aes).count(axis=1)
-        # y2=pd.DataFrame(aes2).count(axis=1)
-        
-        # dist_y1=pd.DataFrame(binned_dist).count(axis=1)
-        # dist_y2=pd.DataFrame(binned_dist2).count(axis=1)
-    
-        
-    
-        # y1=y1/dist_y1
-        # y2=y2/dist_y2
-        
-        # y1=dist_y1
-        # y2=dist_y2
-        
-        y1=result1.get("responsive_cells_by_delta_tau_bin")
-        y2=result2.get("responsive_cells_by_delta_tau_bin")
-        
-        y_tau_dist_err=pd.DataFrame(y1).sem(axis=1)
-        y_tau_dist_err2=pd.DataFrame(y2).sem(axis=1)
-        
-        y1=np.nanmean(y1,axis=1)
-        y2=np.nanmean(y2,axis=1)
-        
-        
-    if yvalues=="peaktimes":
-        
-        temp1=(result1.get("peaktimes_mean").where(~result1.get("ccc").isnull() & (result1.get("peaktimes_mean")>300) ,float("nan"))-300)*sampling_interval
-        temp2=(result2.get("peaktimes_mean").where(~result2.get("ccc").isnull() & (result2.get("peaktimes_mean")>300),float("nan"))-300)*sampling_interval
-        
-        aes=bin_data(bins,delta_tau1.to_numpy(),temp1.to_numpy().flatten(),result1.get("tau_all_cells"))
-        aes2=bin_data(bins,delta_tau2.to_numpy(),temp2.to_numpy().flatten(),result1.get("tau_all_cells"))
-    
-        
-        # aes=bin_data(bins,delta_tau1.to_numpy(),result1.get("peaktimes_mean").to_numpy().flatten(),result1.get("tau_all_cells"))
-        # aes2=bin_data(bins,delta_tau2.to_numpy(),result2.get("peaktimes_mean").to_numpy().flatten(),result1.get("tau_all_cells"))
-        y1=np.nanmean(aes,axis=1)
-        y2=np.nanmean(aes2,axis=1)
-        
-        y_tau_dist_err=pd.DataFrame(aes).sem(axis=1)
-        y_tau_dist_err2=pd.DataFrame(aes2).sem(axis=1)
-    
-    if yvalues=="peak_count":
-        temp1=result1.get("peak_count").where(~result1.get("ccc").isnull(),float("nan"))
-        temp2=result2.get("peak_count").where(~result2.get("ccc").isnull(),float("nan"))
-        
-        # aes=bin_data(bins,delta_tau1.to_numpy(),result1.get("peak_count").to_numpy().flatten(),result1.get("tau_all_cells"))
-        # aes2=bin_data(bins,delta_tau2.to_numpy(),result2.get("peak_count").to_numpy().flatten(),result1.get("tau_all_cells"))
-    
-
-        aes=bin_data(bins,delta_tau1.to_numpy(),temp1.to_numpy().flatten(),result1.get("tau_all_cells"))
-        aes2=bin_data(bins,delta_tau2.to_numpy(),temp2.to_numpy().flatten(),result1.get("tau_all_cells"))
-    
-        y1=np.nanmean(aes,axis=1)
-        y2=np.nanmean(aes2,axis=1)
-        
-        y_tau_dist_err=pd.DataFrame(aes).sem(axis=1)
-        y_tau_dist_err2=pd.DataFrame(aes2).sem(axis=1)
-    
-    
-    
-   
-    ax.errorbar(bins_list[0:-1],y1,y_tau_dist_err)
-    ax.errorbar(bins_list[0:-1],y2,y_tau_dist_err2)
-    
-    # ax.plot(bins_list[0:-1],y1)
-    # ax.plot(bins_list[0:-1],y2)
-    
-  
-    ax.set_box_aspect(1)
-    ax.spines[['right', 'top']].set_visible(False)
-    
-    
-    # ax.set_ylim([3,8]);
-    # ax.set_ylabel('Mean z-score');
-    
-    ax.set_xlabel('Abs. Delta Tau (Stim cell-recorded)');
-    ax.set_ylabel('Mean z-score');
-    # ax.set_ylabel('time_to_peak');
-    
-    
-    # ax.set_title('Average_proportion_of_cells_responding_to_stim_above_a_z-score_of: ' + str(limit), fontsize=20)
-    
-    # plt.ylim(([0,10]))
-# %% Plot distance  vs reponse amplitude
-
-def plot_peaktime_relationships(result1,result2):
-    
-    # plt.figure(figsize=(25, 25))
-    
-    # plt.scatter(result1.get("dist_opto"),result1.get("Stim_cell_mean_peak").to_numpy().flatten())
-    # plt.scatter(result2.get("dist_opto"),result2.get("Stim_cell_mean_peak").to_numpy().flatten())
-    
-    # plt.scatter(result1.get("dist_opto"),result1.get("ccc").to_numpy().flatten())
-    # plt.scatter(result2.get("dist_opto"),result2.get("ccc").to_numpy().flatten())
-    # def count_excluding_nan(arr):
-    #     return np.count_nonzero(~np.isnan(arr))/len(arr)
-    
-    Stim_cell_peaks_trials_count = result1.get("ccc").count(axis='columns').to_numpy()
-    # 
-    # np.count_nonzero(~np.isnan(arr))/len(arr)
-    bins=[0,100,11]
-    bins_list=np.linspace(bins[0],bins[1],bins[2])
-    bins_list=bins_list+(bins_list[1]-bins_list[0])*.5
-    bins_list=bins_list*sampling_interval
-    
-    # aes=bin_data(bins,result1.get("tau_all_cells").to_numpy(),result1.get("ccc").to_numpy().flatten(),result1.get("dist_opto"))
-    # aes2=bin_data(bins,result2.get("tau_all_cells").to_numpy(),result2.get("ccc").to_numpy().flatten(),result1.get("dist_opto"))
-    
-    
-    # aes=bin_data(bins,result1.get("tau_all_cells").to_numpy(),result1.get("ccc").to_numpy().flatten(),result1.get("dist_opto"))
-    # aes2=bin_data(bins,result2.get("tau_all_cells").to_numpy(),result2.get("ccc").to_numpy().flatten(),result1.get("dist_opto"))
-    
-    
-    # aes=bin_data(bins,result1.get("tau_all_cells").to_numpy()[:,0],Stim_cell_peaks_trials_count,result1.get("dist_opto"))
-    
-    
-    # temp1=result1.get("peaktimes_mean").where(~result1.get("ccc").isnull(),float("nan"))
-    # temp2=result2.get("peaktimes_mean").where(~result2.get("ccc").isnull(),float("nan"))
-    
-    
-    temp1=(result1.get("peaktimes_mean").where(~result1.get("ccc").isnull() & (result1.get("peaktimes_mean")>300) ,float("nan"))-300)
-    temp2=(result2.get("peaktimes_mean").where(~result2.get("ccc").isnull() & (result2.get("peaktimes_mean")>300),float("nan"))-300)
-    
-    # # aes=bin_data(bins,result1.get("tau_all_cells").to_numpy(),temp1.to_numpy().flatten(),result1.get("dist_opto"))
-    # # aes2=bin_data(bins,result2.get("tau_all_cells").to_numpy(),temp2.to_numpy().flatten(),result1.get("dist_opto"))
-    
-    
-    # aes=bin_data(bins,temp1.to_numpy().flatten(),result1.get("tau_all_cells").to_numpy(),result1.get("dist_opto"))
-    # aes2=bin_data(bins,temp2.to_numpy().flatten(),result2.get("tau_all_cells").to_numpy(),result1.get("dist_opto"))
-    
-    
-    
-    # aes=bin_data(bins,result1.get("tau_all_cells").to_numpy(),result1.get("peaktimes_mean").to_numpy().flatten(),result1.get("dist_opto"))
-    # aes2=bin_data(bins,result2.get("tau_all_cells").to_numpy(),result2.get("peaktimes_mean").to_numpy().flatten(),result1.get("dist_opto"))
-    
-    aes=bin_data(bins,temp1.to_numpy().flatten(),result1.get("dist_opto"),result1.get("dist_opto"))
-    aes2=bin_data(bins,temp2.to_numpy().flatten(),result2.get("dist_opto"),result1.get("dist_opto"))
-    
-    
-    
-    # temp1=result1.get("peak_count").where(~result1.get("ccc").isnull(),float("nan"))
-    # temp2=result2.get("peak_count").where(~result2.get("ccc").isnull(),float("nan"))
-    
-    # aes=bin_data(bins,result1.get("tau_all_cells").to_numpy(),result1.get("peak_count").to_numpy().flatten(),result1.get("dist_opto"))
-    # aes2=bin_data(bins,result2.get("tau_all_cells").to_numpy(),result2.get("peak_count").to_numpy().flatten(),result1.get("dist_opto"))
-    
-    
-    # aes=bin_data(bins,result1.get("tau_all_cells").to_numpy(),result1.get("peak_count").to_numpy().flatten(),result1.get("dist_opto"))
-    # aes2=bin_data(bins,result2.get("tau_all_cells").to_numpy(),result2.get("peak_count").to_numpy().flatten(),result1.get("dist_opto"))
-    
-    # aes=bin_data(bins,result1.get("tau_all_cells").to_numpy(),temp1.to_numpy().flatten(),result1.get("dist_opto"))
-    # aes2=bin_data(bins,result2.get("tau_all_cells").to_numpy(),temp2.to_numpy().flatten(),result1.get("dist_opto"))
-    
-    
-    
-    # aes=bin_data(bins,result1.get("tau_stim_cells").to_numpy(),result1.get("peak_count").to_numpy().flatten(),result1.get("dist_opto"))
-    # aes2=bin_data(bins,result2.get("tau_stim_cells").to_numpy(),result2.get("peak_count").to_numpy().flatten(),result1.get("dist_opto"))
-    
-    y_tau_dist_err=pd.DataFrame(aes).sem(axis=1)
-    y_tau_dist_err2=pd.DataFrame(aes2).sem(axis=1)
-    # y_tau_dist_err=np.nanvar(aes,axis=1)/np.sqrt(len(binned_tau_expanded.iloc[0]))
-  
-    
-    
-    fig, ax = plt.subplots()
-    
-    # sns.ax.ecdfplot(result1.get("stim_responsive").flatten()) 
-    # sns.ax.ecdfplot(result2.get("stim_responsive").flatten()) 
-    ax.errorbar(bins_list[0:-1],np.nanmean(aes,axis=1),y_tau_dist_err)
-    ax.errorbar(bins_list[0:-1],np.nanmean(aes2,axis=1),y_tau_dist_err2)
-    
-    # ax.set_xlim(0, 10)
-    ax.set_box_aspect(1)
-    ax.spines[['right', 'top']].set_visible(False)
-    
-    
-    # ax.set_ylim([3,8]);
-    # ax.set_ylabel('Mean z-score');
-    
-    # ax.set_xlabel('Abs. Delta Tau (Stim cell-recorded)');
-    # ax.set_ylabel('Mean z-score');
-    # ax.set_ylabel('time_to_peak');
-    
-# %%
-
-def boxplots_of_stim_responses(result):
-
-    
-    data_1 = result.get("stim_responsive_above_above").flatten()
-    data_2 = result.get("stim_responsive_above_below").flatten()
-    data_3 = result.get("stim_responsive_below_above").flatten()
-    data_4 = result.get("stim_responsive_below_below").flatten()
-    data1 = [data_1, data_2, data_3, data_4]
-
-
-
-
-    plt.figure(figsize=(10, 10))
-    
-    # plt.plot(mPFC_stim_responsive_above_above.flatten())
-    
-    # plt.scatter(np.ones(len(mPFC_stim_responsive_above_above.flatten())),mPFC_stim_responsive_above_above.flatten())
-    # plt.plot(mPFC_stim_responsive_above_below.flatten())
-    
-    
-     
-    
-    # data_1 = V1_stim_responsive_above_above.flatten()
-    # data_2 = V1_stim_responsive_above_below.flatten()
-    # data_3 = V1_stim_responsive_below_above.flatten()
-    # data_4 = V1_stim_responsive_below_below.flatten()
-    # data2 = [data_1, data_2, data_3, data_4]
-    
-    # data=[data1,data2]
-    # data_1 = np.random.normal(100, 10, 200)
-    # data_2 = np.random.normal(90, 20, 200)
-    # data_3 = np.random.normal(80, 30, 200)
-    # data_4 = np.random.normal(70, 40, 200)
-    # data = [data_1, data_2, data_3, data_4]
-    # fig = plt.figure(figsize =(10, 7))
-     
-    # # Creating axes instance
-    # ax = fig.add_axes([0, 0, 1, 1])
-     
-    # # Creating plot
-    # bp = ax.boxplot(data)
-     
-    # # show plot
-    # plt.show()
-    bar_labels = ['long_long', 'long_short','short_long', 'short_short']
-    
-    
-    sns.boxplot(data1).set(xlabel=bar_labels)
-    sns.stripplot(data1,color="black") 
-    # plt.ylim(0,.3)
-    plt.legend(['long_long', 'long_short','short_long', 'short_short'])
-
-    # sns.heatmap(np.nanmean(data1,axis=1),annot=False,vmin=0, vmax=.3,cmap="coolwarm",cbar_kws={'label': 'dF/F'})
-
-# %%
-
-def boxplots_of_stim_responses_time(result1,result2,result3,result4):
-
-    
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(10, 8))    
-    
-    bar_labels = ['all', '0 to 3.3 seconds','3.3 sec to 6.6', '6.6 to 9.9']
-
-    data_1 = result1.get("stim_responsive_above_above").flatten()
-    data_2 = result2.get("stim_responsive_above_above").flatten()
-    data_3 = result3.get("stim_responsive_above_above").flatten()
-    data_4 = result4.get("stim_responsive_above_above").flatten()
-    
-    data1 = [data_1, data_2, data_3, data_4]
-
-    sns.boxplot(data1,ax=ax1).set(xlabel=bar_labels)
-    sns.stripplot(data1,ax=ax1,color="black")
-    ax1.set_ylim(0, .3)
-    ax1.set_title('Long_long')
-    
-    data_1 = result1.get("stim_responsive_above_below").flatten()
-    data_2 = result2.get("stim_responsive_above_below").flatten()
-    data_3 = result3.get("stim_responsive_above_below").flatten()
-    data_4 = result4.get("stim_responsive_above_below").flatten()
-    
-    data1 = [data_1, data_2, data_3, data_4]
-
-    sns.boxplot(data1,ax=ax2).set(xlabel=bar_labels)
-    sns.stripplot(data1,ax=ax2,color="black") 
-    ax2.set_ylim(0, .3)
-    ax2.set_title('Long_short')
-    
-    
-    
-    data_1 = result1.get("stim_responsive_below_above").flatten()
-    data_2 = result2.get("stim_responsive_below_above").flatten()
-    data_3 = result3.get("stim_responsive_below_above").flatten()
-    data_4 = result4.get("stim_responsive_below_above").flatten()
-    
-    data1 = [data_1, data_2, data_3, data_4]
-
-    sns.boxplot(data1,ax=ax3).set(xlabel=bar_labels)
-    sns.stripplot(data1,ax=ax3,color="black") 
-    ax3.set_ylim(0, .3)
-    ax3.set_title('Short_long')
-    
-    data_1 = result1.get("stim_responsive_below_below").flatten()
-    data_2 = result2.get("stim_responsive_below_below").flatten()
-    data_3 = result3.get("stim_responsive_below_below").flatten()
-    data_4 = result4.get("stim_responsive_below_below").flatten()
-    
-    
-    data1 = [data_1, data_2, data_3, data_4]
-
-    sns.boxplot(data1,ax=ax4).set(xlabel=bar_labels)
-    sns.stripplot(data1,ax=ax4,color="black") 
-    ax4.set_ylim(0, .3)
-    ax4.set_title('Short_Short')
- 
-    
-    
-    # sns.boxplot(data1).set(xlabel=bar_labels)
-    # sns.stripplot(data1,color="black") 
-    # plt.ylim(0,.3)
-    plt.legend(['long_long', 'long_short','short_long', 'short_short'])
-
-    # sns.heatmap(np.nanmean(data1,axis=1),annot=False,vmin=0, vmax=.3,cmap="coolwarm",cbar_kws={'label': 'dF/F'})
-
-# boxplots_of_stim_responses_time(mPFC_result,mPFC_early_result,mPFC_middle_late_result,mPFC_late_late_result)
-# %%
-
-def heatmap_of_stim_responses(result):
-
-    
-    data_1 = result.get("stim_responsive_above_above").flatten()
-    data_2 = result.get("stim_responsive_above_below").flatten()
-    data_3 = result.get("stim_responsive_below_above").flatten()
-    data_4 = result.get("stim_responsive_below_below").flatten()
-    
-    data1 = [data_1, data_2, data_3, data_4]
-
-    # data1=np.reshape(data1,[2,2])
-
-    data1=np.nanmean(data1,axis=1)
-
-    data1=np.reshape(data1,[2,2])
-    plt.figure(figsize=(10, 10))
-    
-    
-    # sns.heatmap(data1,vmin=0.01, vmax=0.04,cmap="bone", square=True,linewidths=1, linecolor='black',clip_on=False,yticklabels=["Stim_long", "Stim_short"],xticklabels=["response_long", "response_short"])
-    sns.heatmap(data1,cmap="bone", square=True,linewidths=1, linecolor='black',clip_on=False,yticklabels=["Stim_long", "Stim_short"],xticklabels=["response_long", "response_short"])
-# 
-    # plt.ylim(0,.15)
-
-# %%
-
-def average_columns_to_dataframe(df):
-    averaged_data = {}
-    
-    for col in df.columns:
-        # Stack the arrays in the column vertically to create a 2D array
-        stacked_arrays = np.stack(df[col].values)
-        
-        # Compute the mean along the vertical axis (axis=0) to get a 1D array
-        column_mean = np.mean(stacked_arrays, axis=0)
-        
-        averaged_data[col] = column_mean
-    
-    # Create a DataFrame from the averaged data
-    averaged_df = pd.DataFrame(averaged_data)
-    
-    return averaged_df
-
-
-def sem_columns_to_dataframe(df):
-    sem_data = {}
-    
-    for col in df.columns:
-        # Stack the arrays in the column vertically to create a 2D array
-        stacked_arrays = np.stack(df[col].values)
-        
-        stacked_arrays =pd.DataFrame(stacked_arrays)
-        # Compute the standard deviation along the vertical axis (axis=0)
-        # column_std = np.std(stacked_arrays, axis=0, ddof=1)
-        column_sem = stacked_arrays.sem(axis=0,skipna=True)
-        
-        # Calculate the sample size (number of arrays)
-        # sample_size = stacked_arrays.shape[0]
-        
-        # Compute the SEM
-        # column_sem = column_std / np.sqrt(sample_size)
-        
-        sem_data[col] = column_sem
-    
-    # Create a DataFrame from the SEM data
-    sem_df = pd.DataFrame(sem_data)
-    
-    return sem_df
-
-
-# %%
-
-from scipy.signal import medfilt
-
-def analyze_columns_to_dataframes(df, start_index=0, limit=0, kernel_size=15):
-    peaks_data = {}
-    times_of_peaks_data = {}
-    widths_at_half_max_data = {}
-
-    for col in df.columns:
-        # Stack the arrays in the column vertically to create a 2D array
-        stacked_arrays = np.stack(df[col].values)
-
-        peaks = []
-        times_of_peaks = []
-        widths_at_half_max = []
-
-        for row in stacked_arrays:
-            # Apply median filter to the row
-            smoothed_row = medfilt(row, kernel_size=kernel_size)
-
-            # Analyze only the part of the row from the starting index onward
-            row_to_analyze = smoothed_row[start_index:]
-            peak_value = np.max(row_to_analyze)
-            peak_index = np.argmax(row_to_analyze) + start_index
-            time_of_peak = peak_index  # Assuming time points correspond to array indices
-
-            if peak_value < limit:
-                # If the peak value is below the threshold, set peak time and width to NaN and 0 respectively
-                peaks.append(np.nan)
-                times_of_peaks.append(np.nan)
-                widths_at_half_max.append(0)
-            else:
-                # Find the width at half maximum
-                half_max = peak_value / 2
-                # Find indices where the row crosses the half maximum value
-                indices_above_half_max = np.where(row_to_analyze >= half_max)[0] + start_index
-
-                if len(indices_above_half_max) > 1:
-                    # The width at half maximum is the difference between the last and first indices
-                    width_at_half_max = indices_above_half_max[-1] - indices_above_half_max[0]
-                else:
-                    width_at_half_max = 0  # Set width to 0 if it cannot be determined
-
-                peaks.append(peak_value)
-                times_of_peaks.append(time_of_peak)
-                widths_at_half_max.append(width_at_half_max)
-
-        peaks_data[col] = peaks
-        times_of_peaks_data[col] = times_of_peaks
-        widths_at_half_max_data[col] = widths_at_half_max
-
-    # Create DataFrames from the analysis data
-    peaks_df = pd.DataFrame(peaks_data)
-    times_of_peaks_df = pd.DataFrame(times_of_peaks_data)
-    widths_at_half_max_df = pd.DataFrame(widths_at_half_max_data)
-
-    return peaks_df, times_of_peaks_df, widths_at_half_max_df
-# Example usage with sample dataframes
-# df=sorted_df1
-# peaks_df, times_of_peaks_df, widths_at_half_max_df = analyze_columns_to_dataframes(df,251,4)
 
 
 
@@ -1771,134 +706,6 @@ def plot_mean_sem(mean_df, sem_df):
     # Adjust layout to prevent overlap
     plt.tight_layout()
     plt.show()
-# %%
-def heatmap_of_stim_responses_time(result,result2,result3,result4):
-
-    
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(10, 8))    
-    
-    data_1 = result.get("stim_responsive_above_above").flatten()
-    data_2 = result.get("stim_responsive_above_below").flatten()
-    data_3 = result.get("stim_responsive_below_above").flatten()
-    data_4 = result.get("stim_responsive_below_below").flatten()
-    
-    data1 = [data_1, data_2, data_3, data_4]
-
-    data1=np.nanmean(data1,axis=1)
-
-    data1=np.reshape(data1,[2,2])
-    
-    # sns.heatmap(data1,ax=ax1,vmin=0, vmax=0.1,cmap="bone", square=True,linewidths=1, linecolor='black',clip_on=False,yticklabels=["Stim_long", "Stim_short"],xticklabels=["response_long", "response_short"])
-    sns.heatmap(data1,ax=ax1,cmap="bone", square=True,linewidths=1, linecolor='black',clip_on=False,yticklabels=["Stim_long", "Stim_short"],xticklabels=["response_long", "response_short"])
-    ax1.set_title('all')
-    
-    data_1 = result2.get("stim_responsive_above_above").flatten()
-    data_2 = result2.get("stim_responsive_above_below").flatten()
-    data_3 = result2.get("stim_responsive_below_above").flatten()
-    data_4 = result2.get("stim_responsive_below_below").flatten()
-    
-    data1 = [data_1, data_2, data_3, data_4]
-
-    data1=np.nanmean(data1,axis=1)
-
-    data1=np.reshape(data1,[2,2])
-    
-    # sns.heatmap(data1,ax=ax2,vmin=0, vmax=0.1,cmap="bone", square=True,linewidths=1, linecolor='black',clip_on=False,yticklabels=["Stim_long", "Stim_short"],xticklabels=["response_long", "response_short"])
-    sns.heatmap(data1,ax=ax2,cmap="bone", square=True,linewidths=1, linecolor='black',clip_on=False,yticklabels=["Stim_long", "Stim_short"],xticklabels=["response_long", "response_short"])
-    ax2.set_title('0 to 3.3 sec')
-        
-    data_1 = result3.get("stim_responsive_above_above").flatten()
-    data_2 = result3.get("stim_responsive_above_below").flatten()
-    data_3 = result3.get("stim_responsive_below_above").flatten()
-    data_4 = result3.get("stim_responsive_below_below").flatten()
-    
-    data1 = [data_1, data_2, data_3, data_4]
-
-    data1=np.nanmean(data1,axis=1)
-
-    data1=np.reshape(data1,[2,2])
-    
-    # sns.heatmap(data1,ax=ax3,vmin=0, vmax=0.1,cmap="bone", square=True,linewidths=1, linecolor='black',clip_on=False,yticklabels=["Stim_long", "Stim_short"],xticklabels=["response_long", "response_short"])
-    sns.heatmap(data1,ax=ax3,cmap="bone", square=True,linewidths=1, linecolor='black',clip_on=False,yticklabels=["Stim_long", "Stim_short"],xticklabels=["response_long", "response_short"])
-    ax3.set_title('3.3 to 6.6 sec')
-    
-    data_1 = result4.get("stim_responsive_above_above").flatten()
-    data_2 = result4.get("stim_responsive_above_below").flatten()
-    data_3 = result4.get("stim_responsive_below_above").flatten()
-    data_4 = result4.get("stim_responsive_below_below").flatten()
-    
-    data1 = [data_1, data_2, data_3, data_4]
-
-    data1=np.nanmean(data1,axis=1)
-
-    data1=np.reshape(data1,[2,2])
-    
-    # sns.heatmap(data1,ax=ax4,vmin=0, vmax=0.1,cmap="bone", square=True,linewidths=1, linecolor='black',clip_on=False,yticklabels=["Stim_long", "Stim_short"],xticklabels=["response_long", "response_short"])
-    sns.heatmap(data1,ax=ax4,cmap="jet", square=True,linewidths=1, linecolor='black',clip_on=False,yticklabels=["Stim_long", "Stim_short"],xticklabels=["response_long", "response_short"])
-
-    ax4.set_title('6.6 to 9.9 sec')
-
-# %%
-def nested_heatmap_of_stim_responses(result):
-
-    
-    data_1 = result.get("stim_responsive_above_above")
-    data_2 = result.get("stim_responsive_above_below")
-    data_3 = result.get("stim_responsive_below_above")
-    data_4 = result.get("stim_responsive_below_below")
-    
-    # data1 = [data_1, data_2, data_3, data_4]
-    # data1 = [data_1, data_3]
-    # data1 = np.concatenate(data_1, data_2)
-    data1 = np.concatenate((data_1, data_2),axis=0)
-    data2 = np.concatenate((data_3, data_4),axis=0)
-    
-    data1=np.concatenate((data1, data2),axis=1)
-    # data1=np.reshape(data1,[2,2])
-
-    # data1=np.nanmean(data1,axis=1)
-
-    # data1=np.reshape(data1,[2,2])
-    plt.figure(figsize=(10, 10))
-    
-    # plt.plot(mPFC_stim_responsive_above_above.flatten())
-    
-    # plt.scatter(np.ones(len(mPFC_stim_responsive_above_above.flatten())),mPFC_stim_responsive_above_above.flatten())
-    # plt.plot(mPFC_stim_responsive_above_below.flatten())
-    
-    
-     
-    
-    # data_1 = V1_stim_responsive_above_above.flatten()
-    # data_2 = V1_stim_responsive_above_below.flatten()
-    # data_3 = V1_stim_responsive_below_above.flatten()
-    # data_4 = V1_stim_responsive_below_below.flatten()
-    # data2 = [data_1, data_2, data_3, data_4]
-    
-    # data=[data1,data2]
-    # data_1 = np.random.normal(100, 10, 200)
-    # data_2 = np.random.normal(90, 20, 200)
-    # data_3 = np.random.normal(80, 30, 200)
-    # data_4 = np.random.normal(70, 40, 200)
-    # data = [data_1, data_2, data_3, data_4]
-    # fig = plt.figure(figsize =(10, 7))
-     
-    # # Creating axes instance
-    # ax = fig.add_axes([0, 0, 1, 1])
-     
-    # # Creating plot
-    # bp = ax.boxplot(data)
-     
-    # # show plot
-    # plt.show()
-    
-    # sns.heatmap(data1,square=True)
-    sns.heatmap(data1)
-
-    # plt.ylim(0,.3)
-    
-    
-
 
 # %%
 def plot_mean_trace_single(
@@ -2144,7 +951,7 @@ def plot_peak_bar_single(df, distances, dist_btwn_spot, normalize=False, exclude
             trace = df.at[idx, col]
 
             # Apply median filter BEFORE any processing
-            trace = medfilt(trace, kernel_size=5)
+            trace = medfilt(trace, kernel_size=31)
 
             time = np.linspace(0, len(trace), len(trace))  # Generate time array
 
@@ -2177,72 +984,7 @@ def plot_peak_bar_single(df, distances, dist_btwn_spot, normalize=False, exclude
 
 
 # %%
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
 
-def analyze_and_plot_metrics(df, sampling_interval=0.032958316):
-    """
-    Analyzes and plots the peak, peak width (FWHM), and decay rate for each trace in the DataFrame.
-
-    Args:
-        df (pd.DataFrame): A 2D DataFrame where each cell contains a 1D array (trace).
-        sampling_interval (float): Time between samples, in seconds.
-    """
-    df = df.dropna(how='any')
-
-    for col in df.columns:
-        df[col] = df[col].apply(lambda x: np.array(x, dtype=np.float64))
-
-    time = np.linspace(0, sampling_interval * (len(df.iloc[0, 0]) - 1), len(df.iloc[0, 0]))
-
-    peaks, widths, decay_rates = [], [], []
-
-    for column in df.columns:
-        for trace in df[column]:
-            # Peak value
-            peak = np.nanmax(trace)
-            peaks.append(peak)
-
-            # Width at half maximum (FWHM)
-            half_max = peak / 2
-            indices_above_half = np.where(trace >= half_max)[0]
-            if len(indices_above_half) > 1:
-                fwhm = (indices_above_half[-1] - indices_above_half[0]) * sampling_interval
-            else:
-                fwhm = np.nan
-            widths.append(fwhm)
-
-            # Decay rate (time to 37% of peak)
-            decay_threshold = 0.37 * peak
-            decay_idx = np.where(trace <= decay_threshold)[0]
-            if len(decay_idx) > 0:
-                decay_time = decay_idx[0] * sampling_interval
-            else:
-                decay_time = np.nan
-            decay_rates.append(decay_time)
-
-    # Plotting
-    fig, axs = plt.subplots(1, 4, figsize=(20, 5), constrained_layout=True)
-    metric_labels = ["Peak", "Width (FWHM)", "Decay Rate"]
-    metric_data = [peaks, widths, decay_rates]
-
-    for i, (ax, metric, label) in enumerate(zip(axs[:3], metric_data, metric_labels)):
-        ax.boxplot(metric, vert=True, patch_artist=True)
-        ax.set_title(label)
-        ax.set_ylabel(label)
-        ax.grid(True)
-
-    # Overlay traces
-    axs[3].set_title("Traces")
-    for column in df.columns:
-        for trace in df[column]:
-            axs[3].plot(time, trace, alpha=0.6)
-    axs[3].set_xlabel("Time (s)")
-    axs[3].set_ylabel("Amplitude")
-    axs[3].grid(True)
-
-    plt.show()
     
 # %%
 import matplotlib.pyplot as plt
@@ -2794,6 +1536,212 @@ def bar_plot_two_dfs_with_lines_and_median(
 
     return sorted_distances, p_values, anova_results
 
+# %%
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+from scipy.optimize import curve_fit
+from scipy.stats import mannwhitneyu, ttest_ind
+
+def robust_sem(arr):
+    arr = np.array(arr, dtype=np.float64)
+    mad = np.nanmedian(np.abs(arr - np.nanmedian(arr)))
+    n = np.sum(~np.isnan(arr))
+    return 1.253 * mad / np.sqrt(n) if n > 0 else np.nan
+
+def gaussian(x, amp, mean, stddev):
+    return amp * np.exp(-((x - mean) ** 2) / (2 * stddev ** 2))
+
+def bar_plot_two_dfs_with_lines_and_median(
+    df1,
+    df2,
+    distances,
+    label1='Group 1',
+    label2='Group 2',
+    figsize=(12, 6),
+    bar_colors=('skyblue', 'lightcoral'),
+    line_colors=('gray', 'darkred'),
+    line_alpha=0.4,
+    x_scale=20.0,
+    x_label=None,
+    y_label=None,
+    normalize_to_column_index1=None,
+    normalize_to_column_index2=None,
+    show_lines=True,
+    show_bars=True,
+    error_on='mean',  # 'mean' or 'median'
+    stat_test='mannwhitneyu',
+    title='Comparison of Two Groups',
+    median_line_colors=('black', 'black'),
+    fit_gaussian=False,
+    offset_off=True
+):
+    df1 = df1.copy()
+    df2 = df2.copy()
+
+    if list(df1.columns) != list(df2.columns):
+        raise ValueError("df1 and df2 must have the same column structure")
+    if len(distances) != len(df1.columns):
+        raise ValueError("Length of distances must match number of columns in df1 and df2")
+
+    original_columns = df1.columns.tolist()
+
+    if normalize_to_column_index1 is not None:
+        norm_col1 = original_columns[normalize_to_column_index1]
+        df1 = df1.div(df1[norm_col1], axis=0)
+
+    if normalize_to_column_index2 is not None:
+        norm_col2 = original_columns[normalize_to_column_index2]
+        df2 = df2.div(df2[norm_col2], axis=0)
+
+    distance_series = pd.Series(distances, index=original_columns)
+    sorted_columns = distance_series.sort_values().index
+    sorted_distances = distance_series.sort_values().values
+
+    df1 = df1[sorted_columns]
+    df2 = df2[sorted_columns]
+
+    x_positions = np.arange(len(sorted_columns)) * x_scale
+    bar_width = 0.35 * x_scale
+    offset1 = x_positions - bar_width / 2
+    offset2 = x_positions + bar_width / 2
+    
+    if offset_off:
+        offset1=x_positions
+        offset2=x_positions
+
+    mean1 = df1.mean()
+    mean2 = df2.mean()
+    median1 = df1.median()
+    median2 = df2.median()
+
+    if error_on == 'mean':
+        sem1 = df1.sem()
+        sem2 = df2.sem()
+        y1 = mean1
+        y2 = mean2
+    elif error_on == 'median':
+        sem1 = df1.apply(robust_sem, axis=0)
+        sem2 = df2.apply(robust_sem, axis=0)
+        y1 = median1
+        y2 = median2
+    else:
+        raise ValueError("error_on must be 'mean' or 'median'")
+        
+    # Statistical tests
+    p_values = []
+    for col in sorted_columns:
+        group1 = pd.to_numeric(df1[col], errors='coerce').dropna()
+        group2 = pd.to_numeric(df2[col], errors='coerce').dropna()
+        
+        if stat_test == 'mannwhitneyu':
+            _, p = mannwhitneyu(group1, group2, alternative='two-sided')
+        elif stat_test == 'ttest':
+            _, p = ttest_ind(group1, group2, equal_var=False)
+        else:
+            raise ValueError("stat_test must be 'mannwhitneyu' or 'ttest'")
+        p_values.append(p)
+
+    # Plotting
+    plt.figure(figsize=figsize)
+
+    if show_bars:
+        plt.bar(offset1, y1, yerr=sem1, width=bar_width, color=bar_colors[0],
+                capsize=5, alpha=0.8, label=f'{label1} {error_on.capitalize()} ± SEM')
+        plt.bar(offset2, y2, yerr=sem2, width=bar_width, color=bar_colors[1],
+                capsize=5, alpha=0.8, label=f'{label2} {error_on.capitalize()} ± SEM')
+    else:
+        plt.errorbar(offset1, y1, yerr=sem1, fmt='o-', color='black', capsize=5, label=f'{label1} {error_on.capitalize()} ± SEM')
+        plt.errorbar(offset2, y2, yerr=sem2, fmt='o--', color='black', capsize=5, label=f'{label2} {error_on.capitalize()} ± SEM')
+
+    if show_lines:
+        for i in range(len(df1)):
+            plt.plot(offset1, df1.iloc[i].values, color=line_colors[0], alpha=line_alpha, linewidth=1)
+        for i in range(len(df2)):
+            plt.plot(offset2, df2.iloc[i].values, color=line_colors[1], alpha=line_alpha, linewidth=1)
+
+    for i, (col, p) in enumerate(zip(sorted_columns, p_values)):
+        if pd.isna(p):
+            continue
+        if p < 0.001:
+            star = '***'
+        elif p < 0.01:
+            star = '**'
+        elif p < 0.05:
+            star = '*'
+        else:
+            continue
+
+        try:
+            y_val1 = float(y1[col]) if not pd.isna(y1[col]) else 0
+            y_val2 = float(y2[col]) if not pd.isna(y2[col]) else 0
+            sem_val1 = float(sem1[col]) if not pd.isna(sem1[col]) else 0
+            sem_val2 = float(sem2[col]) if not pd.isna(sem2[col]) else 0
+
+            y_max = max(y_val1 + sem_val1, y_val2 + sem_val2)
+            plt.text(x_positions[i], y_max * 1.05, star, ha='center', va='bottom', fontsize=14, color='black')
+        except Exception as e:
+            print(f"Could not annotate star at column {col} due to: {e}")
+            continue
+
+    # Median overlays
+    plt.plot(offset1, median1, color=median_line_colors[0], linewidth=3, label=f'{label1} Median')
+    plt.plot(offset2, median2, color=median_line_colors[1], linewidth=3, label=f'{label2} Median')
+
+    # Gaussian fit
+    if fit_gaussian:
+        for x_vals, y_vals, label, color in zip(
+            [offset1, offset2],
+            [y1.values, y2.values],
+            [label1, label2],
+            ['blue', 'red']
+        ):
+            try:
+                popt, _ = curve_fit(gaussian, x_vals, y_vals, p0=[np.max(y_vals), np.mean(x_vals), np.std(x_vals)])
+                
+                # Unpack Gaussian parameters
+                amp, mean, std = popt
+                fwhm = 2.355 * std
+                half_max = amp / 2
+                
+                # Generate fitted curve
+                x_gauss = np.linspace(min(x_vals), max(x_vals), 500)
+                y_gauss = gaussian(x_gauss, *popt)
+                
+                # Plot Gaussian fit
+                plt.plot(x_gauss, y_gauss, '--', color=color, linewidth=2, label=f'{label} Gaussian Fit')
+                
+                # Compute x-limits of half-max
+                delta = np.sqrt(2 * np.log(2)) * std
+                x_left = mean - delta
+                x_right = mean + delta
+                
+                # Plot horizontal line at half-max between the two half-max x-values
+                plt.hlines(half_max, x_left, x_right, linestyle='--', color=color, alpha=0.8)
+                
+                # Add FWHM label centered above the half-max line
+                plt.text(mean, half_max * 1.05, f'FWHM = {fwhm:.2f}', fontsize=10,
+                color=color, ha='center', va='bottom')
+                                
+            except RuntimeError:
+                print(f"Gaussian fit failed for {label}.")
+
+    plt.xticks(x_positions, labels=np.round(sorted_distances * x_scale, 1), rotation=45)
+    if x_label:
+        plt.xlabel(x_label)
+    if y_label:
+        plt.ylabel(y_label)
+
+    plt.title(title)
+    plt.legend()
+    plt.tight_layout()
+    plt.rcParams['pdf.fonttype'] = 42
+    plt.rcParams['ps.fonttype'] = 42
+    plt.rcParams['svg.fonttype'] = 'none'
+    plt.show()
+
+    return sorted_distances, p_values, None
+
 
 # %%
 
@@ -3150,101 +2098,13 @@ def run_mixed_effects_anova(df):
 
 
 
+
 # %%
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
 
-def analyze_and_plot_metrics(df, distances, sampling_interval=0.032958316):
-    """
-    Analyzes and plots the peak, peak width (FWHM), and decay rate for each trace in the DataFrame.
 
-    Args:
-        df (pd.DataFrame): A 2D DataFrame where each cell contains a 1D array (trace).
-        distances (list or np.ndarray): Array of float distances for binning.
-        sampling_interval (float): Time between samples, in seconds.
-
-    Returns:
-        pd.DataFrame: A DataFrame containing the binned metrics (peaks, widths, decay rates).
-    """
-    df = df.dropna(how='any')
-
-    for col in df.columns:
-        df[col] = df[col].apply(lambda x: np.array(x, dtype=np.float64))
-
-    time = np.linspace(0, sampling_interval * (len(df.iloc[0, 0]) - 1), len(df.iloc[0, 0]))
-
-    peaks, widths, decay_rates, bin_labels = [], [], [], []
-
-    # Convert distances to integers
-    distances = np.array(distances, dtype=int)
-
-    for idx, column in enumerate(df.columns):
-        for trace in df[column]:
-            # Peak value
-            peak = np.nanmax(trace)
-            peaks.append(peak)
-
-            # Width at half maximum (FWHM)
-            half_max = peak / 2
-            indices_above_half = np.where(trace >= half_max)[0]
-            if len(indices_above_half) > 1:
-                fwhm = (indices_above_half[-1] - indices_above_half[0]) * sampling_interval
-            else:
-                fwhm = np.nan
-            widths.append(fwhm)
-
-            # Decay rate (time to 37% of peak)
-            decay_threshold = 0.37 * peak
-            decay_idx = np.where(trace <= decay_threshold)[0]
-            if len(decay_idx) > 0:
-                decay_time = decay_idx[0] * sampling_interval
-            else:
-                decay_time = np.nan
-            decay_rates.append(decay_time)
-
-            # Assign bin label based on the corresponding distance
-            bin_labels.append(distances[idx])
-
-    # Create a DataFrame for binned metrics
-    binned_data = pd.DataFrame({
-        "Bin": bin_labels,
-        "Peak": peaks,
-        "Width (FWHM)": widths,
-        "Decay Rate": decay_rates,
-    })
-
-    # Plotting
-    fig, axs = plt.subplots(1, 4, figsize=(20, 5), constrained_layout=True)
-    metric_labels = ["Peak", "Width (FWHM)", "Decay Rate"]
-    metric_data = [peaks, widths, decay_rates]
-
-    for i, (ax, metric, label) in enumerate(zip(axs[:3], metric_data, metric_labels)):
-        ax.boxplot(metric, vert=True, patch_artist=True)
-        ax.set_title(label)
-        ax.set_ylabel(label)
-        ax.grid(True)
-
-    # Overlay traces
-    axs[3].set_title("Traces")
-    for column in df.columns:
-        for trace in df[column]:
-            axs[3].plot(time, trace, alpha=0.6)
-    axs[3].set_xlabel("Time (s)")
-    axs[3].set_ylabel("Amplitude")
-    axs[3].grid(True)
-
-    plt.show()
-
-    return binned_data
-# %%
-import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
-from scipy.stats import ks_2samp, mannwhitneyu
-
-# Ensure font is editable in SVG (for Illustrator)
-rcParams['svg.fonttype'] = 'none'
+from scipy.stats import ks_2samp, mannwhitneyu, ttest_ind, shapiro
 
 def plot_ecdf_comparison(distances1, distances2,
                          label1='Group 1', label2='Group 2',
@@ -3253,21 +2113,25 @@ def plot_ecdf_comparison(distances1, distances2,
                          xlabel='Distance', ylabel='ECDF',
                          title='ECDF Comparison of 3D Transition Distances',
                          show_stats=True,
-                         stat_test='ks'):
+                         stat_test='ks',
+                         log_x=False,
+                         xlim=None,
+                         ylim=None,
+                         xticks_start=None, xticks_end=None, xticks_step=None,
+                         yticks_start=None, yticks_end=None, yticks_step=None,
+                         show_normality_pvals=False):
     """
-    Plots ECDFs of two distance arrays for comparison, with optional statistical test annotation.
+    Plots ECDFs of two distance arrays for comparison, with optional statistical and normality test annotations.
 
-    Parameters:
-        distances1, distances2 (np.ndarray): 1D arrays of distances
-        label1, label2 (str): Labels for the two groups
-        line_color1, line_color2 (str): Colors for the ECDF lines
-        line_width (float): Width of the ECDF lines
-        figsize (tuple): Size of the figure in inches (width, height)
-        xlabel, ylabel (str): Axis labels
-        title (str): Plot title
-        show_stats (bool): Whether to compute and display statistical test results
-        stat_test (str): Statistical test to run ('ks' or 'mannwhitney')
+    Optional tick control:
+        xticks_start, xticks_end, xticks_step: control x-axis ticks
+        yticks_start, yticks_end, yticks_step: control y-axis ticks
+
+    stat_test:
+        'ks', 'mannwhitney', 'ttest', or 'auto' (auto selects test based on normality)
     """
+    from scipy.stats import ks_2samp, mannwhitneyu, ttest_ind, shapiro
+
     # Remove NaNs
     distances1 = distances1[~np.isnan(distances1)]
     distances2 = distances2[~np.isnan(distances2)]
@@ -3289,19 +2153,71 @@ def plot_ecdf_comparison(distances1, distances2,
     plt.title(title, fontsize=14)
     plt.legend(fontsize=10)
 
+    # Apply log scale if requested
+    if log_x:
+        plt.xscale('log')
+
+    # Set axis limits if provided
+    if xlim is not None:
+        plt.xlim(xlim)
+    if ylim is not None:
+        plt.ylim(ylim)
+
+    # Set custom ticks if specified
+    if None not in (xticks_start, xticks_end, xticks_step):
+        plt.xticks(np.arange(xticks_start, xticks_end + xticks_step, xticks_step))
+    if None not in (yticks_start, yticks_end, yticks_step):
+        plt.yticks(np.arange(yticks_start, yticks_end + yticks_step, yticks_step))
+
+    # Show mean and median
+    median1, mean1 = np.median(distances1), np.mean(distances1)
+    median2, mean2 = np.median(distances2), np.mean(distances2)
+
+    stats_text = (f"{label1}: median={median1:.2g}, mean={mean1:.2g}\n"
+                  f"{label2}: median={median2:.2g}, mean={mean2:.2g}")
+    plt.text(0.05, 0.95, stats_text, ha='left', va='top',
+             fontsize=10, transform=plt.gca().transAxes)
+
     # Run statistical test
     if show_stats:
-        if stat_test == 'ks':
+        norm1_p = shapiro(distances1)[1]
+        norm2_p = shapiro(distances2)[1]
+
+        if stat_test == 'auto':
+            if norm1_p > 0.05 and norm2_p > 0.05:
+                stat, p_value = ttest_ind(distances1, distances2, equal_var=False)
+                stat_label = f"t-test: p = {p_value:.3g}"
+            else:
+                stat, p_value = mannwhitneyu(distances1, distances2, alternative='two-sided')
+                stat_label = f"Mann-Whitney U: p = {p_value:.3g}"
+        elif stat_test == 'ks':
             stat, p_value = ks_2samp(distances1, distances2)
             stat_label = f"KS test: p = {p_value:.3g}"
         elif stat_test == 'mannwhitney':
             stat, p_value = mannwhitneyu(distances1, distances2, alternative='two-sided')
             stat_label = f"Mann-Whitney U: p = {p_value:.3g}"
+        elif stat_test == 'ttest':
+            stat, p_value = ttest_ind(distances1, distances2, equal_var=False)
+            stat_label = f"t-test: p = {p_value:.3g}"
         else:
-            raise ValueError("stat_test must be 'ks' or 'mannwhitney'")
+            raise ValueError("stat_test must be 'auto', 'ks', 'mannwhitney', or 'ttest'")
 
-        # Annotate p-value
-        plt.text(0.95, 0.05, stat_label, ha='right', va='bottom', fontsize=10, transform=plt.gca().transAxes)
+        # Annotate main stat test result
+        plt.text(0.95, 0.05, stat_label, ha='right', va='bottom',
+                 fontsize=10, transform=plt.gca().transAxes)
+        
+            # Plot triangle markers at median x-values on x-axis
+        arrow_y = -0.02  # small value just below 0
+        plt.plot(median1, arrow_y, marker='v', color=line_color1, markersize=10, clip_on=False)
+        plt.plot(median2, arrow_y, marker='v', color=line_color2, markersize=10, clip_on=False)
+            
+        # Optionally show normality test p-values
+        if show_normality_pvals:
+            normality_text = (f"Shapiro-Wilk:\n"
+                              f"{label1} p={norm1_p:.3g}, "
+                              f"{label2} p={norm2_p:.3g}")
+            plt.text(0.95, 0.95, normality_text, ha='right', va='top',
+                     fontsize=10, transform=plt.gca().transAxes)
 
     # Styling
     ax = plt.gca()
@@ -3309,37 +2225,739 @@ def plot_ecdf_comparison(distances1, distances2,
     ax.spines['right'].set_visible(False)
     plt.tight_layout()
     plt.show()
+# %%
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
+from scipy.stats import sem
+import pandas as pd
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
+
+def plot_mean_sem_with_anova(values1, values2, distances,
+                              label1='Group 1', label2='Group 2',
+                              line_color1='blue', line_color2='red',
+                              line_width=2, figsize=(5, 4),
+                              custom_xticks=None, custom_xtick_labels=None,
+                              xlabel='Distance from Stim', ylabel='Proportion',
+                              title='Proportion by Distance Bin',
+                              show_stats=True,
+                              xlim=None, ylim=None):
+    """
+    Plots mean ± SEM of two datasets across distance bins and performs two-way ANOVA.
+    
+    Parameters
+    ----------
+    values1, values2 : 2D np.arrays or DataFrames
+        Rows = distance bins; columns = samples or repetitions.
+    distances : 1D array-like
+        Distance bin labels (used for x-axis).
+    """
+    # Convert to numpy arrays
+    values1 = np.array(values1)
+    values2 = np.array(values2)
+    distances = np.array(distances)
+
+    # Compute means and SEMs
+    mean1 = np.nanmean(values1, axis=1)
+    sem1 = sem(values1, axis=1, nan_policy='omit')
+
+    mean2 = np.nanmean(values2, axis=1)
+    sem2 = sem(values2, axis=1, nan_policy='omit')
+
+    # Plot
+    plt.figure(figsize=figsize)
+    plt.errorbar(distances, mean1, yerr=sem1, label=label1,
+             color=line_color1, lw=line_width, capsize=5, fmt='-o')
+
+    plt.errorbar(distances, mean2, yerr=sem2, label=label2,
+             color=line_color2, lw=line_width, capsize=5, fmt='-o')
+
+
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.legend()
+
+    if xlim:
+        plt.xlim(xlim)
+    if ylim:
+        plt.ylim(ylim)
+
+    # Styling
+    ax = plt.gca()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    # Custom x-tick positions and labels
+    if custom_xticks is not None and custom_xtick_labels is not None:
+        plt.xticks(custom_xticks, custom_xtick_labels)
+
+    plt.tight_layout()
+
+    # Run 2-way ANOVA
+    if show_stats:
+        # Prepare melted dataframe for statsmodels
+        df1 = pd.DataFrame(values1, index=distances)
+        df1 = df1.reset_index().melt(id_vars='index', var_name='rep', value_name='value')
+        df1['group'] = label1
+
+        df2 = pd.DataFrame(values2, index=distances)
+        df2 = df2.reset_index().melt(id_vars='index', var_name='rep', value_name='value')
+        df2['group'] = label2
+
+        df_all = pd.concat([df1, df2], ignore_index=True)
+        df_all.rename(columns={'index': 'distance'}, inplace=True)
+
+        # ANOVA
+        model = ols('value ~ C(group) + C(distance) + C(group):C(distance)', data=df_all).fit()
+        anova_table = sm.stats.anova_lm(model, typ=2)
+
+        # Display ANOVA results
+        print("Two-way ANOVA results:")
+        print(anova_table)
+
+        # Optional annotation on plot
+        pval_group = anova_table.loc['C(group)', 'PR(>F)']
+        pval_dist = anova_table.loc['C(distance)', 'PR(>F)']
+        pval_interaction = anova_table.loc['C(group):C(distance)', 'PR(>F)']
+        stat_text = (f"Group p={pval_group:.3g}\n"
+                     f"Distance p={pval_dist:.3g}\n"
+                     f"Interaction p={pval_interaction:.3g}")
+        plt.text(0.95, 0.05, stat_text, ha='right', va='bottom',
+                 transform=plt.gca().transAxes, fontsize=10)
+
+    plt.show()
 
 
 # %%
 
-# import numpy as np
-# import pandas as pd
 
-# # Create a sample DataFrame with synthetic traces
-# num_traces = 5
-# num_timepoints = 100
-# columns = ['Trace Group 1', 'Trace Group 2']
+def plot_autocorrelation_and_fit(
+    acorr_vector,
+    time_vector,
+    mono_fit_params,
+    dual_fit_params,
+    r2_mono,
+    bic_mono,
+    r2_dual,
+    bic_dual,
+    cell_id=0,
+    save_dir="fit_plots",
+    title_prefix="overlay_fit",
+    color_raw="gray",
+    color_mono="orange",
+    color_dual="blue",
+    figsize=(12, 6),
+    custom_filename=None,
+    text_size=12,
+    num_ticks=5,
+    xlim=None,
+    ylim=None,
+    tick_bounds=None  # expected format: ((x_tick_min, x_tick_max), (y_tick_min, y_tick_max))
+):
+    """
+    Plot and save mono- and dual-exponential fits over autocorrelation data.
 
-# data = {
-#     'Trace Group 1': [np.sin(np.linspace(0, 2 * np.pi, num_timepoints)) * np.random.uniform(0.8, 1.2) for _ in range(num_traces)],
-#     'Trace Group 2': [np.cos(np.linspace(0, 2 * np.pi, num_timepoints)) * np.random.uniform(0.8, 1.2) for _ in range(num_traces)],
-# }
+    Parameters:
+    - acorr_vector: 1D array, raw autocorrelation
+    - time_vector: 1D array, same length as acorr_vector
+    - mono_fit_params: dict with ['A', 'tau', 'offset']
+    - dual_fit_params: dict with ['A0', 'tau0', 'A1', 'tau1', 'offset']
+    - r2_mono, bic_mono: float
+    - r2_dual, bic_dual: float
+    - cell_id: for labeling
+    - save_dir: where to save SVG
+    - title_prefix: prefix for filename
+    - color_raw, color_mono, color_dual: colors for plots
+    - figsize: tuple of (width, height)
+    - custom_filename: optional fixed filename
+    - text_size: font size for labels and annotations
+    - num_ticks: number of ticks on each axis
+    - xlim, ylim: range to display
+    - tick_bounds: tuple ((x_tick_min, x_tick_max), (y_tick_min, y_tick_max)) to set ticks independently
+    """
+    os.makedirs(save_dir, exist_ok=True)
 
-# df = pd.DataFrame(data)
+    # Extract fit parameters
+    A = mono_fit_params['A']
+    tau = mono_fit_params['tau']
+    offset_m = mono_fit_params['offset']
 
-# # Example distances array (floats)
-# distances = np.random.uniform(0, 10, len(df) * len(df.columns))
+    A0 = dual_fit_params['A0']
+    tau0 = dual_fit_params['tau0']
+    A1 = dual_fit_params['A1']
+    tau1 = dual_fit_params['tau1']
+    offset_d = dual_fit_params['offset']
 
-# # Call the function
-# results = analyze_and_plot_metrics(df, distances)
+    # Generate fit curves
+    fit_curve_mono = A * np.exp(-time_vector / tau) + offset_m
+    fit_curve_dual = A0 * np.exp(-time_vector / tau0) + A1 * np.exp(-time_vector / tau1) + offset_d
 
-# # Access binned results
-# print("Binned Peaks:")
-# print(results['binned_peaks'])
+    # Start plot
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.plot(time_vector, acorr_vector, label='Original Data', color=color_raw, alpha=0.6)
+    ax.plot(time_vector, fit_curve_mono, label='Mono-exponential Fit', color=color_mono)
+    ax.plot(time_vector, fit_curve_dual, label='Dual-exponential Fit', color=color_dual)
 
-# print("\nBinned Widths (FWHM):")
-# print(results['binned_widths'])
+    ax.set_title(f'Exponential Fits vs Data (cell {cell_id})', fontsize=text_size + 2)
+    ax.set_xlabel('Time', fontsize=text_size)
+    ax.set_ylabel('Value', fontsize=text_size)
+    ax.tick_params(labelsize=text_size - 1)
+    ax.legend(fontsize=text_size)
 
-# print("\nBinned Decay Rates:")
-# print(results['binned_decay_rates'])
+    # Remove upper and right spines
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    # Apply xlim and ylim if provided
+    if xlim is not None:
+        ax.set_xlim(xlim)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+
+    # Apply tick bounds independently
+    if tick_bounds is not None:
+        x_ticks = np.linspace(*tick_bounds[0], num_ticks)
+        y_ticks = np.linspace(*tick_bounds[1], num_ticks)
+        ax.set_xticks(x_ticks)
+        ax.set_yticks(y_ticks)
+
+    # Annotations
+    ax.text(
+        0.7 * time_vector[-1],
+        max(fit_curve_dual),
+        f"Dual Fit\nτ₀ = {tau0:.2f}, τ₁ = {tau1:.2f}\nR² = {r2_dual:.3f}, BIC = {bic_dual:.2f}",
+        fontsize=text_size - 2,
+        bbox=dict(facecolor='lightblue', alpha=0.7)
+    )
+    ax.text(
+        0.7 * time_vector[-1],
+        0.75 * max(fit_curve_dual),
+        f"Mono Fit\nτ = {tau:.2f}\nR² = {r2_mono:.3f}, BIC = {bic_mono:.2f}",
+        fontsize=text_size - 2,
+        bbox=dict(facecolor='navajowhite', alpha=0.7)
+    )
+
+    # File saving
+    if custom_filename:
+        filename = custom_filename if custom_filename.endswith('.svg') else custom_filename + '.svg'
+    else:
+        tau_str = f"tau0_{tau0:.2f}_tau1_{tau1:.2f}"
+        filename = f"{title_prefix}_cell{cell_id}_{tau_str}.svg"
+
+    save_path = os.path.join(save_dir, filename)
+    fig.savefig(save_path, bbox_inches='tight', format='svg', dpi=300)
+    print(f"Saved SVG: {save_path}")
+
+
+# %%
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.signal import medfilt
+from scipy.stats import zscore
+
+def plot_nonoverlapping_traces(
+    data,
+    trace_indices=None,
+    sampling_rate=30,
+    apply_medfilt=False,
+    medfilt_kernel=5,
+    offset=1.0,
+    color='black',
+    alpha=0.6,
+    cutoff=None,
+    save_path=None,
+    y_scale_bar=True,
+    scale_bar_length=1.0,
+    scale_bar_label='z-score',
+    zscore_traces=True,
+    title=None,
+    peak_times=None  # in seconds
+):
+    """
+    Plots selected traces from a nested list of dF/F data in a non-overlapping vertical stack.
+    Optionally annotates each trace with a peak time arrow if provided.
+
+    Parameters:
+    - peak_times: list or array (same length as `data`) of peak times in seconds.
+                  Arrows will be drawn if value is not NaN.
+    """
+
+    if trace_indices is None:
+        trace_indices = list(range(min(5, len(data))))  # Default to first 5
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    for i, idx in enumerate(trace_indices):
+        trace = data[idx][0]
+        if cutoff is not None:
+            trace = trace[cutoff[0]:cutoff[1]]
+        if apply_medfilt:
+            trace = medfilt(trace, kernel_size=medfilt_kernel)
+        if zscore_traces:
+            trace = zscore(trace, nan_policy='omit')
+
+        time = np.arange(len(trace)) / sampling_rate
+        trace_offset = trace + i * offset
+
+        ax.plot(time, trace_offset, color=color, alpha=alpha)
+
+        # ✅ Draw arrow at peak time if provided and valid
+        if peak_times is not None and not np.isnan(peak_times[idx]):
+            peak_time = peak_times[idx]
+            if cutoff is not None:
+                start_time = cutoff[0] / sampling_rate
+                end_time = cutoff[1] / sampling_rate
+                if not (start_time <= peak_time <= end_time):
+                    continue  # Skip if outside visible window
+            arrow_y = np.max(trace_offset) + offset * 0.1
+            ax.annotate(
+                '', 
+                xy=(peak_time, arrow_y),
+                xytext=(peak_time, arrow_y + offset * 0.3),
+                arrowprops=dict(arrowstyle='->', color='red', lw=2, mutation_scale=20),
+                clip_on=False
+            )
+            
+        if peak_times is not None and not np.isnan(peak_times[idx]):
+            peak_time = peak_times[idx]
+            if cutoff is not None:
+                start_time = cutoff[0] / sampling_rate
+                end_time = cutoff[1] / sampling_rate
+                if not (start_time <= peak_time <= end_time):
+                    continue  # Skip if peak is outside cropped window
+        
+            # Draw a long dashed vertical line
+            ax.axvline(
+                x=peak_time,
+                color='red',
+                linestyle='--',
+                linewidth=1.5,
+                alpha=0.8
+            )
+
+    # Add scale bar
+    if y_scale_bar:
+        x0 = time[0] - 0.05 * (time[-1] - time[0])
+        y0 = offset * 0.25
+        ax.plot([x0, x0], [y0, y0 + scale_bar_length], color='black', lw=2, clip_on=False)
+        ax.text(x0, y0 + scale_bar_length / 2, scale_bar_label,
+                va='center', ha='right', fontsize=10)
+
+    if title:
+        ax.set_title(title, fontsize=12)
+
+    ax.set_xlabel('Time (s)', fontsize=12)
+    ax.set_ylabel('Trace Offset', fontsize=12)
+    ax.set_yticks([])
+    ax.grid(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.tight_layout()
+    current_ylim = ax.get_ylim()
+    ax.set_ylim(top=current_ylim[1] + offset * 0.5)
+
+    if save_path:
+        if not save_path.endswith('.svg'):
+            save_path += '.svg'
+        fig.savefig(save_path, format='svg', transparent=True)
+        print(f"SVG saved to: {os.path.abspath(save_path)}")
+
+    return fig
+
+
+# %%
+
+
+def plot_cross_correlation_means(
+    summary_dfs,
+    labels=None,
+    colors=None,
+    alphas=None,
+    lags=None,
+    figsize=(6, 6),
+    title="Mean Cross-Correlation",
+    ylabel="Cross-Corr",
+    xlabel="Lag (frames)"
+):
+    """
+    Plots the mean ± SEM cross-correlation for up to 4 datasets.
+    
+    Parameters:
+    - summary_dfs: list of DataFrames, each containing a 'mean_cross_corr' column (pd.Series of 1D arrays)
+    - labels: list of strings, labels for each trace
+    - colors: list of color strings
+    - alphas: list of floats (0-1) for transparency
+    - lags: optional 1D array or list of lag values to use for x-axis
+    - figsize: tuple for figure size
+    - title: plot title
+    - ylabel: y-axis label
+    - xlabel: x-axis label
+    """
+    plt.figure(figsize=figsize)
+    
+    n_sets = len(summary_dfs)
+    assert n_sets <= 4, "Can only plot up to 4 datasets."
+
+    for i in range(n_sets):
+        df = summary_dfs[i]
+        data_series = df["mean_cross_corr"]
+        
+        # Stack into 2D array: (trials × lags)
+        array_2d = np.vstack(data_series.values)
+
+        mean_vals = np.mean(array_2d, axis=0)
+        sem_vals  = np.std(array_2d, axis=0) / np.sqrt(array_2d.shape[0])
+        
+        # Set x-axis values (lags)
+        if lags is None:
+            mid = array_2d.shape[1] // 2
+            x_vals = np.arange(-mid, array_2d.shape[1] - mid)
+        else:
+            x_vals = np.array(lags)
+            if len(x_vals) != array_2d.shape[1]:
+                raise ValueError("Length of `lags` must match the number of cross-correlation points.")
+
+        label = labels[i] if labels else f"Set {i+1}"
+        color = colors[i] if colors else None
+        alpha = alphas[i] if alphas else 1.0
+        
+        plt.plot(x_vals, mean_vals, label=label, color=color, alpha=alpha)
+        plt.fill_between(x_vals, mean_vals - sem_vals, mean_vals + sem_vals,
+                         color=color, alpha=alpha * 0.3)
+
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.axhline(0, color='gray', linestyle='--', linewidth=0.5)
+    if lags is None or 0 in x_vals:
+        plt.axvline(0, color='gray', linestyle='--', linewidth=0.5)
+    plt.legend()
+    # plt.gca().set_aspect('equal', adjustable='box')
+    plt.tight_layout()
+    plt.show()
+# %%
+# def prepare_and_plot_heatmap(
+#     result_df,
+#     trace_column='averaged_traces_all',
+#     time_column='time_axes',
+#     sort_by='peak_time_array_mean_trial',
+#     vmin=-2,
+#     vmax=2,
+#     start_index=0,
+#     sampling_interval=0.032958316,
+#     exclude_window=None
+# ):
+#     """
+#     Aligns traces using the first time axis in each row, sorts them, and plots a heatmap.
+
+#     Parameters:
+#         result_df (pd.DataFrame): DataFrame with columns for sorting, traces, and time axes.
+#         trace_column (str): Column name containing the trace arrays.
+#         time_column (str): Column name containing list of time axes (first one used).
+#         sort_by (str): Column name to sort the DataFrame by.
+#         vmin (float): Min value for heatmap color scale.
+#         vmax (float): Max value for heatmap color scale.
+#         start_index (int): Start index for time axis.
+#         sampling_interval (float): Sampling interval for time axis.
+#         exclude_window (tuple or None): Optional window to exclude (e.g., (start, end) in seconds).
+#     """
+#     import analyzeEvoked2P
+
+#     # Align all traces to a shared time axis
+#     common_time_df, aligned_traces_df = analyzeEvoked2P.align_averaged_traces_from_lists(
+#         result_df,
+#         trace_col=trace_column,
+#         time_col=time_column
+#     )
+
+#     # Reset index before sorting
+#     result_df_reset = result_df.reset_index(drop=True)
+
+#     # Sort result_df and get sorted positional indices
+#     sorted_df = result_df_reset.sort_values(by=sort_by)
+#     sorted_positions = sorted_df.index
+
+#     # Reorder aligned traces by sorted positions using iloc
+#     aligned_traces_sorted = aligned_traces_df.iloc[sorted_positions].reset_index(drop=True)
+
+#     # Plot heatmap
+#     plot_heatmap(
+#         aligned_traces_sorted,
+#         vmin=vmin,
+#         vmax=vmax,
+#         start_index=start_index,
+#         sampling_interval=sampling_interval,
+#         exclude_window=exclude_window
+#     )
+    
+# %%
+import numpy as np
+import matplotlib.pyplot as plt
+
+def prepare_and_plot_heatmap(
+    result_df,
+    trace_column='averaged_traces_all',
+    time_column='time_axes',
+    sort_by='peak_time_array_mean_trial',
+    vmin=-2,
+    vmax=2,
+    cmap='viridis',
+    exclude_window=None,  # tuple (start_time, end_time) in seconds
+    invert_y=False,
+    xticks=None,
+    yticks=None,
+    xlim=None,
+    figsize=(8, 6),
+    cbar_shrink=1.0,  # scalar to shrink colorbar height (1.0 = no shrink)
+    norm_type=None
+):
+    """
+    Aligns traces using the first time axis in each row, sorts them, and plots a heatmap.
+
+    Parameters:
+        result_df (pd.DataFrame): DataFrame with columns for sorting, traces, and time axes.
+        trace_column (str): Column name containing the trace arrays.
+        time_column (str): Column name containing list of time axes (first one used).
+        sort_by (str): Column name to sort the DataFrame by.
+        vmin (float): Min value for heatmap color scale.
+        vmax (float): Max value for heatmap color scale.
+        cmap (str): Matplotlib colormap name.
+        exclude_window (tuple or None): Time window (start, end) to exclude from plotting.
+        invert_y (bool): If True, y-axis counts go down (top-to-bottom).
+        xticks (list or None): Custom x tick locations.
+        yticks (list or None): Custom y tick locations.
+        xlim (tuple or None): Limits for x-axis (min, max).
+        figsize (tuple): Figure size.
+        cbar_height_shrink (float): Scalar to shrink colorbar height (default 1.0 = no shrink).
+    """
+    # Align all traces to a shared time axis
+    common_time_df, aligned_traces_df = analyzeEvoked2P.align_averaged_traces_from_lists(
+        result_df,
+        trace_col=trace_column,
+        time_col=time_column
+    )
+
+    # Reset index before sorting
+    result_df_reset = result_df.reset_index(drop=True)
+
+    # Sort result_df and get sorted positional indices
+    sorted_df = result_df_reset.sort_values(by=sort_by,ascending=False)
+    sorted_positions = sorted_df.index
+
+    # Reorder aligned traces by sorted positions using iloc
+    aligned_traces_sorted = aligned_traces_df.iloc[sorted_positions].reset_index(drop=True)
+    ascending=False
+
+    # Extract time axis as 1D array
+    time_axis = common_time_df['time'].values
+
+    # Exclude window mask (True = keep)
+    if exclude_window is not None:
+        keep_mask = (time_axis < exclude_window[0]) | (time_axis > exclude_window[1])
+    else:
+        keep_mask = np.ones_like(time_axis, dtype=bool)
+
+    # Apply exclusion mask to traces and time axis
+    time_axis_plot = time_axis[keep_mask]
+    # data_plot = aligned_traces_sorted.loc[:, keep_mask]
+    data_plot = aligned_traces_sorted.loc[:, keep_mask].to_numpy(copy=True)
+
+    # Normalize each row to its max (optional)
+    if norm_type == 'minmax':
+        for i in range(data_plot.shape[0]):
+            row = data_plot[i, :]
+            row_min = np.nanmin(row)
+            row_max = np.nanmax(row)
+            if row_max > row_min:
+                data_plot[i, :] = (row - row_min) / (row_max - row_min)
+    elif norm_type == 'absmax':
+        for i in range(data_plot.shape[0]):
+            max_abs = np.nanmax(np.abs(data_plot[i, :]))
+            if max_abs != 0:
+                data_plot[i, :] = data_plot[i, :] / max_abs
+
+    # Plot heatmap
+    fig, ax = plt.subplots(figsize=figsize)
+
+    extent = [time_axis_plot[0], time_axis_plot[-1], 0, data_plot.shape[0]]
+
+    im = ax.imshow(
+        data_plot,
+        aspect='auto',
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        extent=extent,
+        origin='upper' if invert_y else 'lower'
+    )
+
+    # Axis labels
+    ax.set_xlabel('Time (s)')
+    ax.set_ylabel('Trials')
+
+    # xlim
+    if xlim is not None:
+        ax.set_xlim(xlim)
+
+    # xticks
+    if xticks is not None:
+        ax.set_xticks(xticks)
+
+    # yticks
+    if yticks is not None:
+        ax.set_yticks(yticks)
+
+    # Colorbar with height shrink
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+
+    cbar = fig.colorbar(im, cax=cax)
+    # cbar = ax.figure.colorbar(im, ax=ax, shrink=cbar_shrink)
+    cbar.set_label('Signal')
+
+    # Shrink colorbar height
+    if cbar_shrink != 1.0:
+        pos = cax.get_position()
+        new_height = pos.height * cbar_shrink
+        new_y0 = pos.y0 + (pos.height - new_height) / 2
+        cax.set_position([pos.x0, new_y0, pos.width, new_height])
+
+    # Invert y axis if requested
+    if invert_y:
+        ax.invert_yaxis()
+
+    plt.tight_layout()
+    plt.show()
+# %%
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+from scipy.stats import sem, ttest_ind, linregress
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
+
+def plot_single_point_sem_with_anova(
+    df1,
+    df2,
+    group_labels=("Real", "Pseudo"),
+    ylabel="Value",
+    xlabel="Condition",
+    title="Mean ± SEM per Condition",
+    colors=("skyblue", "lightcoral"),
+    show_scatter=True,
+    show_regression=False,
+    log_y=False,
+    figsize=(6, 5),
+    xlim=None,
+    ylim=None,
+    show=True
+):
+    """
+    Plots mean ± SEM per condition per group, with optional scatter and regression.
+    Performs two-way ANOVA and per-condition t-tests, adds asterisks for significance.
+    Optionally plots regression lines and switches y-axis to log scale.
+    """
+    assert df1.columns.equals(df2.columns), "df1 and df2 must have the same columns"
+
+    conditions = df1.columns
+    x = np.arange(len(conditions))
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Plot means and SEMs
+    for i, (df, label, color) in enumerate(zip([df1, df2], group_labels, colors)):
+        means = df.mean()
+        errors = df.apply(sem, nan_policy='omit')
+
+        offset = -0.15 if i == 0 else 0.15
+        x_offset = x + offset
+
+        ax.errorbar(
+            x_offset, means, yerr=errors,
+            fmt='o', color=color, capsize=4, markersize=8,
+            label=label
+        )
+
+        if show_scatter:
+            for j, cond in enumerate(conditions):
+                yvals = df[cond].dropna()
+                jitter = np.random.normal(loc=offset, scale=0.03, size=len(yvals))
+                ax.scatter(x[j] + jitter, yvals, alpha=0.6, color=color, s=20)
+
+        if show_regression:
+            slope, intercept, r_value, _, _ = linregress(x, means)
+            ax.plot(x, intercept + slope * x, linestyle='--', color=color)
+            ax.text(0.05, 0.9 - 0.08 * i,
+                    f"{label} R={r_value:.2f}",
+                    transform=ax.transAxes, fontsize=10, color=color)
+
+    # Aesthetics
+    ax.set_xticks(x)
+    ax.set_xticklabels(conditions)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    if xlim:
+        ax.set_xlim(xlim)
+    if ylim:
+        ax.set_ylim(ylim)
+    if log_y:
+        ax.set_yscale("log")
+
+    # ===== Two-way ANOVA =====
+    df1_long = df1.melt(var_name="condition", value_name="value")
+    df1_long["group"] = group_labels[0]
+
+    df2_long = df2.melt(var_name="condition", value_name="value")
+    df2_long["group"] = group_labels[1]
+
+    full_df = pd.concat([df1_long, df2_long], ignore_index=True)
+    model = ols('value ~ C(group) * C(condition)', data=full_df).fit()
+    anova_table = sm.stats.anova_lm(model, typ=2)
+
+    print("\n=== Two-Way ANOVA ===")
+    print(anova_table)
+
+    # ===== Add per-condition t-test significance asterisks =====
+    def p_to_asterisks(p):
+        if p < 0.001:
+            return '***'
+        elif p < 0.01:
+            return '**'
+        elif p < 0.05:
+            return '*'
+        else:
+            return ''
+
+    y_max = np.nanmax([df1.max().max(), df2.max().max()])
+    y_offset = 0.05 * y_max if not log_y else 0.1 * y_max
+
+    for i, cond in enumerate(conditions):
+        vals1 = df1[cond].dropna()
+        vals2 = df2[cond].dropna()
+        stat, pval = ttest_ind(vals1, vals2, equal_var=False)
+        stars = p_to_asterisks(pval)
+        if stars:
+            y_star = max(vals1.max(), vals2.max()) + y_offset
+            ax.text(i, y_star, stars, ha='center', va='bottom', fontsize=14, color='black')
+
+    # ===== Add ANOVA effect p-values to plot (in lower right) =====
+    effects = ['C(group)', 'C(condition)', 'C(group):C(condition)']
+    y_text = 0.05
+    for i, effect in enumerate(effects):
+        pval = anova_table.loc[effect, "PR(>F)"]
+        label = effect.replace('C(', '').replace(')', '').replace(':', ' x ')
+        ax.text(0.95, y_text + i * 0.05,
+                f"{label}: p={pval:.3e}",
+                ha='right', va='bottom', transform=ax.transAxes, fontsize=9, color='gray')
+
+    ax.legend()
+    ax.spines[['top', 'right']].set_visible(False)
+    plt.tight_layout()
+
+    if show:
+        plt.show()
+
+    return anova_table

@@ -23,8 +23,6 @@ snr=(VM['twophoton'].Snr2P & keys_with_taus).fetch('snr','KEY')
 
 event_rate=(VM['twophoton'].Snr2P & keys_with_taus).fetch('events_per_min')
 
-
-
 r2_fit_double = (spont_timescales.TwopTau & keys_with_taus).fetch('r2_fit_double', 'KEY')
 
 

@@ -35,7 +35,10 @@ params = {
 params['general_params'] = {
         # 'V1_mice'     : ['jec822_NCCR62','jec822_NCCR63','jec822_NCCR66','jec822_NCCR86'] ,
         'V1_mice'     : ['jec822_NCCR63','jec822_NCCR66','jec822_NCCR86','jec822_NCCR121','jec822_NCCR150'],
-        'M2_mice'     : ['jec822_NCCR32','jec822_NCCR72','jec822_NCCR73','jec822_NCCR77'] ,
+        'M2_mice'     : ['jec822_NCCR32','jec822_NCCR72','jec822_NCCR73','jec822_NCCR77','jec822_NCCR80','jec822_NCCR141'] ,
+        # 'V1_mice'     : ['jec822_NCCR121'] ,
+        # 'V1_mice'     : ['jec822_NCCR63','jec822_NCCR66','jec822_NCCR86','jec822_NCCR121','jec822_NCCR150'],
+        # 'M2_mice'     : ['jec822_NCCR80'] ,
         'V1_cl'       : np.array([180, 137, 50])/255 ,
         'M2_cl'       : np.array([43, 67, 121])/255 ,
         'V1_sh'       : np.array([200, 147, 60, 90])/255 ,
@@ -46,7 +49,7 @@ params['general_params'] = {
         'corr_param_id_residuals_dff'    : 5,
         'corr_param_id_residuals_deconv' : 4, 
         'twop_inclusion_param_set_id'    : 4,
-        'tau_param_set_id'               : 1,
+        'tau_param_set_id'               : 2,
         }
 
 # ========================================
@@ -97,6 +100,103 @@ def get_single_sess_keys(area, params=params, dff_type='residuals_dff'):
         
     # if in session keys delete, later
     return sess_keys
+# %%
+def get_twop_tau_keys(area, params, dff_type, scan_number=1,session_number=1):
+   """
+   Returns all relevant keys from TwopTauInclusion for a given area, data type, and scan number.
+
+   Parameters:
+   - area: str, like "V1" or "M2"
+   - params: dict, containing the necessary 'general_params'
+   - dff_type: str, e.g. 'residuals_dff'
+   - scan_number: int, default is 1
+
+   Returns:
+   - keys: list of DataJoint primary keys (dicts)
+   """
+   mice = params['general_params'][f'{area}_mice']
+   corr_param_set_id = params['general_params'][f'corr_param_id_{dff_type}']
+   tau_param_set_id = params['general_params']['tau_param_set_id']
+   incl_set_id = params['general_params']['twop_inclusion_param_set_id']
+
+   keys = []
+   for mouse in mice:
+       primary_key = {
+           'subject_fullname': mouse,
+           'corr_param_set_id': corr_param_set_id,
+           'tau_param_set_id': tau_param_set_id,
+           'twop_inclusion_param_set_id': incl_set_id,
+            'scan_number': scan_number,
+            'session_number':session_number
+       }
+       # Fetch and extend list
+       keys.extend((spont_timescales.TwopTauInclusion & primary_key).fetch('KEY'))
+
+   return keys
+
+# %%  Takes a single cell key and gives the fit data, useful for plotting individual examples of fit
+def extract_fit_data_for_key(key):
+    """
+    Given a DataJoint key, fetch and organize all necessary parameters
+    for plotting autocorrelation with mono and dual exponential fits.
+    
+    Returns:
+    - acorr_vector: 1D numpy array
+    - time_vector: 1D numpy array
+    - mono_fit_params: dict
+    - dual_fit_params: dict
+    - r2_s: float (R² for mono fit)
+    - bic_s: float (BIC for mono fit)
+    - r2_d: float (R² for dual fit)
+    - bic_d: float (BIC for dual fit)
+    """
+    # Fetch data from tables
+    acorr, lags = (spont_timescales.TwopAutocorr & key).fetch1('autocorr_vals', 'lags_sec')
+    
+    tau_value = (spont_timescales.TwopTau & key).fetch('tau')[0]
+    if tau_value <= 0:
+        raise ValueError(f"Tau must be > 0, got {tau_value}")
+
+    r2_s = (spont_timescales.TwopTau & key).fetch('r2_fit_single')[0]
+    r2_d = (spont_timescales.TwopTau & key).fetch('r2_fit_double')[0]
+
+    bic_s = (spont_timescales.TwopTau & key).fetch('bic_single')[0]
+    bic_d = (spont_timescales.TwopTau & key).fetch('bic_double')[0]
+
+    mono_fit = (spont_timescales.TwopTau & key).fetch('single_fit_params')[0]
+    dual_fit = (spont_timescales.TwopTau & key).fetch('double_fit_params')[0]
+
+    # Build time vector to match acorr
+    time_vector = lags[:len(acorr)]  # ensure matched length
+
+    # Reformat params
+    mono_fit_params = {
+        'A': mono_fit['A_fit_mono'],
+        'tau': mono_fit['tau_fit_mono'],
+        'offset': mono_fit['offset_fit_mono']
+    }
+
+    dual_fit_params = {
+        'A0': dual_fit['A_fit_0'],
+        'tau0': dual_fit['tau_fit_0'],
+        'A1': dual_fit['A_fit_1'],
+        'tau1': dual_fit['tau_fit_1'],
+        'offset': dual_fit['offset_fit_dual']
+    }
+
+    return (
+        acorr,
+        time_vector,
+        mono_fit_params,
+        dual_fit_params,
+        r2_s,
+        bic_s,
+        r2_d,
+        bic_d
+    )
+
+
+
 
 # ---------------
 # %% retrieve all taus for a given area and set of parameters, from dj database
@@ -371,102 +471,119 @@ def get_all_tau_xcorr(area, params = params, dff_type = 'residuals_dff'):
 
 # ---------------
 # %% statistically compare taus across areas and plot
-def plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None, v1_taus=None, m2_taus=None, corr_type='autocorr'):
+def plot_area_tau_comp(params, dff_type='residuals_dff', axis_handle=None,
+                       v1_taus=None, m2_taus=None, corr_type='autocorr',
+                       log_x=True, xlim=None, ylim=None):
+    """
+    plot_area_tau_comp(params, dff_type='residuals_dff', axis_handle=None,
+                       v1_taus=None, m2_taus=None, corr_type='autocorr',
+                       log_x=True, xlim=None, ylim=None)
+    
+    Compares taus across areas and plots them.
 
-    """
-    plot_area_tau_comp(params=params, dff_type='residuals_dff', axis_handle=None, v1_taus=None, m2_taus=None, corr_type='autocorr')
-    compares taus across areas and plots them
-    
     INPUT:
-    params: dictionary as the one on top of this file
-    dff_type: 'residuals_dff' for residuals of running linear regression (default)
-              'residuals_deconv' for residuals of running Poisson GLM on deconvolved traces
-              'noGlm_dff' for plain dff traces
-    axis_handle: optional axis handle to plot on
-    v1_taus: optional vector of taus for V1 (default is to fetch them using get_all_tau)
-    m2_taus: optional vector of taus for M2 (default is to fetch them using get_all_tau)
-    corr_type: 'autocorr' for single neuron autocorrelation (default)
-               'xcorr' for pairwise x-corr
-               'eigen' for estimates from eigenvalues from x-corr matrix
-               
+    - params: dictionary with analysis parameters
+    - dff_type: signal type to analyze
+    - axis_handle: optional matplotlib axis to plot on
+    - v1_taus, m2_taus: optional vectors of taus; if None, will be fetched
+    - corr_type: 'autocorr', 'xcorr', or 'eigen'
+    - log_x: if True (default), sets x-axis to log scale
+    - xlim: optional tuple for x-axis limits (e.g., (0, 5))
+    - ylim: optional tuple for y-axis limits (e.g., (0, 1))
+
     OUTPUT:
-    tau_stats: dictionary with stats of taus
-    ax: axis handle of plot
+    - tau_stats: dictionary with statistics
+    - ax: axis handle
     """
-    
-    # get taus
+
+    # Get taus based on correlation type
     if corr_type == 'autocorr':
         if v1_taus is None:
-            v1_taus, _ , _ = get_all_tau('V1',params=params,dff_type=dff_type)
+            v1_taus, _, _ = get_all_tau('V1', params=params, dff_type=dff_type)
         if m2_taus is None:
-            m2_taus, _ , _ = get_all_tau('M2',params=params,dff_type=dff_type)
+            m2_taus, _, _ = get_all_tau('M2', params=params, dff_type=dff_type)
         histbins = params['tau_hist_bins']
-        n_is     = 'neurons'
-        
+        n_is = 'neurons'
+
     elif corr_type == 'xcorr':
         if v1_taus is None:
-            v1_taus, _ = get_all_tau_xcorr('V1',params=params,dff_type=dff_type)
+            v1_taus, _ = get_all_tau_xcorr('V1', params=params, dff_type=dff_type)
         if m2_taus is None:
-            m2_taus, _ = get_all_tau_xcorr('M2',params=params,dff_type=dff_type)
+            m2_taus, _ = get_all_tau_xcorr('M2', params=params, dff_type=dff_type)
         histbins = params['tau_hist_bins_xcorr']
-        n_is     = 'pairs'
-       
+        n_is = 'pairs'
+
     elif corr_type == 'eigen':
         if v1_taus is None:
-            v1_taus, _ = get_rec_xcorr_eigen_taus('V1',params=params,dff_type=dff_type)
+            v1_taus, _ = get_rec_xcorr_eigen_taus('V1', params=params, dff_type=dff_type)
         if m2_taus is None:
-            m2_taus, _ = get_rec_xcorr_eigen_taus('M2',params=params,dff_type=dff_type)
+            m2_taus, _ = get_rec_xcorr_eigen_taus('M2', params=params, dff_type=dff_type)
         histbins = params['tau_hist_bins_eigen']
-        n_is     = 'fovs'
-         
-    else:    
-        print('unknown corr_type, doing nothing')
+        n_is = 'fovs'
+
+    else:
+        print('Unknown corr_type, doing nothing.')
         return
-    
-    # compute stats
+
+    # Compute stats
     tau_stats = dict()
     tau_stats['analysis_params'] = deepcopy(params)
-    tau_stats['V1_num_'+ n_is]   = np.size(v1_taus)
-    tau_stats['V1_mean']         = np.mean(v1_taus)
-    tau_stats['V1_sem']          = np.std(v1_taus,ddof=1) / np.sqrt(tau_stats['V1_num_'+ n_is]-1)
-    tau_stats['V1_median']       = np.median(v1_taus)
-    tau_stats['V1_iqr']          = scipy.stats.iqr(v1_taus)
-    tau_stats['M2_num_'+ n_is]   = np.size(m2_taus)
-    tau_stats['M2_mean']         = np.mean(m2_taus)
-    tau_stats['M2_sem']          = np.std(m2_taus,ddof=1) / np.sqrt(tau_stats['M2_num_'+ n_is]-1)
-    tau_stats['M2_median']       = np.median(m2_taus)
-    tau_stats['M2_iqr']          = scipy.stats.iqr(m2_taus)
-    tau_stats['pval'], tau_stats['test_name'] = general_stats.two_group_comparison(v1_taus, m2_taus, is_paired=False, tail="two-sided")
+    tau_stats['V1_num_' + n_is] = np.size(v1_taus)
+    tau_stats['V1_mean'] = np.mean(v1_taus)
+    tau_stats['V1_sem'] = np.std(v1_taus, ddof=1) / np.sqrt(tau_stats['V1_num_' + n_is] - 1)
+    tau_stats['V1_median'] = np.median(v1_taus)
+    tau_stats['V1_iqr'] = scipy.stats.iqr(v1_taus)
+    tau_stats['M2_num_' + n_is] = np.size(m2_taus)
+    tau_stats['M2_mean'] = np.mean(m2_taus)
+    tau_stats['M2_sem'] = np.std(m2_taus, ddof=1) / np.sqrt(tau_stats['M2_num_' + n_is] - 1)
+    tau_stats['M2_median'] = np.median(m2_taus)
+    tau_stats['M2_iqr'] = scipy.stats.iqr(m2_taus)
+    tau_stats['pval'], tau_stats['test_name'] = general_stats.two_group_comparison(
+        v1_taus, m2_taus, is_paired=False, tail="two-sided")
 
-    # plot
+    # Create plot
     if axis_handle is None:
         plt.figure()
-        # plt.axis('square')
         ax = plt.gca()
     else:
         ax = axis_handle
 
-    v1_counts, _ = np.histogram(v1_taus,bins=histbins,density=False)
-    m2_counts, _ = np.histogram(m2_taus,bins=histbins,density=False)
-    xaxis        = histbins[:-1]+np.diff(histbins)[0]
-    ax.plot(xaxis,np.cumsum(v1_counts)/np.sum(v1_counts),color=params['general_params']['V1_cl'],label=params['general_params']['V1_lbl'])
-    ax.plot(xaxis,np.cumsum(m2_counts)/np.sum(m2_counts),color=params['general_params']['M2_cl'],label=params['general_params']['M2_lbl'])
-    ax.plot(tau_stats['V1_median'],0.03,'v',color=params['general_params']['V1_cl'])
-    ax.plot(tau_stats['M2_median'],0.03,'v',color=params['general_params']['M2_cl'])
-    ax.text(.18,.8,'p = {:1.2g}'.format(tau_stats['pval']))
+    v1_counts, _ = np.histogram(v1_taus, bins=histbins, density=False)
+    m2_counts, _ = np.histogram(m2_taus, bins=histbins, density=False)
+    xaxis = histbins[:-1] + np.diff(histbins)[0]
 
-    # ax.set_xscale('log')
+    ax.plot(xaxis, np.cumsum(v1_counts) / np.sum(v1_counts),
+            color=params['general_params']['V1_cl'],
+            label=params['general_params']['V1_lbl'])
+    ax.plot(xaxis, np.cumsum(m2_counts) / np.sum(m2_counts),
+            color=params['general_params']['M2_cl'],
+            label=params['general_params']['M2_lbl'])
+
+    # Plot median markers and annotate them
+    ax.plot(tau_stats['V1_median'], 0.03, 'v', color=params['general_params']['V1_cl'])
+    ax.plot(tau_stats['M2_median'], 0.03, 'v', color=params['general_params']['M2_cl'])
+    ax.text(tau_stats['V1_median'], 0.05, f"Med: {tau_stats['V1_median']:.2f}",
+            color=params['general_params']['V1_cl'], ha='center', fontsize=8)
+    ax.text(tau_stats['M2_median'], 0.07, f"Med: {tau_stats['M2_median']:.2f}",
+            color=params['general_params']['M2_cl'], ha='center', fontsize=8)
+
+    ax.text(0.95, 0.9, f'p = {tau_stats["pval"]:.2g}', transform=ax.transAxes)
+
+    # Axis scale and limits
+    if log_x:
+        ax.set_xscale('log')
     ax.set_xlabel('$\\tau$ (sec)')
-    ax.set_ylabel('Prop. ' + n_is)        
+    ax.set_ylabel('Prop. ' + n_is)
     ax.legend()
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
-    ax.set_xlim((0,5))
-    plt.ylim((0,1))
-    plt.xlim((0,6))
-    # ax.set_aspect('equal')
-    
-    return tau_stats, ax 
+
+    if xlim is not None:
+        ax.set_xlim(xlim)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+
+    return tau_stats, ax
 
 # ---------------
 # %% get centroid and sess info for a list of tau keys
@@ -643,22 +760,23 @@ def clustering_by_tau(taus, centroids, rec_ids, params=params, rng=None):
 # ---------------
 # %% statistically compare tau clustering across areas and plot
 def plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axis_handle=None):
-    
     """
     plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axis_handle=None)
     compares clustering results across areas and plots them
-    
+
     INPUT:
-    v1_clust: dictionary with clustering results for V1 (default is to fetch them using clustering_by_tau)
-    m2_clust: dictionary with clustering results for M2 (default is to fetch them using clustering_by_tau)
-    params: dictionary as the one on top of this file
+    v1_clust: dictionary with clustering results for V1
+    m2_clust: dictionary with clustering results for M2
+    params: parameter dictionary
     axis_handle: optional axis handle to plot on
-    
+
     OUTPUT:
     ax: axis handle of plot
     """
 
-    # plot
+    import matplotlib.pyplot as plt
+    import numpy as np
+
     if axis_handle is None:
         plt.figure()
         ax = plt.gca()
@@ -671,26 +789,42 @@ def plot_clustering_comp(v1_clust=None, m2_clust=None, params=params, axis_handl
     v1_std  = v1_clust['tau_diff_bydist_std'] 
     m2_mean = m2_clust['tau_diff_bydist_mean'] - m2_clust['tau_diff_bydist_shuffle_mean']
     m2_std  = m2_clust['tau_diff_bydist_std'] 
-    ax.errorbar(x=xaxis,y=v1_mean,yerr=v1_std,color=params['general_params']['V1_cl'],label=params['general_params']['V1_lbl'],marker='.')
-    ax.errorbar(x=xaxis,y=m2_mean,yerr=m2_std,color=params['general_params']['M2_cl'],label=params['general_params']['M2_lbl'],marker='.')
-    ax.plot(np.array([0,xaxis[-1]+xaxis[0]]),np.array([0,0]),'--',color='gray')
-    
-    #  pvals
-    plot_pval_circles(ax, xaxis, v1_mean-v1_std, v1_clust['tau_diff_bydist_pvals'], 
-                    where='below',color=params['general_params']['V1_cl'],isSig=v1_clust['tau_diff_bydist_isSig'])
-    plot_pval_circles(ax, xaxis, m2_mean-m2_std-0.01, m2_clust['tau_diff_bydist_pvals'], 
-                    where='below',color=params['general_params']['M2_cl'],isSig=m2_clust['tau_diff_bydist_isSig'])
 
-    if params['clustering_zscore_taus']:
-        ax.set_ylabel('|$\\tau$ diff (z-score)| - shuffle')
-    else:
-        ax.set_ylabel('|$\\tau$ diff (sec)| - shuffle')
+    # Plot error bars
+    ax.errorbar(x=xaxis, y=v1_mean, yerr=v1_std,
+                color=params['general_params']['V1_cl'],
+                label=params['general_params']['V1_lbl'],
+                marker='.')
+    ax.errorbar(x=xaxis, y=m2_mean, yerr=m2_std,
+                color=params['general_params']['M2_cl'],
+                label=params['general_params']['M2_lbl'],
+                marker='.')
+
+    # Zero line
+    ax.plot([xaxis[0], xaxis[-1]], [0, 0], '--', color='gray')
+
+    # Plot asterisks for significant p-values
+    for x, y, sig in zip(xaxis, v1_mean - v1_std - 0.01, v1_clust['tau_diff_bydist_isSig']):
+        if sig:
+            ax.text(x, y, '*', color=params['general_params']['V1_cl'],
+                    ha='center', va='top', fontsize=12)
+
+    for x, y, sig in zip(xaxis, m2_mean - m2_std - 0.015, m2_clust['tau_diff_bydist_isSig']):
+        if sig:
+            ax.text(x, y, '*', color=params['general_params']['M2_cl'],
+                    ha='center', va='top', fontsize=12)
+
+    # Labels and legend
+    ylabel = '|$\\tau$ diff (z-score)| - shuffle' if params['clustering_zscore_taus'] else '|$\\tau$ diff (sec)| - shuffle'
+    ax.set_ylabel(ylabel)
     ax.set_xlabel('Pairwise dist. $\\mu$m')
     ax.legend()
+
+    # Aesthetics
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
 
-    return ax 
+    return ax
 
 # ---------------
 # %% plot taus on FOV
@@ -849,3 +983,250 @@ def tau_from_eigenval(xcorr_mat,frame_period):
     tau     = 1/np.abs(np.max(eigvals))
     
     return tau*frame_period
+
+# %%
+
+from scipy.optimize import curve_fit
+import numpy as np
+
+def single_exp(x, a, tau, c):
+    return a * np.exp(-x / tau) + c
+
+def double_exp(x, a1, tau1, a2, tau2, c):
+    return a1 * np.exp(-x / tau1) + a2 * np.exp(-x / tau2) + c
+
+def compute_r2(y_true, y_pred):
+    ss_res = np.nansum((y_true - y_pred) ** 2)
+    ss_tot = np.nansum((y_true - np.nanmean(y_true)) ** 2)
+    return 1 - ss_res / ss_tot if ss_tot != 0 else np.nan
+
+def compute_bic(y_true, y_pred, num_params):
+    n = len(y_true)
+    residual = y_true - y_pred
+    sse = np.nansum(residual ** 2)
+    if sse <= 0 or n <= 0:
+        return np.nan
+    bic = n * np.log(sse / n) + num_params * np.log(n)
+    return bic
+
+def fit_exponentials_from_df(
+    acorr_df,
+    exclude_low_acorr=False,
+    acorr_threshold=0.1,
+    max_lag=None,
+    bounded_fit=False,
+    tau_bounds=(0.1, 100)
+):
+    """
+    Fit single and double exponential models to autocorrelation data in a DataFrame.
+
+    Parameters:
+    - acorr_df: DataFrame where each row is an autocorrelation trace
+    - exclude_low_acorr: bool, whether to skip traces with weak acorr[1] values
+    - acorr_threshold: float, threshold for acorr[1] to include trace
+    - max_lag: int, optional max number of lags to fit
+    - bounded_fit: bool, whether to apply bounds to exponential fits
+    - tau_bounds: tuple (min_tau, max_tau), bounds on tau parameter for both fits
+
+    Returns:
+    - results: list of dictionaries with fit results
+    - filtered_acorr: list of autocorrelation arrays used in fitting
+    - valid_indices: list of row indices in acorr_df that were successfully fit
+    """
+    from scipy.optimize import curve_fit
+
+    results = []
+    filtered_acorr = []
+    valid_indices = []
+
+    tau_min, tau_max = tau_bounds
+
+    for i, row in acorr_df.iterrows():
+        y_full = row.to_numpy()
+        x_full = np.arange(len(y_full))
+
+        # Skip if invalid
+        if len(y_full) == 0 or np.all(np.isnan(y_full)) or np.all(y_full == 0) or np.all(y_full == y_full[0]):
+            continue
+
+        acorr1_val = y_full[1] - np.nanmin(y_full) if len(y_full) > 1 else np.nan
+        if exclude_low_acorr and acorr1_val < acorr_threshold:
+            continue
+
+        filtered_acorr.append(y_full)
+        valid_indices.append(i)
+
+        for trim in [False, True]:
+            x = x_full[2:] if trim else x_full
+            y = y_full[2:] if trim else y_full
+
+            if max_lag is not None:
+                x = x[:max_lag]
+                y = y[:max_lag]
+
+            if len(y) < 5:
+                continue
+
+            entry = {
+                'index': i,
+                'exclude_first_two': trim,
+                'acorr1': acorr1_val
+            }
+
+            # --- Single exponential fit ---
+            try:
+                if bounded_fit:
+                    bounds_s = ([0, tau_min, -np.inf], [np.inf, tau_max, np.inf])
+                    popt_s, _ = curve_fit(single_exp, x, y, p0=(1, 1, 0), bounds=bounds_s, maxfev=10000)
+                else:
+                    popt_s, _ = curve_fit(single_exp, x, y, p0=(1, 1, 0), maxfev=10000)
+
+                y_pred_s = single_exp(x, *popt_s)
+                r2_s = compute_r2(y, y_pred_s)
+                bic_s = compute_bic(y, y_pred_s, num_params=3)
+                entry_single = {
+                    **entry,
+                    'type': 'single_exp',
+                    'params': dict(zip(['a', 'tau', 'c'], popt_s)),
+                    'r2': r2_s,
+                    'bic': bic_s
+                }
+            except Exception:
+                entry_single = {
+                    **entry,
+                    'type': 'single_exp',
+                    'params': {'a': np.nan, 'tau': np.nan, 'c': np.nan},
+                    'r2': np.nan,
+                    'bic': np.nan
+                }
+
+            results.append(entry_single)
+
+            # --- Double exponential fit ---
+            try:
+                if bounded_fit:
+                    bounds_d = (
+                        [0, tau_min, 0, tau_min, -np.inf],  # a1, tau1, a2, tau2, c
+                        [np.inf, tau_max, np.inf, tau_max, np.inf]
+                    )
+                    popt_d, _ = curve_fit(
+                        double_exp, x, y, p0=(1, 1, 0.5, 5, 0),
+                        bounds=bounds_d, maxfev=10000
+                    )
+                else:
+                    popt_d, _ = curve_fit(
+                        double_exp, x, y, p0=(1, 1, 0.5, 5, 0), maxfev=10000
+                    )
+
+                y_pred_d = double_exp(x, *popt_d)
+                r2_d = compute_r2(y, y_pred_d)
+                bic_d = compute_bic(y, y_pred_d, num_params=5)
+                entry_double = {
+                    **entry,
+                    'type': 'double_exp',
+                    'params': dict(zip(['a1', 'tau1', 'a2', 'tau2', 'c'], popt_d)),
+                    'r2': r2_d,
+                    'bic': bic_d
+                }
+            except Exception:
+                entry_double = {
+                    **entry,
+                    'type': 'double_exp',
+                    'params': {'a1': np.nan, 'tau1': np.nan, 'a2': np.nan, 'tau2': np.nan, 'c': np.nan},
+                    'r2': np.nan,
+                    'bic': np.nan
+                }
+
+            results.append(entry_double)
+
+    return results, filtered_acorr, valid_indices
+
+
+
+
+# %%
+
+import pandas as pd
+
+def classify_fit_results_simple(fit_results):
+    single_inc, single_exc = [], []
+    double_inc, double_exc = [], []
+
+    for result in fit_results:
+        idx = result['index']
+        exclude = result['exclude_first_two']
+        r2 = result['r2']
+        bic = result['bic']
+        acorr1 = result['acorr1']
+
+        if result['type'] == 'single_exp':
+            tau = result['params']['tau']
+            entry = {'index': idx, 'tau': tau, 'r2': r2, 'bic': bic, 'acorr_1_index': acorr1}
+            if exclude:
+                single_exc.append(entry)
+            else:
+                single_inc.append(entry)
+
+        elif result['type'] == 'double_exp':
+            tau1 = result['params']['tau1']
+            tau2 = result['params']['tau2']
+            entry = {'index': idx, 'tau1': tau1, 'tau2': tau2, 'r2': r2, 'bic': bic, 'acorr_1_index': acorr1}
+            if exclude:
+                double_exc.append(entry)
+            else:
+                double_inc.append(entry)
+
+    df_single_inc = pd.DataFrame(single_inc)
+    df_single_exc = pd.DataFrame(single_exc)
+    df_double_inc = pd.DataFrame(double_inc)
+    df_double_exc = pd.DataFrame(double_exc)
+
+    avg_r2 = {
+        'single_inc': df_single_inc['r2'].mean() if not df_single_inc.empty else float('-inf'),
+        'single_exc': df_single_exc['r2'].mean() if not df_single_exc.empty else float('-inf'),
+        'double_inc': df_double_inc['r2'].mean() if not df_double_inc.empty else float('-inf'),
+        'double_exc': df_double_exc['r2'].mean() if not df_double_exc.empty else float('-inf')
+    }
+    best_fit_type = max(avg_r2, key=avg_r2.get)
+
+    return df_single_inc, df_single_exc, df_double_inc, df_double_exc, best_fit_type
+
+
+# %%
+def calculate_autocorrelations_df(a_df, signal_range=(0, 10000), max_lags=1000):
+    """
+    Calculate autocorrelations up to max_lags for each row in a 2D DataFrame.
+
+    Parameters:
+    - a_df: DataFrame where each row is a 1D time-series signal
+    - signal_range: tuple, start and end indices for slicing the signal
+    - max_lags: int, number of lags for autocorrelation
+
+    Returns:
+    - acorr_df: DataFrame of shape (n_signals, max_lags + 1)
+    """
+    acorr_list = []
+
+    for _, row in a_df.iterrows():
+        try:
+            signal = row.iloc[signal_range[0]:signal_range[1]].to_numpy()
+            signal = signal - np.nanmean(signal)
+
+            if np.all(np.isnan(signal)) or len(signal) < max_lags:
+                acorr = np.full(max_lags + 1, np.nan)
+            else:
+                acorr_full = np.correlate(signal, signal, mode='full')
+                mid = len(acorr_full) // 2
+                acorr = acorr_full[mid:mid + max_lags + 1]
+                acorr = acorr / acorr[0] if acorr[0] != 0 else np.full_like(acorr, np.nan)
+        except Exception:
+            acorr = np.full(max_lags + 1, np.nan)
+
+        acorr_list.append(acorr)
+
+    # Convert to 2D DataFrame
+    acorr_df = pd.DataFrame(acorr_list)
+    acorr_df.columns = [f"lag_{i}" for i in range(max_lags + 1)]
+
+    return acorr_df
+

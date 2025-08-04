@@ -87,9 +87,7 @@ aaa=np.logical_and(aa,is_sig==1)
 
  
  # %%
- 
- 
- 
+
   # select out very long taus if desired
    # if opto_params['tau_vs_opto_max_tau'] is not None:
    #     is_good_tau[tau>params['tau_vs_opto_max_tau']] = 0
@@ -143,6 +141,7 @@ bin_centers = (bins[:-1] + bins[1:]) / 2  # For plotting on x-axis
  
 plt.figure()
 plt.plot(peakt_by_tau_avg)
+
 # %%
 tau_stimd   = np.zeros(np.size(tau))-1
 for sess in unique_sess:

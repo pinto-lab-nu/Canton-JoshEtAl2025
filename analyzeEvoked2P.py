@@ -21,6 +21,9 @@ from utils.plotting import plot_fov_heatmap_blur
 from utils.plotting import highlight_rois
 from analyzeSpont2P import params as tau_params
 import analyzeSpont2P
+import Canton_Josh_et_al_2025_analysis_plotting_functions as analysis_plotting_functions
+
+
 
 import time
 
@@ -30,13 +33,13 @@ VM     = connect_to_dj.get_virtual_modules()
 # %% declare default params, inherit general params from tau_params
 params = {
         'random_seed'                    : 42, 
-        'trigdff_param_set_id_dff'       : 4,      #Z-scored etc.
+        'trigdff_param_set_id_dff'       : 2,      #Z-scored etc.
         'trigdff_param_set_id_deconv'    : 5, 
         'trigdff_inclusion_param_set_id' : 9,    #timing, distance,etc
         'trigdff_inclusion_param_set_id_notiming' : 3, # for some analyses (e.g. inhibition), we may want to relax trough timing constraint
         'trigspeed_param_set_id'         : 1,
         'prop_resp_bins'                 : np.arange(0,.41,.01),
-        'dist_bins_resp_prob'            : np.arange(30,480,50),
+        'dist_bins_resp_prob'            : np.arange(25,500,50),
         'response_magnitude_bins'        : np.arange(-2.5,7.75,.25),
         'tau_bins'                       : np.arange(0,3,.5),
         'tau_by_time_bins'               : np.arange(0,5,.5),
@@ -131,21 +134,21 @@ def get_keys_for_expt_types(area, params=params, expt_type='standard'):
     for mouse in mice:
         opto_data   = (twop_opto_analysis.Opto2PSummary & {'subject_fullname': mouse}).fetch(as_dict=True)
         opto_keys   = (twop_opto_analysis.Opto2PSummary & {'subject_fullname': mouse}).fetch("KEY", as_dict=True)
-        # spiral_data=(VM['twophoton'].Opto2P & opto_keys).fetch(as_dict=True)
-        spiral_sizes = (VM['twophoton'].Opto2P & opto_keys).fetch('stim_spiral_size_um')
+        # spiral_sizes = (VM['twophoton'].Opto2P & opto_keys).fetch('stim_spiral_size_um')
+        spiral_repetitions = (VM['twophoton'].Opto2P & opto_keys).fetch('trials_repetitions')
 
-        for this_sess, spiral_size_array, key in zip(opto_data, spiral_sizes, opto_keys):
+
+        for this_sess, spiral_rep_array, key in zip(opto_data, spiral_repetitions, opto_keys):
             has_multicell_stim = np.sum(np.array(this_sess['num_cells_per_stim']) > 1) > 1
             max_num_trials     = np.max(np.array(this_sess['num_trials_per_stim']))
             max_dur            = np.max(np.array(this_sess['dur_sec_per_stim']))
-            spiral_size        = np.max(np.array(spiral_size_array))
-       
+            spiral_reps       = np.max(np.array(spiral_rep_array))
 
             if expt_type == 'standard':
-                if not has_multicell_stim and max_num_trials <= 10 and max_dur >= 0.2 and spiral_size > 14:   #OKKKKKK This needs fixing long term used spiral size since there is issue with max_dur and 'trials_num_spirals' (need repetition)
+                if not has_multicell_stim and max_num_trials <= 10 and max_dur >= 0.2 and spiral_reps > 1:   #OKKKKKK This needs fixing long term used spiral size since there is issue with max_dur and 'trials_num_spirals' (need repetition)
                     keys.append(key)
             elif expt_type == 'short_stim':
-                if not has_multicell_stim and max_num_trials <= 10 and spiral_size < 14:  #OKKKKKK This needs fixing long term used spiral size since there is issue with max_dur and 'trials_num_spirals' (need repetition)
+                if not has_multicell_stim and max_num_trials <= 10 and spiral_reps < 2:  #OKKKKKK This needs fixing long term used spiral size since there is issue with max_dur and 'trials_num_spirals' (need repetition)
                     keys.append(key)
             elif expt_type == 'high_trial_count':
                 if not has_multicell_stim and max_num_trials > 10:
@@ -482,7 +485,7 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
 
 # ---------------
 # %% get response stats (peak, dist from stim etc) for an area and experiment type
-def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='dff', eg_ids=None, which_neurons='non_stimd'):
+def get_full_resp_stats_new(area, params=params, expt_type='standard', resp_type='dff', eg_ids=None, which_neurons='non_stimd'):
     
     """
     get_full_resp_stats(area, params=params, expt_type='standard', resp_type='dff', eg_ids=None, which_neurons='non_stimd')
@@ -548,13 +551,43 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
         for this_stim in these_stim_ids:
             this_key['stim_id'] = this_stim
             
+            if which_neurons == 'all':
+                # stimdst, comst, maxminst, peaktst, troughtst, distst, sidst, nkeysst = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
+                sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
+                # n    = len(stimd)
+                # sig  = list(np.ones(n))
+                
+                idx  = np.argwhere(np.array(incl)==1).flatten()
+                n    = np.size(idx)
+                keys = list(np.array(keys)[idx])
+                sig  = list(np.array(sig)[idx])
+                
+                # is_soma = np.array((VM['twophoton'].Roi2P & keys).fetch('is_soma'))
+                # idx  = np.argwhere(np.array(is_soma)==1).flatten()
+                # n    = np.size(idx)
+                # keys = list(np.array(keys)[idx])
+                # sig  = list(np.array(sig)[idx])
+                
+                stimd, com, maxmin, peakt, trought, dist, sid, nkeys = (twop_opto_analysis.TrigDffTrialAvg & keys).fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
+
             # do selecion at the fetching level for speed
-            if which_neurons == 'stimd':
+            elif which_neurons == 'stimd':
                 # stimd neurons bypass inclusion criteria
                 stimd, com, maxmin, peakt, trought, dist, sid, nkeys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
                 n    = len(stimd)
                 sig  = list(np.ones(n))
-            else:          
+                
+            elif which_neurons == 'non_stimd':          
+                # get included non-stimulated neurons first 
+                sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
+                idx  = np.argwhere(np.array(incl)==1).flatten()
+                n    = np.size(idx)
+                keys = list(np.array(keys)[idx])
+                sig  = list(np.array(sig)[idx])
+
+                stimd, com, maxmin, peakt, trought, dist, sid, nkeys = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
+             
+            elif which_neurons == 'all_old':          
                 # get included non-stimulated neurons first 
                 sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
                 idx  = np.argwhere(np.array(incl)==1).flatten()
@@ -565,30 +598,32 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
                 stimd, com, maxmin, peakt, trought, dist, sid, nkeys = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
                 
                 # get stimd neurons if desired (bypass inclusion because of distance criterion)
-                if which_neurons == 'all':
-                    stimdst, comst, maxminst, peaktst, troughtst, distst, sidst, nkeysst = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
-                    sigs  = list(np.ones(len(stimdst)))
-                    
-                    stimd   = list(stimd)
-                    com     = list(com)
-                    maxmin  = list(maxmin)
-                    peakt   = list(peakt)
-                    trought = list(trought)
-                    dist    = list(dist)
-                    sid     = list(sid)
-                    nkeys   = list(nkeys)
-                    
-                    # append to non-stimulated neurons
-                    [stimd.append(st) for st in stimdst]
-                    [com.append(co) for co in comst]
-                    [maxmin.append(mm) for mm in maxminst]
-                    [peakt.append(pt) for pt in peaktst]
-                    [trought.append(tr) for tr in troughtst]
-                    [dist.append(ds) for ds in distst]
-                    [sid.append(ss) for ss in sidst]
-                    [nkeys.append(nk) for nk in nkeysst]
-                    [sig.append(sg) for sg in sigs]
-                    
+                # if which_neurons == 'all_old':
+                stimdst, comst, maxminst, peaktst, troughtst, distst, sidst, nkeysst = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
+                # stimdst, comst, maxminst, peaktst, troughtst, distst, sidst, nkeysst = (twop_opto_analysis.TrigDffTrialAvg & this_key).fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
+
+                sigs  = list(np.ones(len(stimdst)))
+                
+                stimd   = list(stimd)
+                com     = list(com)
+                maxmin  = list(maxmin)
+                peakt   = list(peakt)
+                trought = list(trought)
+                dist    = list(dist)
+                sid     = list(sid)
+                nkeys   = list(nkeys)
+                
+                # append to non-stimulated neurons
+                [stimd.append(st) for st in stimdst]
+                [com.append(co) for co in comst]
+                [maxmin.append(mm) for mm in maxminst]
+                [peakt.append(pt) for pt in peaktst]
+                [trought.append(tr) for tr in troughtst]
+                [dist.append(ds) for ds in distst]
+                [sid.append(ss) for ss in sidst]
+                [nkeys.append(nk) for nk in nkeysst]
+                [sig.append(sg) for sg in sigs]
+                
             # pick trough or peak time, whichever is higher magnitude
             maxmin_t = list()
             for iNeuron in range(len(trought)):
@@ -599,6 +634,7 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
                     
             # get roi keys for fetching from other tables (eg tau)
             rkeys = (VM['twophoton'].Roi2P & nkeys).fetch('KEY')
+            # is_soma  = np.array((VM['twophoton'].Roi2P & nkeys).fetch('is_soma'))
 
             # flatten list
             [is_stimd.append(st) for st in stimd]
@@ -660,6 +696,198 @@ def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='df
                     'which_neurons'         : which_neurons,
                     'roi_keys'              : roi_keys,
                     'analysis_params'       : deepcopy(params)
+                    }
+    
+    end_time = time.time()
+    print("     done after {: 1.2f} min".format((end_time-start_time)/60))
+    
+    return summary_data
+# %% get response stats (peak, dist from stim etc) for an area and experiment type
+def get_full_resp_stats(area, params=params, expt_type='standard', resp_type='dff', eg_ids=None, which_neurons='non_stimd'):
+    
+    """
+    get_full_resp_stats(area, params=params, expt_type='standard', resp_type='dff', eg_ids=None, which_neurons='non_stimd')
+    retrieves opto-triggered response stats for a given area and experiment type
+    
+    INPUTS:
+        area         : str, 'V1' or 'M2'
+        params       : dict, analysis parameters (default is params from top of this script)
+        expt_type    : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+        resp_type    : str, 'dff' (default) or 'deconv'
+        eg_ids       : list of integers, indices of experiments to include (optional)
+        which_neurons: str, 'non_stimd' (default), 'all', 'stimd'
+        
+    OUTPUTS:
+        summary_data : dict with summary stats 
+    """
+    
+    start_time      = time.time()
+    print('Fetching opto-triggered response stats...')
+    
+    # get relevant keys
+    expt_keys = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
+    
+    # restrict to only desired rec/stim if applicable
+    if eg_ids is not None:
+        if isinstance(eg_ids,list) == False:
+            eg_ids = [eg_ids]
+        expt_keys = list(np.array(expt_keys)[np.array(eg_ids).astype(int)])
+    
+    # loop through keys to fetch the responses
+    trigdff_param_set_id           = params['trigdff_param_set_id_{}'.format(resp_type)]
+    trigdff_inclusion_param_set_id = params['trigdff_inclusion_param_set_id']
+    
+    is_stimd   = list()
+    is_sig     = list()
+    coms       = list()
+    maxmins_ts = list()
+    maxmins    = list()
+    dists      = list()
+    num_expt   = len(expt_keys)
+    dist_by_expt   = list()
+    is_sig_by_expt = list()
+    n_by_expt      = list()
+    n_sig_by_expt  = list()
+    prop_vs_total  = list()
+    prop_of_sig    = list()
+    roi_keys       = list()
+    cell_keys       = list()
+    stim_ids       = list()
+    dist_bins      = params['dist_bins_resp_prob']
+    num_bins       = len(dist_bins)-1
+    
+    for ct, ikey in enumerate(expt_keys):
+        print('     {} of {}...'.format(ct+1,num_expt))
+        this_key = {'subject_fullname' : ikey['subject_fullname'], 
+                    'session_date': ikey['session_date'], 
+                    'trigdff_param_set_id': trigdff_param_set_id, 
+                    'trigdff_inclusion_param_set_id': trigdff_inclusion_param_set_id
+                    }
+        
+        # for some downstream analyses we need to keep track of roi order, so separate by stim
+        these_stim_ids = list((twop_opto_analysis.Opto2PSummary & this_key).fetch1('stim_ids'))
+ 
+        for this_stim in these_stim_ids:
+            this_key['stim_id'] = this_stim
+            
+           
+            
+            # do selecion at the fetching level for speed
+            if which_neurons == 'stimd':
+                # stimd neurons bypass inclusion criteria
+                stimd, com, maxmin, peakt, trought, dist, sid, nkeys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
+                n    = len(stimd)
+                sig  = list(np.ones(n))
+                
+            else:          
+                # get included non-stimulated neurons first 
+                sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
+                idx  = np.argwhere(np.array(incl)==1).flatten()
+                n    = np.size(idx)
+                keys = list(np.array(keys)[idx])
+                sig  = list(np.array(sig)[idx])
+
+                stimd, com, maxmin, peakt, trought, dist, sid, nkeys = (twop_opto_analysis.TrigDffTrialAvg & keys & 'is_stimd=0').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
+                    
+                    # get stimd neurons if desired (bypass inclusion because of distance criterion)
+                if which_neurons == 'all':
+                    stimdst, comst, maxminst, peaktst, troughtst, distst, sidst, nkeysst = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('is_stimd', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'min_dist_from_stim_um', 'stim_id', 'KEY')
+    
+                    sigs  = list(np.ones(len(stimdst)))
+                    
+                    stimd   = list(stimd)
+                    com     = list(com)
+                    maxmin  = list(maxmin)
+                    peakt   = list(peakt)
+                    trought = list(trought)
+                    dist    = list(dist)
+                    sid     = list(sid)
+                    nkeys   = list(nkeys)
+                
+                    # append to non-stimulated neurons
+                    [stimd.append(st) for st in stimdst]
+                    [com.append(co) for co in comst]
+                    [maxmin.append(mm) for mm in maxminst]
+                    [peakt.append(pt) for pt in peaktst]
+                    [trought.append(tr) for tr in troughtst]
+                    [dist.append(ds) for ds in distst]
+                    [sid.append(ss) for ss in sidst]
+                    [nkeys.append(nk) for nk in nkeysst]
+                    [sig.append(sg) for sg in sigs]
+                
+            # pick trough or peak time, whichever is higher magnitude
+            maxmin_t = list()
+            for iNeuron in range(len(trought)):
+                if maxmin[iNeuron] < 0:
+                    maxmin_t.append(trought[iNeuron])
+                else:
+                    maxmin_t.append(peakt[iNeuron])
+                    
+            # get roi keys for fetching from other tables (eg tau)
+            rkeys = (VM['twophoton'].Roi2P & nkeys).fetch('KEY')
+
+            # flatten list
+            [is_stimd.append(st) for st in stimd]
+            [is_sig.append(sg) for sg in sig]
+            [coms.append(co) for co in com]
+            [maxmins.append(mm) for mm in maxmin]
+            [maxmins_ts.append(mmt) for mmt in maxmin_t]
+            [dists.append(ds) for ds in dist]
+            [roi_keys.append(rk) for rk in rkeys]
+            [stim_ids.append(ss) for ss in sid]
+            [cell_keys.append(er)for er in nkeys]
+
+            # response prob by dist per experiment
+            dist        = np.array(dist).flatten()
+            sig         = np.array(sig).flatten()
+            unique_sids = np.unique(sid)
+            if unique_sids>0:
+                n           = n / len(unique_sids)
+            else:
+                n=0
+            vs_total    = np.zeros(num_bins)
+            vs_sig      = np.zeros(num_bins)
+            for this_id in unique_sids:
+                this_dist = dist[sid == this_id]
+                this_sig  = sig[sid == this_id]
+                dist_by_expt.append(this_dist)
+                is_sig_by_expt.append(this_sig)
+                n_sig_by_expt.append(np.sum(this_sig==1))
+                n_by_expt.append(n)
+                for iBin in range(num_bins):
+                    idx    = np.logical_and(this_dist > dist_bins[iBin], this_dist <= dist_bins[iBin+1])
+                    this_n = np.sum(this_sig[idx==1])
+                    vs_total[iBin] = this_n / n
+                    if n_sig_by_expt[-1] == 0:
+                        vs_sig[iBin] = 0
+                    else:
+                        vs_sig[iBin] = this_n / n_sig_by_expt[-1]
+                    
+                prop_vs_total.append(vs_total)
+                prop_of_sig.append(vs_sig)
+    
+    # collect summary data   
+    summary_data = {
+                    'num_total_neurons'     : np.sum(np.array(n_by_expt).flatten()),
+                    'num_responding'        : np.sum(np.array(n_sig_by_expt).flatten()),
+                    'num_experiments'       : len(prop_vs_total),
+                    'num_sig_by_expt'       : np.array(n_sig_by_expt).flatten(),
+                    'is_stimd'              : np.array(is_stimd).flatten(),
+                    'stim_ids'              : np.array(stim_ids).flatten(),
+                    'is_sig'                : np.array(is_sig).flatten(),
+                    'max_or_min_times_sec'  : np.array(maxmins_ts).flatten(),
+                    'max_or_min_vals'       : np.array(maxmins).flatten(),
+                    'com_sec'               : np.array(coms).flatten(),
+                    'dist_from_stim_um'     : np.array(dists).flatten(),
+                    'dist_axis'             : dist_bins[:-1]+np.diff(dist_bins)[0]/2,
+                    'prop_by_dist_vs_total' : prop_vs_total,
+                    'prop_by_dist_of_sig'   : prop_of_sig,
+                    'response_type'         : resp_type, 
+                    'experiment_type'       : expt_type, 
+                    'which_neurons'         : which_neurons,
+                    'roi_keys'              : roi_keys,
+                    'analysis_params'       : deepcopy(params),
+                    'cell_keys'                 :cell_keys
                     }
     
     end_time = time.time()
@@ -745,8 +973,50 @@ def compare_response_stats(params=params, expt_type='standard', resp_type='dff',
     return response_stats
 
 # ---------------
+
+# %%
+def compute_peak_time_by_distance(response_stats, area='V1',signif_only=True):
+    """
+    Bin neurons by distance from stimulation and compute average peak response time and SEM for each bin.
+    
+    INPUTS:
+        response_stats : dict, output from compare_response_stats
+        area           : str, 'V1' or 'M2'
+    
+    OUTPUTS:
+        mean_peak_times : np.array, mean peak response time for each distance bin
+        sem_peak_times  : np.array, SEM of peak time per bin
+        counts_per_bin  : np.array, number of neurons per bin
+    """
+    # Extract data
+    dist_axis  = response_stats[f'{area}_stats']['dist_axis']  # bin centers
+    bin_edges  = np.append(dist_axis - np.diff(dist_axis)[0]/2, dist_axis[-1] + np.diff(dist_axis)[-1]/2)
+    peak_times = np.array(response_stats[f'{area}_stats']['max_or_min_times_sec'])
+    distances  = np.array(response_stats[f'{area}_stats']['dist_from_stim_um'])
+    
+    if signif_only:
+        idx = np.argwhere(response_stats[f'{area}_stats']['is_sig']==1).flatten()
+        peak_times =peak_times[idx]
+        distances  =distances[idx]
+    # Initialize outputs
+    mean_peak_times = np.full_like(dist_axis, np.nan, dtype=float)
+    sem_peak_times  = np.full_like(dist_axis, np.nan, dtype=float)
+    counts_per_bin  = np.zeros_like(dist_axis, dtype=int)
+
+    # Bin neurons by distance and compute mean + SEM
+    for i in range(len(dist_axis)):
+        in_bin = (distances >= bin_edges[i]) & (distances < bin_edges[i+1])
+        bin_peaks = peak_times[in_bin]
+        if len(bin_peaks) > 0:
+            mean_peak_times[i] = np.nanmean(bin_peaks)
+            sem_peak_times[i]  = np.nanstd(bin_peaks) / np.sqrt(len(bin_peaks))
+            counts_per_bin[i]  = len(bin_peaks)
+
+    return mean_peak_times, sem_peak_times, counts_per_bin
+
+
 # %% plot comparison of different response stats between areas
-def plot_response_stats_comparison(params=params, expt_type='standard', resp_type='dff', which_neurons='non_stimd', response_stats=None, axis_handle=None, plot_what='response_magnitude', signif_only=True, overlay_non_sig=False):
+def plot_response_stats_comparison(params=params, expt_type='standard', resp_type='dff', which_neurons='non_stimd', response_stats=None, axis_handle=None, plot_what='response_magnitude', signif_only=True, overlay_non_sig=False,fig_size=(4,4)):
     
     """
     plot_response_stats_comparison(params=params, expt_type='standard', resp_type='dff', which_neurons='non_stimd', response_stats=None, axis_handle=None, plot_what='response_magnitude')
@@ -759,7 +1029,7 @@ def plot_response_stats_comparison(params=params, expt_type='standard', resp_typ
         which_neurons  : str, 'non_stimd' (default), 'all', 'stimd'
         response_stats : dict with response stats, output of compare_response_stats (optional, if not provided will call that method)
         axis_handle    : axis handle for plotting (optional)
-        plot_what      : str, 'response_magnitude' (default), 'response_time', 'prop_by_dist_vs_total' (i.e. overall prop.), 'prop_by_dist_of_sig' (i.e. prop. of significant)
+        plot_what      : str, 'response_magnitude' (default), 'response_time', 'prop_by_dist_vs_total' (i.e. overall prop.), 'prop_by_dist_of_sig' (i.e. prop. of significant),'time_by_dist_vs_total'
         signif_only    : bool, if True only include neurons that are significant (default is True)
         overlay_non_sig: bool, if True overlay non-significant neurons (default is False)
         
@@ -819,13 +1089,26 @@ def plot_response_stats_comparison(params=params, expt_type='standard', resp_typ
         if plot_what == 'prop_by_dist_of_sig':
             ylbl     = 'Prop. sig. responding neurons'
             
+    elif plot_what == 'time_by_dist_vs_total':
+        plt.figure(figsize=fig_size)
+        ax = plt.gca()
+        xaxis = response_stats['V1_stats']['dist_axis']
+        v1_mean, v1_sem, _ = compute_peak_time_by_distance(response_stats, area='V1',signif_only=signif_only)
+        m2_mean, m2_sem, _ = compute_peak_time_by_distance(response_stats, area='M2',signif_only=signif_only)
+        
+        ax.errorbar(x=xaxis, y=v1_mean, yerr=v1_sem, color=params['general_params']['V1_cl'], label=params['general_params']['V1_lbl'], marker='.')
+        ax.errorbar(x=xaxis, y=m2_mean, yerr=m2_sem, color=params['general_params']['M2_cl'], label=params['general_params']['M2_lbl'], marker='.')
+    
+        xlbl = 'Dist. from stimd ($\\mu$m)'
+        ylbl = 'Response peak time (s)'  
+            
     else:
         print('unknown plot_what, plotting nothing')
         return response_stats, None
     
     # plot
     if axis_handle is None:
-        plt.figure()
+        plt.figure(figsize=fig_size)
         ax = plt.gca()
     else:
         ax = axis_handle
@@ -860,6 +1143,16 @@ def plot_response_stats_comparison(params=params, expt_type='standard', resp_typ
         ax.text(200,texty*.95,'p(area) = {:1.2g}'.format(pval_area),horizontalalignment='left')
         ax.text(200,texty*.9,'p(area*dist) = {:1.2g}'.format(pval_interact),horizontalalignment='left')
         
+    elif plot_what == 'time_by_dist_vs_total':
+        xaxis = response_stats['V1_stats']['dist_axis']
+        v1_mean, v1_sem, _ = compute_peak_time_by_distance(response_stats, area='V1')
+        m2_mean, m2_sem, _ = compute_peak_time_by_distance(response_stats, area='M2')
+    
+        ax.errorbar(x=xaxis, y=v1_mean, yerr=v1_sem, color=params['general_params']['V1_cl'], label=params['general_params']['V1_lbl'], marker='.')
+        ax.errorbar(x=xaxis, y=m2_mean, yerr=m2_sem, color=params['general_params']['M2_cl'], label=params['general_params']['M2_lbl'], marker='.')
+    
+        xlbl = 'Dist. from stimd ($\\mu$m)'
+        ylbl = 'Response peak time (s)'    
     else:
         # cumulative histograms
         if overlay_non_sig:
@@ -1234,6 +1527,147 @@ def plot_opsin_expression_vs_response(params=params, expt_type='standard', resp_
     return expression_stats, ax     
 
 # ---------------
+# # %% get single-trial opto-triggered responses for an area and experiment type
+# def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', relax_timing_criteria=params['xval_relax_timing_criteria']):
+    
+#     """
+#     get_single_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', relax_timing_criteria=params['xval_relax_timing_criteria'])
+#     retrieves single-trial opto-triggered responses for a given area and experiment type
+    
+#     INPUTS:
+#         area                  : str, 'V1' or 'M2' (default is 'M2')
+#         params                : dict, analysis parameters (default is params from top of this script)
+#         expt_type             : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+#         resp_type             : str, 'dff' (default) or 'deconv'
+#         eg_ids                : list of int, experiment group ids to restrict to (optional, default is None)
+#         signif_only           : bool, if True only include significant neurons (default is True)
+#         which_neurons         : str, 'non_stimd' (default), 'all', 'stimd'
+#         relax_timing_criteria : bool, if True relax timing criteria (default is in params['xval_relax_timing_criteria']). 
+#                                 This will fetch from a different param set that doesn't require the timing criteria
+        
+#     OUTPUTS:
+#         trial_data : dict with summary data and single-trial responses
+#     """
+    
+#     start_time      = time.time()
+#     print('Fetching opto-triggered trials...')
+    
+#     # get relevant keys
+#     expt_keys = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
+    
+#     # restrict to only desired rec/stim if applicable
+#     if eg_ids is not None:
+#         if isinstance(eg_ids,list) == False:
+#             eg_ids = [eg_ids]
+#         expt_keys = list(np.array(expt_keys)[np.array(eg_ids).astype(int)])
+    
+#     # loop through keys to fetch the responses
+#     trigdff_param_set_id = params['trigdff_param_set_id_{}'.format(resp_type)]
+#     if relax_timing_criteria:
+#         trigdff_inclusion_param_set_id = params['trigdff_inclusion_param_set_id_notiming']
+#     else:
+#         trigdff_inclusion_param_set_id = params['trigdff_inclusion_param_set_id']
+    
+#     trial_resps = list()
+#     trial_ids   = list()
+#     stim_ids    = list()
+#     roi_ids     = list()
+#     peak_ts     = list()
+#     peak_amp    = list()
+#     coms        = list()
+#     t_axes      = list()
+#     num_expt    = len(expt_keys)
+#     for ct, ikey in enumerate(expt_keys):
+#         print('     {} of {}...'.format(ct+1,num_expt))
+#         this_key = {'subject_fullname' : ikey['subject_fullname'], 
+#                     'session_date': ikey['session_date'], 
+#                     'trigdff_param_set_id': trigdff_param_set_id, 
+#                     'trigdff_inclusion_param_set_id': trigdff_inclusion_param_set_id
+#                     }
+        
+#         # do selecion at the fetching level for speed
+#         if which_neurons == 'stimd':
+#             # stimd neurons bypass inclusion criteria
+#             avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('KEY')
+#             # tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & avg_keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
+#             sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & avg_keys).fetch('is_significant', 'is_included', 'KEY')
+            
+#             if signif_only:
+#                 idx  = np.argwhere(np.array(sig)==1).flatten()
+#                 keys = list(np.array(keys)[idx])
+#                 sig  = list(np.array(sig)[idx]) 
+        
+#             tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
+
+#         elif which_neurons == 'non_stimd':
+#             avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=0').fetch('KEY')
+#             sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & avg_keys).fetch('is_significant', 'is_included', 'KEY')
+#             idx  = np.argwhere(np.array(incl)==1).flatten()   #need to comment this in, but worried about distance cutoff
+#             keys = list(np.array(keys)[idx])
+#             sig  = list(np.array(sig)[idx])
+            
+#             if signif_only:
+#                 idx  = np.argwhere(np.array(sig)==1).flatten()
+#                 keys = list(np.array(keys)[idx])
+#                 sig  = list(np.array(sig)[idx]) 
+            
+#             tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
+#         else:
+#             print('code not implemented for this category of which_neurons, returning nothing')
+#             return None
+
+#         # pick trough or peak time, whichever is higher magnitude
+#         maxmin_t = list()
+#         for iNeuron in range(len(trought)):
+#             if maxmin[iNeuron] < 0:
+#                 maxmin_t.append(trought[iNeuron])
+#             else:
+#                 maxmin_t.append(peakt[iNeuron])
+                
+#         # flatten lists
+#         [trial_resps.append(trial) for trial in trials]
+#         [trial_ids.append(int(tid)) for tid in tids]
+#         [stim_ids.append(int(sid)) for sid in sids]
+#         [roi_ids.append(int(rid+(ct*10000))) for rid in rids] # 10000 is arbitrary experiment increment to make roi_ids unique
+#         [t_axes.append(t) for t in ts]
+#         [coms.append(co) for co in com]
+#         [peak_ts.append(pt) for pt in maxmin_t]
+#         [peak_amp.append(pa) for pa in maxmin]
+            
+#     # convert to arrays for easy indexing, trial and time vectors remain lists
+#     trial_ids = np.array(trial_ids)
+#     stim_ids  = np.array(stim_ids)
+#     roi_ids   = np.array(roi_ids)
+#     coms      = np.array(coms)
+#     peak_ts   = np.array(peak_ts)
+#     peak_amp  = np.array(peak_amp)
+        
+#     # collect summary data   
+#     trial_data = {
+#                 'trig_dff_trials'         : trial_resps, 
+#                 'trial_ids'               : trial_ids, 
+#                 'time_axis_sec'           : t_axes,
+#                 'signif_only'             : signif_only,
+#                 'stim_ids'                : stim_ids, 
+#                 'roi_ids'                 : roi_ids, 
+#                 'com_sec'                 : coms, 
+#                 'peak_or_trough_time_sec' : peak_ts, 
+#                 'peak_amp_value'          : peak_amp,
+#                 'relax_timing_criteria'   : relax_timing_criteria,
+#                 'which_neurons'           : which_neurons,
+#                 'response_type'           : resp_type, 
+#                 'experiment_type'         : expt_type, 
+#                 'analysis_params'         : deepcopy(params),
+#                 'sig'                     : sig
+#                 }
+    
+#     end_time = time.time()
+#     print("     done after {: 1.2f} min".format((end_time-start_time)/60))
+    
+#     return trial_data
+
+
+
 # %% get single-trial opto-triggered responses for an area and experiment type
 def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', relax_timing_criteria=params['xval_relax_timing_criteria']):
     
@@ -1283,6 +1717,7 @@ def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count'
     peak_amp    = list()
     coms        = list()
     t_axes      = list()
+    roi_keys_list      = list()
     num_expt    = len(expt_keys)
     for ct, ikey in enumerate(expt_keys):
         print('     {} of {}...'.format(ct+1,num_expt))
@@ -1304,21 +1739,95 @@ def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count'
                 keys = list(np.array(keys)[idx])
                 sig  = list(np.array(sig)[idx]) 
         
-            tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
+            tids, trials, ts, sids, com, maxmin, peakt, trought, rids,roi_keys = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id',
+                                                                                                                                'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 
+                                                                                                                                'time_of_trough_sec_poststim', 'roi_id','KEY')
+            trial_resps.extend(trials)
+            trial_ids.extend([int(t) for t in tids])
+            stim_ids.extend([int(s) for s in sids])
+            roi_keys_list.extend(roi_keys)
+            roi_ids.extend([int(r + ct * 10000) for r in rids]) # 10000 is arbitrary experiment increment to make roi_ids unique
+            t_axes.extend(ts)
+            coms.extend(com)
+            peak_ts.extend(peakt)
+            peak_amp.extend(maxmin)
 
         elif which_neurons == 'non_stimd':
-            avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=0').fetch('KEY')
-            sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & avg_keys).fetch('is_significant', 'is_included', 'KEY')
-            idx  = np.argwhere(np.array(incl)==1).flatten()   #need to comment this in, but worried about distance cutoff
-            keys = list(np.array(keys)[idx])
-            sig  = list(np.array(sig)[idx])
             
-            if signif_only:
-                idx  = np.argwhere(np.array(sig)==1).flatten()
-                keys = list(np.array(keys)[idx])
-                sig  = list(np.array(sig)[idx]) 
             
-            tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
+            # Get all stim_ids for this experiment key
+            try:
+                these_stim_ids = list((twop_opto_analysis.Opto2PSummary & this_key).fetch1('stim_ids'))
+            except:
+                continue
+        
+            for this_stim in these_stim_ids:
+                this_key['stim_id'] = this_stim  # Set specific stim ID for filtering
+        
+                # Get inclusion flags and keys for this stim ID
+                sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch(
+                    'is_significant', 'is_included', 'KEY'
+                )
+        
+                # Filter by inclusion
+                incl = np.array(incl)
+                sig = np.array(sig)
+                keys = np.array(keys)
+        
+                valid_idx = np.where(incl == 1)[0]
+                keys = keys[valid_idx]
+                sig = sig[valid_idx]
+        
+                # Further filter by significance if requested
+                if signif_only:
+                    valid_idx = np.where(sig == 1)[0]
+                    keys = keys[valid_idx]
+                    sig = sig[valid_idx]
+        
+                if len(keys) == 0:
+                    continue
+        
+                # Now fetch the actual single-trial data for only those (stim_id, roi_id) combinations
+                try:
+                    tids, trials, ts, sids, com, maxmin, peakt, trought, rids,roi_keys = (
+                        twop_opto_analysis.TrigDffTrial & list(keys)
+                    ).fetch(
+                        'trial_id', 'trig_dff', 'time_axis_sec', 'stim_id',
+                        'center_of_mass_sec_poststim', 'max_or_min_dff',
+                        'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id','KEY'
+                    )
+                except Exception as e:
+                    print(f"Fetch error for stim {this_stim}: {e}")
+                    continue
+        
+                maxmin_t = [trought[i] if maxmin[i] < 0 else peakt[i] for i in range(len(trought))]
+        
+                trial_resps.extend(trials)
+                trial_ids.extend([int(t) for t in tids])
+                stim_ids.extend([int(s) for s in sids])
+                roi_keys_list.extend(roi_keys)
+                roi_ids.extend([int(r + ct * 10000) for r in rids]) # 10000 is arbitrary experiment increment to make roi_ids unique
+                t_axes.extend(ts)
+                coms.extend(com)
+                peak_ts.extend(maxmin_t)
+                peak_amp.extend(maxmin)
+                # sig_all.extend(sig.tolist())
+
+
+
+        # elif which_neurons == 'non_stimd':
+        #     avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=0').fetch('KEY')
+        #     sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & avg_keys).fetch('is_significant', 'is_included', 'KEY')
+        #     idx  = np.argwhere(np.array(incl)==1).flatten()   #need to comment this in, but worried about distance cutoff
+        #     keys = list(np.array(keys)[idx])
+        #     sig  = list(np.array(sig)[idx])
+            
+        #     if signif_only:
+        #         idx  = np.argwhere(np.array(sig)==1).flatten()
+        #         keys = list(np.array(keys)[idx])
+        #         sig  = list(np.array(sig)[idx]) 
+            
+        #     tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
         else:
             print('code not implemented for this category of which_neurons, returning nothing')
             return None
@@ -1332,14 +1841,14 @@ def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count'
                 maxmin_t.append(peakt[iNeuron])
                 
         # flatten lists
-        [trial_resps.append(trial) for trial in trials]
-        [trial_ids.append(int(tid)) for tid in tids]
-        [stim_ids.append(int(sid)) for sid in sids]
-        [roi_ids.append(int(rid+(ct*10000))) for rid in rids] # 10000 is arbitrary experiment increment to make roi_ids unique
-        [t_axes.append(t) for t in ts]
-        [coms.append(co) for co in com]
-        [peak_ts.append(pt) for pt in maxmin_t]
-        [peak_amp.append(pa) for pa in maxmin]
+        # [trial_resps.append(trial) for trial in trials]
+        # [trial_ids.append(int(tid)) for tid in tids]
+        # [stim_ids.append(int(sid)) for sid in sids]
+        # [roi_ids.append(int(rid+(ct*10000))) for rid in rids] # 10000 is arbitrary experiment increment to make roi_ids unique
+        # [t_axes.append(t) for t in ts]
+        # [coms.append(co) for co in com]
+        # [peak_ts.append(pt) for pt in maxmin_t]
+        # [peak_amp.append(pa) for pa in maxmin]
             
     # convert to arrays for easy indexing, trial and time vectors remain lists
     trial_ids = np.array(trial_ids)
@@ -1365,15 +1874,334 @@ def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count'
                 'response_type'           : resp_type, 
                 'experiment_type'         : expt_type, 
                 'analysis_params'         : deepcopy(params),
-                'sig'                     : sig
+                'sig'                     : sig,
+                'roi_keys'                : roi_keys_list
                 }
     
     end_time = time.time()
     print("     done after {: 1.2f} min".format((end_time-start_time)/60))
     
     return trial_data
+# %%
+import time
+import numpy as np
+from copy import deepcopy
+
+def get_single_trial_data_from_individual_session_stim(params,session_key, stim_id,area='M2', expt_type='standard', resp_type='dff', signif_only=False, which_neurons='non_stimd', relax_timing_criteria=False):
+    """m
+    fetch_single_trial_from_session(session_key, stim_id, params, resp_type='dff', signif_only=True, which_neurons='non_stimd', relax_timing_criteria=False)
+    
+    Fetches a single opto-triggered trial from a specific session and stim_id.
+
+    INPUTS:
+        session_key            : dict, must contain 'subject_fullname' and 'session_date'
+        stim_id                : int, the specific stimulation ID to fetch
+        params                 : dict, parameter dictionary
+        resp_type              : str, 'dff' (default) or 'deconv'
+        signif_only            : bool, include only significant neurons (default True)
+        which_neurons          : str, one of 'non_stimd' (default), 'stimd'
+        relax_timing_criteria  : bool, whether to use relaxed inclusion param set (default False)
+
+    OUTPUT:
+        trial_data : dict with keys:
+            - 'trig_dff_trial'
+            - 'trial_id'
+            - 'time_axis_sec'
+            - 'stim_id'
+            - 'roi_id'
+            - 'center_of_mass_sec_poststim'
+            - 'peak_or_trough_time_sec'
+            - 'peak_amp_value'
+    """
+
+
+    start_time = time.time()
+    print("Fetching single-trial response...")
+    
+    trial_resps = list()
+    trial_ids   = list()
+    stim_ids    = list()
+    roi_ids     = list()
+    peak_ts     = list()
+    peak_amp    = list()
+    coms        = list()
+    t_axes      = list()
+    
+    expt_keys = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
+
+    this_key = {
+        'subject_fullname': expt_keys[session_key]['subject_fullname'],
+        'session_date': expt_keys[session_key]['session_date'],
+        'stim_id': stim_id,
+        'trigdff_param_set_id': params[f'trigdff_param_set_id_{resp_type}'],
+        'trigdff_inclusion_param_set_id': params['trigdff_inclusion_param_set_id_notiming'] if relax_timing_criteria else params['trigdff_inclusion_param_set_id']
+    }
+
+    try:
+        if which_neurons == 'stimd':
+            avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('KEY')
+        elif which_neurons == 'non_stimd':
+            avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=0').fetch('KEY')
+        else:
+            print("Invalid neuron type requested.")
+            return None
+    except:
+        print("No matching average keys found.")
+        return None
+
+    try:
+        sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & avg_keys).fetch('is_significant', 'is_included', 'KEY')
+    except:
+        print("No inclusion data found.")
+        return None
+
+    incl = np.array(incl)
+    sig = np.array(sig)
+    keys = np.array(keys)
+
+    valid_idx = np.where(incl == 1)[0]
+    keys = keys[valid_idx]
+    sig = sig[valid_idx]
+
+    if signif_only:
+        valid_idx = np.where(sig == 1)[0]
+        keys = keys[valid_idx]
+        sig = sig[valid_idx]
+
+    if len(keys) == 0:
+        print("No valid trials found.")
+        return None
+
+    # Select only the first valid trial
+    selected_key = keys[0]
+
+    try:
+        tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (
+            twop_opto_analysis.TrigDffTrial & list(keys)
+        ).fetch(
+            'trial_id', 'trig_dff', 'time_axis_sec', 'stim_id',
+            'center_of_mass_sec_poststim', 'max_or_min_dff',
+            'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id'
+        )
+    except Exception as e:
+        print(f"Fetch error for stim : {e}")
+
+    maxmin_t = [trought[i] if maxmin[i] < 0 else peakt[i] for i in range(len(trought))]
+
+    # trial_resps.extend(trials)
+    # trial_ids.extend([int(t) for t in tids])
+    # stim_ids.extend([int(s) for s in sids])
+    # roi_ids.extend([int(r + ct * 10000) for r in rids])
+    # t_axes.extend(ts)
+    # coms.extend(com)
+    # peak_ts.extend(maxmin_t)
+    # peak_amp.extend(maxmin)
+    # # sig_all.extend(sig.tolist())
+
+   
+    # [trial_resps.append(trial) for trial in trials]
+    # [trial_ids.append(int(tid)) for tid in tids]
+    # [stim_ids.append(int(sid)) for sid in sids]
+    # [roi_ids.append(int(rid+(ct*10000))) for rid in rids] # 10000 is arbitrary experiment increment to make roi_ids unique
+    # [t_axes.append(t) for t in ts]
+    # [coms.append(co) for co in com]
+    # [peak_ts.append(pt) for pt in maxmin_t]
+    # [peak_amp.append(pa) for pa in maxmin]
+        
+    # convert to arrays for easy indexing, trial and time vectors remain lists
+    trial_ids = np.array(tids)
+    stim_ids  = np.array(stim_ids)
+    roi_ids   = np.array(rids)
+    coms      = np.array(com)
+    peak_ts   = np.array(peakt)
+    peak_amp  = np.array(maxmin_t)
+        
+    # collect summary data   
+    trial_data = {
+                'trig_dff_trials'         : trials, 
+                'trial_ids'               : trial_ids, 
+                'time_axis_sec'           : t_axes,
+                'signif_only'             : signif_only,
+                'stim_ids'                : stim_ids, 
+                'roi_ids'                 : roi_ids, 
+                'com_sec'                 : coms, 
+                'peak_or_trough_time_sec' : peak_ts, 
+                'peak_amp_value'          : peak_amp,
+                'relax_timing_criteria'   : relax_timing_criteria,
+                'which_neurons'           : which_neurons,
+                'response_type'           : resp_type, 
+                'experiment_type'         : expt_type, 
+                'analysis_params'         : deepcopy(params),
+                'sig'                     : sig
+                }
+
+
+    end_time = time.time()
+    print("     done after {: 1.2f} sec".format(end_time - start_time))
+
+    return trial_data
+
 
 # ---------------
+# %% cross-validate response timing
+
+# This function was only really working because of a feature in high_trial_count data. 
+# It was missampling the trials in standard. I fixed this to index both correctly. 
+# Going to leave a legacy version in the code but moving to this new on. 
+# Also because the pipeline is not doing a great job of filtering sig cells right now I added 
+# lines to redo that in the function.
+
+
+# def xval_trial_data_OLD(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', signif_only=True, which_neurons='non_stimd', trial_data=None, rng=None):
+
+#     """
+#     xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', signif_only=True, which_neurons='non_stimd', trial_data=None, rng=None)
+#     cross-validates response timing for a given area and experiment type
+    
+#     INPUTS:
+#         area         : str, 'V1' or 'M2' (default is 'M2')
+#         params       : dict, analysis parameters (default is params from top of this script)
+#         expt_type    : str, 'standard', 'short_stim', 'high_trial_count' (default), 'multi_cell'
+#         resp_type    : str, 'dff' (default) or 'deconv'
+#         signif_only  : bool, if True only include significant neurons (default is True)
+#         which_neurons: str, 'non_stimd' (default), 'all', 'stimd'
+#         trial_data   : dict with trial data, output of get_single_trial_data (optional, if not provided will call that method)
+#         rng          : numpy random number generator (optional)
+        
+#     OUTPUTS:
+#         timing_stats : dict with summary stats and analysis results
+#     """
+#     # set random seed and delete low /  high tau values if applicable
+#     start_time      = time.time()
+#     print('Cross-validating reponse timing...')
+#     if rng is None:
+#         rng = np.random.default_rng(seed=params['random_seed'])
+        
+#     # get data if necessary
+#     if trial_data is None:    
+#         trial_data = get_single_trial_data(area=area, params=params, expt_type=expt_type, resp_type=resp_type, signif_only=signif_only, which_neurons=which_neurons, relax_timing_criteria=params['xval_relax_timing_criteria'])
+        
+#     # loop through rois and stims    
+#     sem_overall  = list()
+#     median_half1 = list()
+#     median_half2 = list()
+#     unique_rois  = list(np.unique(trial_data['roi_ids']))
+    
+#     for roi in unique_rois:
+#         ridx         = trial_data['roi_ids']==roi
+#         these_trials = trial_data['trial_ids'][ridx]
+#         these_stims  = trial_data['stim_ids'][ridx]
+#         coms         = trial_data['com_sec'][ridx]
+#         peaks        = trial_data['peak_or_trough_time_sec'][ridx]
+#         trial_dffs   = list(np.array(trial_data['trig_dff_trials'])[ridx])
+#         t_axes       = list(np.array(trial_data['time_axis_sec'])[ridx])
+#         unique_stims = list(np.unique(these_stims))
+        
+#         # take random halves of trials and compare timing stats for each 
+#         for stim in unique_stims:
+#             tidx        = these_trials[these_stims==stim]-1
+#             tidx_shuff  = deepcopy(tidx)
+#             ntrials     = np.size(tidx)
+#             timing_set1 = np.zeros(params['xval_num_iter'])
+#             timing_set2 = np.zeros(params['xval_num_iter'])
+#             taxis       = t_axes[tidx[0]]
+#             frame_int   = np.diff(taxis)[0]
+            
+#             # randomly permute trials 
+#             for iShuff in range(params['xval_num_iter']):
+#                 rng.shuffle(tidx_shuff)
+#                 # half1 = tidx_shuff[:np.floor(ntrials/2).astype(int)]
+#                 # half2 = tidx_shuff[np.floor(ntrials/2).astype(int)+1:]
+#                 n_half = ntrials // 2
+#                 half1 = tidx_shuff[:n_half]
+#                 half2 = tidx_shuff[n_half:]
+                
+#                 # get averages of peak (com), or compute avgs for each trial split and peak from there
+#                 if params['xval_recompute_timing']:
+#                     # trial avgs
+#                     trial_avg1 = np.zeros(np.size(t_axes[tidx[0]]))
+#                     for idx in list(half1):
+#                         trial_avg1 += trial_dffs[idx]
+#                     trial_avg1 = trial_avg1 / len(half1)
+                    
+#                     trial_avg2 = np.zeros(np.size(t_axes[tidx[0]]))
+#                     for idx in list(half2):
+#                         trial_avg2 += trial_dffs[idx]
+#                     trial_avg2 = trial_avg2 / len(half2)
+                    
+#                     # smooth for peak (com), extract that
+#                     smoothed1 = general_stats.moving_average(trial_avg1,num_points=np.round(0.2/frame_int).astype(int)).flatten()
+#                     if np.sum(np.isnan(smoothed1)) > 0:
+#                         post_idx = int(np.argwhere(np.isnan(smoothed1))[-1]+1)
+#                     else:
+#                         post_idx = int(np.argwhere(taxis>0)[0])
+#                     com1, peak1, trough1 = twop_opto_analysis.response_time_stats(smoothed1[post_idx:],taxis[post_idx:])
+                    
+#                     smoothed2 = general_stats.moving_average(trial_avg2,num_points=np.round(0.2/frame_int).astype(int)).flatten()
+#                     com2, peak2, trough2 = twop_opto_analysis.response_time_stats(smoothed2[post_idx:],taxis[post_idx:])
+                    
+#                     # collect relevant stat
+#                     if params['xval_timing_metric'] == 'peak':
+#                         # take peak or trough, whichever is larger
+#                         if np.max(smoothed1+smoothed2) > np.abs(np.min(smoothed1+smoothed2)):
+#                             timing_set1[iShuff] = peak1
+#                             timing_set2[iShuff] = peak2
+#                             if iShuff == 0:
+#                                 sem_overall.append(np.std([peak1,peak2])/np.sqrt(len(tidx)-1))
+#                         else:
+#                             timing_set1[iShuff] = trough1
+#                             timing_set2[iShuff] = trough2
+#                             if iShuff == 0:
+#                                 sem_overall.append(np.std([trough1,trough2])/np.sqrt(len(tidx)-1))
+                        
+#                     elif params['xval_timing_metric'] == 'com':
+#                         timing_set1[iShuff] = com1
+#                         timing_set2[iShuff] = com2
+#                         if iShuff == 0:
+#                             sem_overall.append(np.std([com1,com2])/np.sqrt(len(tidx)-1))
+                        
+#                     else:
+#                         print('unknown parameter value for timing metric, returning nothing')
+#                         return None
+                
+#                 # or just take a median of pre-computed trial-by-trial features    
+#                 else:
+#                     if params['xval_timing_metric'] == 'peak':
+#                         timing_set1[iShuff] = np.nanmedian(peaks[half1])
+#                         timing_set2[iShuff] = np.nanmedian(peaks[half2])
+#                         if iShuff == 0:
+#                             sem_overall.append(np.std(peaks)/np.sqrt(len(tidx)-1))
+                        
+#                     elif params['xval_timing_metric'] == 'com':
+#                         timing_set1[iShuff] = np.nanmedian(coms[half1])
+#                         timing_set2[iShuff] = np.nanmedian(coms[half2])
+#                         if iShuff == 0:
+#                             sem_overall.append(np.std(coms)/np.sqrt(len(tidx)-1))
+                        
+#                     else:
+#                         print('unknown parameter value for timing metric, returning nothing')
+#                         return None
+            
+#             # collect median metric for each half
+#             median_half1.append(np.nanmedian(timing_set1))
+#             median_half2.append(np.nanmedian(timing_set2))
+            
+#     end_time = time.time()
+#     print("     done after {: 1.2f} min".format((end_time-start_time)/60))
+    
+#     xval_results = {
+#                 'timing_metric'     : params['xval_timing_metric'], 
+#                 'trial_sem'         : np.array(sem_overall).flatten(), 
+#                 'median_trialset1'  : np.array(median_half1).flatten(),
+#                 'median_trialset2'  : np.array(median_half2).flatten(), 
+#                 'response_type'     : resp_type, 
+#                 'experiment_type'   : expt_type, 
+#                 'which_neurons'     : which_neurons,
+#                 'analysis_params'   : deepcopy(params)
+#                 }
+    
+    
+#     return xval_results, trial_data
 # %% cross-validate response timing
 def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', signif_only=True, which_neurons='non_stimd', trial_data=None, rng=None):
 
@@ -1404,84 +2232,89 @@ def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp
     if trial_data is None:    
         trial_data = get_single_trial_data(area=area, params=params, expt_type=expt_type, resp_type=resp_type, signif_only=signif_only, which_neurons=which_neurons, relax_timing_criteria=params['xval_relax_timing_criteria'])
         
-    # loop through rois and stims    
+    sampling_interval=0.032958316
+    
+    rng = np.random.default_rng(seed=params['random_seed'])
     sem_overall  = list()
     median_half1 = list()
     median_half2 = list()
     unique_rois  = list(np.unique(trial_data['roi_ids']))
+    
     for roi in unique_rois:
-        ridx         = trial_data['roi_ids']==roi
-        these_trials = trial_data['trial_ids'][ridx]
-        these_stims  = trial_data['stim_ids'][ridx]
-        coms         = trial_data['com_sec'][ridx]
-        peaks        = trial_data['peak_or_trough_time_sec'][ridx]
-        trial_dffs   = list(np.array(trial_data['trig_dff_trials'])[ridx])
-        t_axes       = list(np.array(trial_data['time_axis_sec'])[ridx])
-        unique_stims = list(np.unique(these_stims))
+        ridx = trial_data['roi_ids'] == roi
         
+        # Load raw values
+        these_trials = np.array(trial_data['trial_ids'])[ridx]
+        these_stims  = np.array(trial_data['stim_ids'])[ridx]
+        coms         = np.array(trial_data['com_sec'])[ridx]
+        peaks        = np.array(trial_data['peak_or_trough_time_sec'])[ridx]
+        trial_dffs   = list(np.array(trial_data['trig_dff_trials'])[ridx])
+        t_axes       = np.array(trial_data['time_axis_sec'], dtype=object)[ridx]
+        unique_stims = list(np.unique(these_stims))
+    
         # take random halves of trials and compare timing stats for each 
         for stim in unique_stims:
             tidx        = these_trials[these_stims==stim]-1
+            tidx = np.array(tidx, dtype=int)
             tidx_shuff  = deepcopy(tidx)
             ntrials     = np.size(tidx)
             timing_set1 = np.zeros(params['xval_num_iter'])
             timing_set2 = np.zeros(params['xval_num_iter'])
+            # timing_set1 = np.zeros(5)
+            # timing_set2 = np.zeros(5)
             taxis       = t_axes[tidx[0]]
             frame_int   = np.diff(taxis)[0]
             
-            # randomly permute trials 
+            
+            peak_array_m2, auc_array_m2, fhwm_m2, peak_times, com_values, com_times = process_trig_dff_trials(
+                [trial_dffs[i] for i in tidx],
+                kernel_size=15,
+                peak_window=[0, 250],
+                use_prominence=False,
+                prominence_val=1.96
+            )
+            
+            
+            peak_threshold = 1.96
+            peak_times = np.array(peak_times, dtype=float) * sampling_interval
+            com_times = np.array(com_times, dtype=float) * sampling_interval
+            
+            # NaN out values where peak amplitude is too low
+            peak_times[np.array(peak_array_m2) < peak_threshold] = np.nan
+            com_times[np.array(peak_array_m2) < peak_threshold] = np.nan
+            
+            # Keep only trials where peak or com is valid, depending on metric
+           
+            valid_mask = ~np.isnan(peak_times)
+            
+            
+            # Require >50% of trials to be valid
+            valid_indices = np.where(valid_mask)[0]
+            valid_frac = len(valid_indices) / ntrials
+            
+            if valid_frac <= 0.5:
+                # print(f"Skipping stim {stim}: only {valid_frac*100:.1f}% valid trials")
+                continue  # skip this stim
+            
+            # Now shuffle only among valid trials
             for iShuff in range(params['xval_num_iter']):
-                rng.shuffle(tidx_shuff)
-                half1 = tidx_shuff[:np.floor(ntrials/2).astype(int)]
-                half2 = tidx_shuff[np.floor(ntrials/2).astype(int)+1:]
-                
-                # get averages of peak (com), or compute avgs for each trial split and peak from there
-                if params['xval_recompute_timing']:
-                    # trial avgs
-                    trial_avg1 = np.zeros(np.size(t_axes[tidx[0]]))
-                    for idx in list(half1):
-                        trial_avg1 += trial_dffs[idx]
-                    trial_avg1 = trial_avg1 / len(half1)
-                    
-                    trial_avg2 = np.zeros(np.size(t_axes[tidx[0]]))
-                    for idx in list(half2):
-                        trial_avg2 += trial_dffs[idx]
-                    trial_avg2 = trial_avg2 / len(half2)
-                    
-                    # smooth for peak (com), extract that
-                    smoothed1 = general_stats.moving_average(trial_avg1,num_points=np.round(0.2/frame_int).astype(int)).flatten()
-                    if np.sum(np.isnan(smoothed1)) > 0:
-                        post_idx = int(np.argwhere(np.isnan(smoothed1))[-1]+1)
-                    else:
-                        post_idx = int(np.argwhere(taxis>0)[0])
-                    com1, peak1, trough1 = twop_opto_analysis.response_time_stats(smoothed1[post_idx:],taxis[post_idx:])
-                    
-                    smoothed2 = general_stats.moving_average(trial_avg2,num_points=np.round(0.2/frame_int).astype(int)).flatten()
-                    com2, peak2, trough2 = twop_opto_analysis.response_time_stats(smoothed2[post_idx:],taxis[post_idx:])
-                    
-                    # collect relevant stat
-                    if params['xval_timing_metric'] == 'peak':
-                        # take peak or trough, whichever is larger
-                        if np.max(smoothed1+smoothed2) > np.abs(np.min(smoothed1+smoothed2)):
-                            timing_set1[iShuff] = peak1
-                            timing_set2[iShuff] = peak2
-                            if iShuff == 0:
-                                sem_overall.append(np.std([peak1,peak2])/np.sqrt(len(tidx)-1))
-                        else:
-                            timing_set1[iShuff] = trough1
-                            timing_set2[iShuff] = trough2
-                            if iShuff == 0:
-                                sem_overall.append(np.std([trough1,trough2])/np.sqrt(len(tidx)-1))
-                        
-                    elif params['xval_timing_metric'] == 'com':
-                        timing_set1[iShuff] = com1
-                        timing_set2[iShuff] = com2
-                        if iShuff == 0:
-                            sem_overall.append(np.std([com1,com2])/np.sqrt(len(tidx)-1))
-                        
-                    else:
-                        print('unknown parameter value for timing metric, returning nothing')
-                        return None
+                shuff_idx = deepcopy(valid_indices)
+                rng.shuffle(shuff_idx)
+                n_half = len(shuff_idx) // 2
+                half1 = shuff_idx[:n_half]
+                half2 = shuff_idx[n_half:]
+            
+                if params['xval_timing_metric'] == 'peak':
+                    timing_set1[iShuff] = np.nanmedian(peak_times[half1])
+                    timing_set2[iShuff] = np.nanmedian(peak_times[half2])
+                    if iShuff == 0:
+                        sem_overall.append(np.nanstd(peak_times[valid_indices]) / np.sqrt(len(valid_indices) - 1))
+            
+                elif params['xval_timing_metric'] == 'com':
+                    timing_set1[iShuff] = np.nanmedian(com_times[half1])
+                    timing_set2[iShuff] = np.nanmedian(com_times[half2])
+                    if iShuff == 0:
+                        sem_overall.append(np.nanstd(com_times[valid_indices]) / np.sqrt(len(valid_indices) - 1))
                 
                 # or just take a median of pre-computed trial-by-trial features    
                 else:
@@ -1521,11 +2354,13 @@ def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp
     
     
     return xval_results, trial_data
-
 # ---------------
 # %% plot response timing cross-validation results
-def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', signif_only=True, which_neurons='non_stimd', xval_results=None, rng=None, axis_handle=None, fig_handle=None, trial_data=None):
 
+def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp_type='dff',
+                    signif_only=True, which_neurons='non_stimd', xval_results=None,
+                    rng=None, axis_handle=None, fig_handle=None, trial_data=None,
+                    xlim=None, ylim=None, clim=None):
     """
     plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', signif_only=True, which_neurons='non_stimd', xval_results=None, rng=None, axis_handle=None, fig_handle=None, trial_data=None)
     plots response timing cross-validation results
@@ -1542,6 +2377,10 @@ def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp
         axis_handle  : axis handle for plotting (optional)
         fig_handle   : figure handle for plotting (optional)
         trial_data   : dict with trial data, output of get_single_trial_data (optional, if not provided will call that method)
+        ADDITIONAL OPTIONAL INPUTS:
+        xlim : tuple or list (min, max) for x-axis limits
+        ylim : tuple or list (min, max) for y-axis limits
+        clim : tuple or list (min, max) for color/SEM limits
         
     OUTPUTS:
         ax           : axis handle
@@ -1551,74 +2390,96 @@ def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp
     
     # run analysis if necessary
     if xval_results is None:
-        xval_results, _ = xval_trial_data(area=area, params=params, expt_type=expt_type, resp_type=resp_type, signif_only=signif_only, which_neurons=which_neurons, rng=rng, trial_data=trial_data)
-        
+        xval_results, _ = xval_trial_data(area=area, params=params, expt_type=expt_type,
+                                          resp_type=resp_type, signif_only=signif_only,
+                                          which_neurons=which_neurons, rng=rng,
+                                          trial_data=trial_data)
+
     # plot
     if axis_handle is None:
         fig = plt.figure()
-        ax  = plt.gca()
+        ax = plt.gca()
     else:
-        ax  = axis_handle
+        ax = axis_handle
         fig = fig_handle
-        
-    half1  = xval_results['median_trialset1']  
-    half2  = xval_results['median_trialset2']    
-    sem    = xval_results['trial_sem']
-    
-    xy_lim       = [np.min(np.concatenate((half1,half2)))-.5, np.max(np.concatenate((half1,half2)))+.5]  
-    this_cmap    = plt.colormaps.get_cmap('copper')
+
+    half1 = xval_results['median_trialset1']
+    half2 = xval_results['median_trialset2']
+    sem = xval_results['trial_sem']
+
+    # set default axis limits if not provided
+    if xlim is None or ylim is None:
+        xy_all = np.concatenate((half1, half2))
+        xy_lim = [np.min(xy_all) - .5, np.max(xy_all) + .5]
+        if xlim is None: xlim = xy_lim
+        if ylim is None: ylim = xy_lim
+
+    # get colormap
+    this_cmap = plt.colormaps.get_cmap('copper')
     this_cmap.set_bad(color='w')
-    
-    ax.plot(xy_lim,xy_lim,'--',color=[.8,.8,.8])
-    ax.scatter(x=half1,y=half2,c=sem,cmap=this_cmap,edgecolors=[.5,.5,.5],linewidths=.5)
-    ax.set_xlim(xy_lim)
-    
+
+    # scatter plot
+    sc = ax.scatter(x=half1, y=half2, c=sem, cmap=this_cmap, edgecolors=[.5, .5, .5], linewidths=.5)
+
+    # axis settings
+    ax.plot(xlim, ylim, '--', color=[.8, .8, .8])
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+
     if 'peak' in xval_results['timing_metric']:
         ax.set_xlabel('Median peak time, half 1 (sec)')
         ax.set_ylabel('Median peak time, half 2 (sec)')
     else:
         ax.set_xlabel('Median COM time, half 1 (sec)')
         ax.set_ylabel('Median COM time, half 2 (sec)')
-        
+
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
-    
-    fig.colorbar(ax.scatter(x=half1,y=half2,c=sem,cmap=this_cmap),label='S.E.M. (sec)')
-        
+
+    # colorbar
+    cb = fig.colorbar(sc, label='S.E.M. (sec)')
+    if clim is not None:
+        sc.set_clim(clim)
+        # cb.set_clim(clim)
+
     return ax, fig, xval_results
         
 # ---------------
 # %% plot average response heatmap
-def plot_avg_response_heatmap(area, params=params, expt_type='standard', resp_type='dff', signif_only=True, which_neurons='non_stimd', avg_data=None, axis_handle=None, fig_handle=None, norm_type='minmax'):
-
+def plot_avg_response_heatmap(area, params=params, expt_type='standard', resp_type='dff',
+                              signif_only=True, which_neurons='non_stimd', avg_data=None,
+                              axis_handle=None, fig_handle=None, norm_type='minmax',
+                              fig_size=(4,6), colorbar_shrink=0.5):
     """
-    plot_avg_response_heatmap(area, params=params, expt_type='standard', resp_type='dff', signif_only=True, which_neurons='non_stimd', avg_data=None, axis_handle=None, fig_handle=None, norm_type='minmax')
-    Plots average response heatmap for an area for each roi, sorted by peak time.
-    
+    plot_avg_response_heatmap(area, ...)
+    Plots average response heatmap for an area for each ROI, sorted by peak time.
+
     INPUTS:
-    area: str, 'V1' or 'M2'
-    params: dict, parameters dictionary
-    expt_type: str, 'standard', 'high_trial_count', 'short_stim', 'multi_cell'
+        area           : str, 'V1' or 'M2'
+        params         : dict, parameters dictionary
+        expt_type      : str, 'standard', 'high_trial_count', 'short_stim', 'multi_cell'
+        colorbar_shrink: float, scale of colorbar size relative to axis (default=0.5)
     """
     if avg_data is None:
-        avg_data = get_avg_trig_responses(area, params=params, expt_type=expt_type, resp_type=resp_type, signif_only=signif_only, which_neurons=which_neurons)
+        avg_data = get_avg_trig_responses(area, params=params, expt_type=expt_type,
+                                          resp_type=resp_type, signif_only=signif_only,
+                                          which_neurons=which_neurons)
         
     # sort by peak time
     idx         = np.argsort(avg_data['peak_times_sec']).flatten()
     resp_mat    = deepcopy(avg_data['trig_dff_avgs'])[idx,:]
-    idx         = np.argsort(avg_data['peak_times_sec'])
-    num_neurons = np.size(resp_mat,axis=0)
+    num_neurons = np.size(resp_mat, axis=0)
     
     # normalize
     if norm_type == 'minmax':
         for iNeuron in range(num_neurons):
-            resp_mat[iNeuron,:] = resp_mat[iNeuron,:] - np.nanmin(resp_mat[iNeuron,:]) 
-            resp_mat[iNeuron,:] = resp_mat[iNeuron,:] / np.nanmax(resp_mat[iNeuron,:])
+            resp_mat[iNeuron, :] -= np.nanmin(resp_mat[iNeuron, :])
+            resp_mat[iNeuron, :] /= np.nanmax(resp_mat[iNeuron, :])
         cm_name = 'bone'
         lbl     = 'Normalized response'
     elif norm_type == 'absmax':
         for iNeuron in range(num_neurons):
-            resp_mat[iNeuron,:] = resp_mat[iNeuron,:] / np.nanmax(np.abs(resp_mat[iNeuron,:]))
+            resp_mat[iNeuron, :] /= np.nanmax(np.abs(resp_mat[iNeuron, :]))
         cm_name = 'coolwarm'
         lbl     = 'Normalized response'
     elif norm_type == 'none':
@@ -1627,35 +2488,34 @@ def plot_avg_response_heatmap(area, params=params, expt_type='standard', resp_ty
     else:
         print('unknown normalization type, returning nothing')
         return None, None, None
-    
+
     # time axis
     t_axis = avg_data['time_axis_sec']
-    xticks = range(-2,np.ceil(t_axis[-1]).astype(int),2)
-    xpos = list()
-    for x in xticks:
-        xpos.append(np.argwhere(t_axis>=x).flatten()[0])
-        
+    xticks = range(-2, np.ceil(t_axis[-1]).astype(int), 2)
+    xpos   = [np.argwhere(t_axis >= x).flatten()[0] for x in xticks]
+
     # plot
     if axis_handle is None:
-        fig = plt.figure()
+        fig = plt.figure(figsize=fig_size)
         ax  = plt.gca()
     else:
         ax  = axis_handle
         fig = fig_handle
 
-    fig.colorbar(ax.imshow(resp_mat,cmap=cm_name,aspect='auto'),label=lbl)
+    im = ax.imshow(resp_mat, cmap=cm_name, aspect='auto')
+    cbar = fig.colorbar(im, ax=ax, label=lbl, shrink=colorbar_shrink)
+
     ax.set_xticks(np.array(xpos).astype(int))
     ax.set_xticklabels(xticks)
     ax.set_xlabel('Time from stim (sec)')
     ax.set_ylabel('Significant responses (neurons*stim)')
-    
     ax.set_title(params['general_params']['{}_lbl'.format(area)])
-    
+
     return ax, fig, avg_data
 
 # ---------------
 # %% plot grand average of response time course
-def plot_response_grand_average(params=params, expt_type='standard', resp_type='dff', signif_only=True, which_neurons='non_stimd', v1_data=None, m2_data=None, axis_handle=None, norm_type='peak'):
+def plot_response_grand_average(params=params, expt_type='standard', resp_type='dff', signif_only=True, which_neurons='non_stimd', v1_data=None, m2_data=None, axis_handle=None, norm_type='peak',normalize_avg=True,fig_size=(4,4)):
 
     """
     plot_response_grand_average(area, params=params, expt_type='standard', resp_type='dff', signif_only=True, which_neurons='non_stimd', avg_data=None, axis_handle=None, fig_handle=None)
@@ -1731,15 +2591,36 @@ def plot_response_grand_average(params=params, expt_type='standard', resp_type='
         print('unknown normalization type, returning nothing')
         return None, None, None
         
-    # grand average
-    v1_avg = np.nanmean(resp_mat_v1 / np.nanmax(resp_mat_v1),axis=0)
-    v1_sem = np.nanstd(resp_mat_v1 / np.nanmax(resp_mat_v1),axis=0)/np.sqrt(num_v1-1)
-    m2_avg = np.nanmean(resp_mat_m2 / np.nanmax(resp_mat_m2),axis=0)
-    m2_sem = np.nanstd(resp_mat_m2/ np.nanmax(resp_mat_m2),axis=0)/np.sqrt(num_m2-1)
-        
+    # Compute average and SEM without normalization
+    v1_avg = np.nanmean(resp_mat_v1, axis=0)
+    v1_sem = np.nanstd(resp_mat_v1, axis=0) / np.sqrt(num_v1 - 1)
+    m2_avg = np.nanmean(resp_mat_m2, axis=0)
+    m2_sem = np.nanstd(resp_mat_m2, axis=0) / np.sqrt(num_m2 - 1)
+    
+    # Normalize if flag is set
+    if normalize_avg:
+        # V1 normalization
+        v1_min = np.nanmin(v1_avg)
+        v1_max = np.nanmax(v1_avg)
+        v1_range = v1_max - v1_min
+        if v1_range != 0:
+            v1_avg = (v1_avg - v1_min) / v1_range
+            v1_sem = v1_sem / v1_range
+    
+        # M2 normalization
+        m2_min = np.nanmin(m2_avg)
+        m2_max = np.nanmax(m2_avg)
+        m2_range = m2_max - m2_min
+        if m2_range != 0:
+            m2_avg = (m2_avg - m2_min) / m2_range
+            m2_sem = m2_sem / m2_range
+    
+
+    
+    
     # plot
     if axis_handle is None:
-        plt.figure()
+        plt.figure(figsize=fig_size)
         ax = plt.gca()
     else:
         ax = axis_handle
@@ -2408,7 +3289,7 @@ def plot_opto_vs_tau_comparison(area=None, plot_what='prob', params=params, expt
                     
 # ---------------
 # %% plot taus on FOV
-def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_type='dff', plot_what='peak_mag', prctile_cap=[0,98], signif_only=False, highlight_signif=True, axis_handle=None):
+def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_type='dff', plot_what='peak_mag', prctile_cap=[0,98], signif_only=False, highlight_signif=True, axis_handle=None,response_stats=None,max_min=None):
 
     """
     plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_type='dff', plot_what='peak_mag', prctile_cap=[0,98], signif_only=False, highlight_signif=True, axis_handle=None)
@@ -2459,8 +3340,11 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
         lbl = '$\\Delta$F/F (z-score)'
         
     else: # single frames (peak time or magnitude)
-        response_stats = get_full_resp_stats(area, params=params, expt_type=expt_type, resp_type=resp_type, eg_ids=which_sess, which_neurons='all')
+        if response_stats is None:
+            response_stats = get_full_resp_stats(area, params=params, expt_type=expt_type, resp_type=resp_type, eg_ids=which_sess, which_neurons='all')
         stim_idx       = np.argwhere(response_stats['stim_ids']==which_stim).flatten()
+        
+        
         
         if plot_what == 'peak_mag':
             vals = np.array(response_stats['max_or_min_vals'])[stim_idx]
@@ -2488,12 +3372,49 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
     # fetch roi coordinates for desired session
     start_time = time.time()
     print('Fetching roi coordinates...')
+    
+    cell_keys=np.array(response_stats['cell_keys'])[stim_idx].tolist()
+    
+    keys_to_remove = ['trigdff_param_set_id', 'stim_id']
+
+    # Create a new list with those keys removed
+    
+    def clean_key(d, keys_to_remove):
+        return {k: v for k, v in d.items() if k not in keys_to_remove}
+    
+    cleaned_cell_keys = [clean_key(d, keys_to_remove) for d in cell_keys]
+    # _ = None  # suppress unwanted output
+    
+    stim_key=cleaned_cell_keys[-1]
+    
+# This was a fucking nightmarem the issue comes from a few things but mainly how fetch resorts after a fetch by roi_id. in fullresp stat the way we collect the dat for 'all'
+#  is by appending the stim index on the responsive index then this creates confusion about keys and position indexing. need to fix long term, came up with some solution but
+#  that has its own issues, for now this fix actually plots right cells
+
     roi_keys   = np.array(response_stats['roi_keys'])[stim_idx].tolist()
-    row_pxls, col_pxls           = (VM['twophoton'].Roi2P & roi_keys).fetch('row_pxls','col_pxls')
-    num_rows,num_cols,um_per_pxl = (VM['twophoton'].Scan & roi_keys[0]).fetch1('lines_per_frame','pixels_per_line','microns_per_pxl_y')
+    roi_keys = [d for d in roi_keys if d != stim_key]
+    
+    # Fetch ROI coordinates
+    row_pxls, col_pxls = (VM['twophoton'].Roi2P & roi_keys).fetch('row_pxls', 'col_pxls')
+    
+    # Fetch stim coordinates (assumed to be single-element arrays)
+    row_pxls_stim, col_pxls_stim = (VM['twophoton'].Roi2P & stim_key).fetch('row_pxls', 'col_pxls')
+    
+    # Prepend the stim coordinate
+    row_pxls = list(row_pxls)+list(row_pxls_stim) 
+    col_pxls = list(col_pxls)+list(col_pxls_stim) 
+        
     roi_coords = [row_pxls,col_pxls]
+    
+    num_rows,num_cols,um_per_pxl = (VM['twophoton'].Scan & roi_keys[0]).fetch1('lines_per_frame','pixels_per_line','microns_per_pxl_y')
     im_size    = (num_rows,num_cols)
-    stimd_idx  = np.argwhere(response_stats['is_stimd'][stim_idx]).flatten().tolist()
+    
+    
+    # stimd_idx  = np.argwhere(response_stats['is_stimd'][stim_idx]).flatten().tolist()
+    stimd_idx  = [cell_keys[-1]['roi_id']]
+    # stimd_idx  = [roi_keys[-1]['roi_id']]
+    
+    
     print('     done after {:1.2f} sec'.format(time.time()-start_time))
     
     # send to generic function
@@ -2540,6 +3461,10 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
         else:
             maxmin    = None
             cmap_name = 'Blues'
+        
+        if max_min is not None:
+            maxmin     = max_min
+            
             
         ax, fig = plot_fov_heatmap_blur(roi_vals=vals.tolist(), roi_coords=roi_coords, im_size=im_size, um_per_pxl=um_per_pxl, \
                                     prctile_cap=prctile_cap, cbar_lbl=lbl, axisHandle=ax, figHandle=fig, \
@@ -2547,8 +3472,8 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
 
         # add arrow on stim'd neuron
         for istim in stimd_idx:
-            x = np.median(roi_coords[1][istim])
-            y = np.median(roi_coords[0][istim]) - 15
+            x = np.median(roi_coords[1][-1])
+            y = np.median(roi_coords[0][-1]) - 15
             ax.plot(x,y,'kv',ms=6)
         
         # draw a circle around significant neurons 
@@ -2563,18 +3488,24 @@ def plot_resp_fov(area, which_sess=0, which_stim=0, expt_type='standard', resp_t
                     y = np.median(roi_coords[0][isig]) + 14
             
                     # Debugging: Print coordinates to check values
-                    print(f"Adding asterisk at ({x}, {y}) for ROI index {isig}")
+                    # print(f"Adding asterisk at ({x}, {y}) for ROI index {isig}")
             
                     # Add text to plot
                     ax.text(x, y, '*', color='k', fontsize=20)
-        
+        # if highlight_signif:
+        #     for isig in is_sig.tolist():
+        #         if isig in stimd_idx:
+        #             continue
+        #         x = np.median(roi_coords[1][isig]) + 8
+        #         y = np.median(roi_coords[0][isig]) + 14
+        #         iax.text(x,y,'*',color='w',fontsize=8)
         # If using an interactive plot, refresh it
         plt.draw()
         
     if fig is None:
         fig = axis_handle.get_figure() 
         
-    return ax, fig
+    return ax, fig,roi_keys
 
 # ---------------
 # %% PCA of a single baseline session
@@ -3017,3 +3948,711 @@ def plot_pca_dist_scatter_dual(
     ax.spines['top'].set_visible(False)
 
     return ax, trial_pca_results_1
+
+
+# %%
+import numpy as np
+from scipy.signal import medfilt, find_peaks, peak_widths
+from scipy.stats import zscore
+
+def process_trig_dff_trials(a, kernel_size=5, z_score=False,
+                             peak_window=[0, 250], use_prominence=False,
+                             prominence_val=0.1, return_all_peaks=False,
+                             peak_thresh=None,
+                             trace_start=100,
+                             min_width_val=2):  # <- new optional input
+    peak_values = []
+    auc_values = []
+    fwhm_values = []
+    peak_times = []
+    com_values = []
+    com_times = []
+
+    for i, trace in enumerate(a):
+        # Skip if trace is invalid
+        if trace is None or len(trace) < 121 or np.all(np.isnan(trace)):
+            peak_values.append(np.nan)
+            auc_values.append(np.nan)
+            fwhm_values.append(np.nan)
+            peak_times.append(np.nan)
+            com_values.append(np.nan)
+            com_times.append(np.nan)
+            continue
+
+        # Optional z-scoring
+        if z_score:
+            trace = zscore(trace, nan_policy='omit')
+
+        # Apply median filter to the trace starting at index 100
+        filtered = medfilt(trace[trace_start:], kernel_size=kernel_size)
+
+        # Normalize to have min = 0
+        filtered = filtered - np.nanmin(filtered)
+
+        # AUC of the filtered trace
+        auc = np.nansum(filtered)
+
+        # Peak detection (within window)
+        pw_start, pw_end = peak_window
+        signal_segment = filtered[pw_start:pw_end]
+        
+        # Prepend a 0 to help detect early peaks
+        signal_segment_padded = np.insert(signal_segment, 0, 0)
+        
+
+        # Set find_peaks parameters
+        peak_kwargs = {}
+        if use_prominence:
+            peak_kwargs['prominence'] = prominence_val
+        peak_kwargs['width'] = min_width_val  # Set your minimum width here
+        
+        peaks, properties = find_peaks(signal_segment, **peak_kwargs)
+
+        # # Adjust peaks indices because of the prepended 0
+        # peaks = peaks - 1
+        
+        # # Remove any peaks that are now at negative index due to shift
+        # valid_indices = peaks >= 0
+        # peaks = peaks[valid_indices]
+        # for key in properties:
+        #     properties[key] = properties[key][valid_indices]
+
+        if len(peaks) == 0:
+            peak_val = np.nan
+            fwhm = np.nan
+            main_peak = np.nan
+        else:
+            # Select the most prominent or highest peak
+            if return_all_peaks:
+                peak_val = np.nanmean(signal_segment[peaks])
+                widths_result = peak_widths(signal_segment, peaks, rel_height=0.5)
+                fwhm = np.nanmean(widths_result[0])
+            else:
+                if use_prominence:
+                    main_peak_idx = np.argmax(properties['prominences'])
+                else:
+                    main_peak_idx = np.argmax(signal_segment[peaks])
+
+                main_peak = peaks[main_peak_idx]
+                peak_val = signal_segment[main_peak]
+
+                # Calculate FWHM using peak_widths
+                widths_result = peak_widths(signal_segment, [main_peak], rel_height=0.5)
+                fwhm = widths_result[0][0]
+
+        # Center of mass within the peak window
+        window_vals = signal_segment
+        time_indices = np.arange(pw_start, pw_end)
+        window_vals_sum = np.nansum(window_vals)
+
+        if window_vals_sum == 0 or np.isnan(window_vals_sum):
+            com = np.nan
+            com_time = np.nan
+        else:
+            com = np.nansum(time_indices * window_vals) / window_vals_sum
+            com_time = int(np.round(com))
+
+        # Apply threshold to nan out values if peak is below threshold
+        if peak_thresh is not None and (np.isnan(peak_val) or peak_val < peak_thresh):
+            peak_val = np.nan
+            auc = np.nan
+            fwhm = np.nan
+            main_peak = np.nan
+            com = np.nan
+            com_time = np.nan
+
+        # Append metrics
+        peak_values.append(peak_val)
+        auc_values.append(auc)
+        fwhm_values.append(fwhm)
+        peak_times.append(main_peak)
+        com_values.append(com)
+        com_times.append(com_time)
+
+    return (np.array(peak_values),
+            np.array(auc_values),
+            np.array(fwhm_values),
+            np.array(peak_times),
+            np.array(com_values),
+            np.array(com_times))
+# %%
+import numpy as np
+from itertools import combinations
+from scipy.stats import pearsonr
+
+def trial_peak_reliability(trial_dffs, idx_start, idx_end, min_trials=5):
+    """
+    Compute average pairwise Pearson correlation across trials
+    in a given window.
+
+    Args:
+        trial_dffs: list of 1D numpy arrays (trial-wise traces)
+        idx_start: start index of time window
+        idx_end: end index of time window (exclusive)
+        min_trials: minimum trials to consider
+
+    Returns:
+        mean_corr: mean pairwise Pearson correlation
+    """
+    windowed = [trace[idx_start:idx_end] for trace in trial_dffs]
+    windowed = [w for w in windowed if not np.any(np.isnan(w))]
+
+    n_trials = len(windowed)
+    if n_trials < min_trials:
+        return np.nan
+
+    corrs = []
+    for i, j in combinations(range(n_trials), 2):
+        r, _ = pearsonr(windowed[i], windowed[j])
+        corrs.append(r)
+
+    return np.nanmean(corrs) if corrs else np.nan
+
+# %%
+import numpy as np
+
+def create_pseudo_trials_from_baseline(
+    baseline_dff,
+    number_of_trials,
+    trial_length,
+    baseline_start_idx=0,
+    max_offset=None,
+    zscore_to_baseline=True,
+    within_trial_baseline_frames=80,
+    random_seed=None,
+    bootstrap=True,
+    min_spacing_between_starts=50
+):
+    """
+    Create pseudo-trials from a long baseline dF/F trace.
+    Each pseudo-trial includes a baseline + response window. If z-scoring is enabled,
+    the first N frames of each trial are used as the within-trial baseline.
+
+    Parameters
+    ----------
+    baseline_dff : 1D array
+        Long baseline trace (e.g., from spontaneous period).
+    number_of_trials : int
+        Number of pseudo-trials to generate.
+    trial_length : int
+        Length of each pseudo-trial (including baseline + response).
+    baseline_start_idx : int
+        Index where slicing trials is allowed to begin.
+    max_offset : int or None
+        Optional maximum index for trial start (defaults to end of array - trial_length).
+    zscore_to_baseline : bool
+        Whether to z-score using the first N frames of each trial.
+    within_trial_baseline_frames : int
+        Number of frames at the start of each trial to use as the baseline for z-scoring.
+    random_seed : int or None
+        Seed for reproducibility.
+    bootstrap : bool
+        Sample with replacement (True) or not (False).
+    min_spacing_between_starts : int
+        Minimum distance (in frames) between trial start points (only applies if bootstrap=False).
+
+    Returns
+    -------
+    pseudo_trials : list of np.ndarray
+        List of pseudo-trials (each length = trial_length).
+    """
+
+    if random_seed is not None:
+        np.random.seed(random_seed)
+
+    baseline_dff = np.array(baseline_dff).flatten()
+    total_frames = len(baseline_dff)
+
+    max_start_idx = total_frames - trial_length
+    if max_offset is not None:
+        max_start_idx = min(max_start_idx, max_offset)
+
+    possible_starts = np.arange(baseline_start_idx, max_start_idx)
+
+    if bootstrap or min_spacing_between_starts == 0:
+        if len(possible_starts) < number_of_trials and not bootstrap:
+            raise ValueError("Not enough baseline data to sample requested number of trials.")
+        start_idxs = np.random.choice(possible_starts, size=number_of_trials, replace=bootstrap)
+    else:
+        # Enforce spacing constraint between start indices
+        start_idxs = []
+        possible_starts_set = set(possible_starts)
+
+        while len(start_idxs) < number_of_trials:
+            if not possible_starts_set:
+                raise ValueError("Cannot find enough non-overlapping start indices with given spacing.")
+            new_start = np.random.choice(list(possible_starts_set))
+            start_idxs.append(new_start)
+
+            # Remove indices within min_spacing from the selected start
+            exclusion_zone = set(range(new_start - min_spacing_between_starts + 1,
+                                       new_start + min_spacing_between_starts))
+            possible_starts_set.difference_update(exclusion_zone)
+
+    pseudo_trials = []
+
+    for start_idx in start_idxs:
+        trial = baseline_dff[start_idx : start_idx + trial_length].copy()
+
+        if zscore_to_baseline:
+            if within_trial_baseline_frames > len(trial):
+                raise ValueError("Baseline window for z-scoring exceeds trial length.")
+            baseline = trial[:within_trial_baseline_frames]
+            baseline_mean = np.nanmean(baseline)
+            baseline_std = np.nanstd(baseline)
+            if baseline_std == 0 or np.isnan(baseline_std):
+                trial_z = np.zeros_like(trial)
+            else:
+                trial_z = (trial - baseline_mean) / baseline_std
+            pseudo_trials.append(trial_z)
+        else:
+            pseudo_trials.append(trial)
+
+    return pseudo_trials
+
+
+# %%
+
+def create_pseudo_trials_from_baseline_non_overlaping(
+    baseline_dff,
+    number_of_trials,
+    trial_length,
+    baseline_start_idx=0,
+    max_offset=None,
+    zscore_to_baseline=True,
+    within_trial_baseline_frames=50,
+    random_seed=None
+):
+    """
+    Create pseudo-trials from a long baseline dF/F trace without overlap.
+
+    Parameters:
+    - baseline_dff: 1D array of baseline activity
+    - number_of_trials: how many pseudo-trials to create
+    - trial_length: number of frames per trial
+    - baseline_start_idx: where the baseline region starts
+    - max_offset: optional, max index allowed for slicing trials
+    - zscore_to_baseline: whether to z-score each trial to a pre-trial baseline
+    - baseline_window_for_z: number of frames before each trial used for z-scoring
+    - random_seed: optional for reproducibility
+
+    Returns:
+    - List of pseudo-trial arrays (length = number_of_trials)
+    """
+    if random_seed is not None:
+        np.random.seed(random_seed)
+
+    baseline_dff = np.array(baseline_dff).flatten()
+    max_start = len(baseline_dff) - trial_length
+    if max_offset is not None:
+        max_start = min(max_start, max_offset)
+
+    # Generate non-overlapping valid start indices
+    valid_starts = np.arange(baseline_start_idx, max_start, trial_length)
+    if len(valid_starts) < number_of_trials:
+        raise ValueError("Not enough non-overlapping baseline segments for the requested number of trials.")
+
+    start_idxs = np.random.choice(valid_starts, size=number_of_trials, replace=False)
+
+    pseudo_trials = []
+    for start_idx in start_idxs:
+        # Extract full trial window
+        trial = baseline_dff[start_idx : start_idx + trial_length].copy()
+    
+        if zscore_to_baseline:
+            if within_trial_baseline_frames > len(trial):
+                raise ValueError("Baseline window for z-scoring exceeds trial length.")
+            baseline = trial[:within_trial_baseline_frames]
+            baseline_mean = np.nanmean(baseline)
+            baseline_std = np.nanstd(baseline)
+            if baseline_std == 0 or np.isnan(baseline_std):
+                trial_z = np.zeros_like(trial)
+            else:
+                trial_z = (trial - baseline_mean) / baseline_std
+            pseudo_trials.append(trial_z)
+        else:
+            pseudo_trials.append(trial)
+    
+    return pseudo_trials
+
+
+# %%
+import pandas as pd
+import numpy as np
+
+def calculate_proportion_by_distance_bin(df,
+                                         group_cols,
+                                         dist_col,
+                                         bins=[0, 50, 100, 150, 200, 250, 300, np.inf]):
+    """
+    Bins cells by distance and calculates the proportion of cells in each bin for each group.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame with a column representing distance from stimulation.
+    group_cols : list of str
+        Columns to group by (e.g., subject/session/stim identifiers).
+    dist_col : str
+        Name of the column containing distance values.
+    bins : list
+        Bin edges for distance (default = [0, 50, ..., 300, np.inf]).
+
+    Returns
+    -------
+    proportion_df : pd.DataFrame
+        Wide-form DataFrame with one row per group and columns for each distance bin's proportion.
+    just_values_T : pd.DataFrame
+        Transposed DataFrame with rows = distance bins and columns = group combinations.
+    bin_labels : list of str
+        Labels used for the distance bins (in order).
+    """
+    # Generate bin labels
+    bin_labels = [
+        f"{int(bins[i])}-{int(bins[i+1])}" if np.isfinite(bins[i+1]) else f"{int(bins[i])}+"
+        for i in range(len(bins) - 1)
+    ]
+
+    # Bin the distance values
+    df = df.copy()
+    df['dist_bin'] = pd.cut(df[dist_col], bins=bins, labels=bin_labels, right=False)
+
+    # Count per group and bin
+    count_df = df.groupby(group_cols + ['dist_bin']).size().reset_index(name='count')
+
+    # Total per group
+    total_df = df.groupby(group_cols).size().reset_index(name='total')
+
+    # Merge and calculate proportion
+    merged = pd.merge(count_df, total_df, on=group_cols)
+    merged['proportion'] = merged['count'] / merged['total']
+
+    # Pivot to wide format
+    proportion_df = merged.pivot_table(index=group_cols,
+                                       columns='dist_bin',
+                                       values='proportion',
+                                       fill_value=0)
+
+    # Clean up column names
+    proportion_df.columns.name = None
+    proportion_df = proportion_df.reset_index()
+
+    # Extract just the values and transpose
+    just_values = proportion_df.drop(columns=group_cols)
+    just_values_T = just_values.transpose()
+    
+    # Calculate bin centers
+    bin_edges = np.array(bins)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+
+    return proportion_df, just_values_T, bin_labels, bin_centers
+
+# %%
+
+def calculate_responsive_proportion_by_distance_bin_by_all_cells(df_responsive,
+                                                    df_all,
+                                                    group_cols,
+                                                    dist_col,
+                                                    bins=[0, 50, 100, 150, 200, 250, 300, np.inf]):
+    """
+    Bins cells by distance and calculates the proportion of responsive cells
+    relative to all cells in each bin, grouped by specified columns.
+
+    Parameters
+    ----------
+    df_responsive : pd.DataFrame
+        DataFrame containing only responsive cells.
+    df_all : pd.DataFrame
+        DataFrame containing all cells (including responsive ones).
+    group_cols : list of str
+        Columns to group by (e.g., subject/session/stim identifiers).
+    dist_col : str
+        Column containing distance values.
+    bins : list
+        Bin edges for distance (default = [0, 50, ..., 300, np.inf]).
+
+    Returns
+    -------
+    proportion_df : pd.DataFrame
+        Wide-form DataFrame with one row per group and columns for each distance bin's proportion.
+    just_values_T : pd.DataFrame
+        Transposed DataFrame with rows = distance bins and columns = group combinations.
+    bin_labels : list of str
+        Labels used for the distance bins (in order).
+    bin_centers : np.ndarray
+        Numerical centers of each distance bin.
+    """
+    bin_labels = [
+        f"{int(bins[i])}-{int(bins[i+1])}" if np.isfinite(bins[i+1]) else f"{int(bins[i])}+"
+        for i in range(len(bins) - 1)
+    ]
+
+    # Bin distances
+    df_responsive = df_responsive.copy()
+    df_all = df_all.copy()
+    df_responsive['dist_bin'] = pd.cut(df_responsive[dist_col], bins=bins, labels=bin_labels, right=False)
+    df_all['dist_bin'] = pd.cut(df_all[dist_col], bins=bins, labels=bin_labels, right=False)
+
+    # Count responsive and all cells per group/bin
+    responsive_count = df_responsive.groupby(group_cols + ['dist_bin']).size().reset_index(name='responsive_count')
+    all_count = df_all.groupby(group_cols + ['dist_bin']).size().reset_index(name='total_count')
+
+    # Merge and calculate proportion
+    merged = pd.merge(all_count, responsive_count, on=group_cols + ['dist_bin'], how='left')
+    merged['responsive_count'] = merged['responsive_count'].fillna(0)
+    merged['proportion'] = merged['responsive_count'] / merged['total_count']
+
+    # Pivot to wide format
+    proportion_df = merged.pivot_table(index=group_cols,
+                                       columns='dist_bin',
+                                       values='proportion',
+                                       fill_value=0)
+
+    proportion_df.columns.name = None
+    proportion_df = proportion_df.reset_index()
+
+    # Transpose values for plotting or stats
+    just_values = proportion_df.drop(columns=group_cols)
+    just_values_T = just_values.transpose()
+
+    # Bin centers for plotting
+    bin_edges = np.array(bins)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+    return proportion_df, just_values_T, bin_labels, bin_centers
+# %%
+import pandas as pd
+import numpy as np
+
+def calculate_condition_proportion_by_bin(df,
+                                          group_cols,
+                                          bin_col,
+                                          condition_col,
+                                          bins=[0, 50, 100, 150, 200, 250, 300, np.inf]):
+    """
+    Bins rows by a numeric column and calculates the proportion of rows where
+    condition_col is True in each bin, grouped by group_cols.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame.
+    group_cols : list of str
+        Columns to group by (e.g., subject/session/stim identifiers).
+    bin_col : str
+        Column name to bin by (e.g., distance).
+    condition_col : str
+        Column name that holds the boolean condition (e.g., True = responsive).
+    bins : list
+        Bin edges for binning (default = [0, 50, ..., 300, np.inf]).
+
+    Returns
+    -------
+    proportion_df : pd.DataFrame
+        Wide-form DataFrame with one row per group and columns for each bin's proportion.
+    just_values_T : pd.DataFrame
+        Transposed DataFrame with rows = bins and columns = group combinations.
+    bin_labels : list of str
+        Labels used for the bins (in order).
+    bin_centers : np.ndarray
+        Numerical centers of the bins (for plotting).
+    """
+    # Generate bin labels
+    bin_labels = [
+        f"{int(bins[i])}-{int(bins[i+1])}" if np.isfinite(bins[i+1]) else f"{int(bins[i])}+"
+        for i in range(len(bins) - 1)
+    ]
+
+    # Bin the bin_col values
+    df = df.copy()
+    df['bin'] = pd.cut(df[bin_col], bins=bins, labels=bin_labels, right=False)
+
+    # Count total per group + bin
+    total_counts = df.groupby(group_cols + ['bin']).size().reset_index(name='total_count')
+
+    # Count where condition_col is True per group + bin
+    condition_counts = df[df[condition_col]].groupby(group_cols + ['bin']).size().reset_index(name='condition_count')
+
+    # Merge counts
+    merged = pd.merge(total_counts, condition_counts, on=group_cols + ['bin'], how='left')
+    merged['condition_count'] = merged['condition_count'].fillna(0)
+
+    # Calculate proportion
+    merged['proportion'] = merged['condition_count'] / merged['total_count']
+
+    # Pivot to wide format
+    proportion_df = merged.pivot_table(index=group_cols,
+                                       columns='bin',
+                                       values='proportion',
+                                       fill_value=0)
+    proportion_df.columns.name = None
+    proportion_df = proportion_df.reset_index()
+
+    # Transpose values
+    just_values = proportion_df.drop(columns=group_cols)
+    just_values_T = just_values.transpose()
+
+    # Bin centers
+    bin_edges = np.array(bins)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+    return proportion_df, just_values_T, bin_labels, bin_centers
+# %%
+import pandas as pd
+import numpy as np
+
+def bin_column_values(df, bin_col, value_col, bins):
+    """
+    Bins one column and collects values from another column into a 2D DataFrame.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame.
+    bin_col : str
+        Column to bin (e.g., 'distance').
+    value_col : str
+        Column with values to collect (e.g., 'dff_peak').
+    bins : list
+        Bin edges.
+
+    Returns
+    -------
+    binned_df : pd.DataFrame
+        DataFrame where each row is a bin and each column a padded value.
+    bin_labels : list
+        Labels used for the bins.
+    bin_centers : np.ndarray
+        Numeric centers of bins.
+    """
+    df = df.copy()
+
+    # Create bin labels
+    bin_labels = [
+        f"{int(bins[i])}-{int(bins[i + 1])}" if np.isfinite(bins[i + 1]) else f"{int(bins[i])}+"
+        for i in range(len(bins) - 1)
+    ]
+    
+    # Bin the values
+    df['bin'] = pd.cut(df[bin_col], bins=bins, labels=bin_labels, right=False)
+
+    # Collect values for each bin
+    binned_series = df.groupby('bin')[value_col].apply(list).reindex(bin_labels)
+
+    # Find the max list length
+    max_len = binned_series.dropna().apply(len).max()
+
+    # Pad with NaNs and convert to DataFrame
+    binned_data = [
+        np.pad(vals, (0, max_len - len(vals)), constant_values=np.nan) if isinstance(vals, list) else [np.nan] * max_len
+        for vals in binned_series
+    ]
+    binned_df = pd.DataFrame(binned_data, index=bin_labels, columns=[f"value_{i}" for i in range(max_len)])
+
+    # Bin centers for plotting
+    bin_edges = np.array(bins)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+    return binned_df, bin_labels, bin_centers
+
+
+# %%
+import pandas as pd
+
+def group_trig_responses_by_expt(roi_keys,stim_ids,trig_dff_avgs):
+    """
+    Organizes individual ROI average responses into a nested DataFrame grouped by:
+    - subject_fullname
+    - session_date
+    - stim_id
+
+    INPUT:
+        summary_data : dict returned by get_avg_trig_responses()
+
+    OUTPUT:
+        df_grouped : pd.DataFrame with columns ['subject_fullname', 'session_date', 'stim_id', 'trig_dff_avgs']
+                     where 'trig_dff_avgs' is a list of np.arrays for each ROI in that group
+    """
+    # roi_keys       = summary_data['roi_keys']
+    # # expt_keys      = summary_data['roi_keys']['
+    # stim_ids       = summary_data['stim_ids']
+    # trig_dff_avgs  = summary_data['trig_dff_avgs']
+
+    # Ensure consistent length
+    assert len(roi_keys) == len(stim_ids) == len(trig_dff_avgs), "Data mismatch in summary_data."
+
+    # Assemble a flat list of dicts with metadata and average response
+    rows = []
+    for ek, sid, avg in zip(roi_keys, stim_ids, trig_dff_avgs):
+        rows.append({
+            'subject_fullname': ek['subject_fullname'],
+            'session_date'    : ek['session_date'],
+            'stim_id'         : sid,
+            'trig_dff_avg'    : avg
+        })
+
+    df = pd.DataFrame(rows)
+
+    # Group by subject/session/stim and nest the average responses
+    df_grouped = df.groupby(['subject_fullname', 'session_date', 'stim_id'])['trig_dff_avg'].apply(list).reset_index()
+    df_grouped.rename(columns={'trig_dff_avg': 'trig_dff_avgs'}, inplace=True)
+
+    return df_grouped
+# %%
+
+
+def align_averaged_traces_from_lists(df, trace_col='averaged_traces_all', time_col='time_axes'):
+    """
+    Aligns traces to a shared time axis using only the first time axis from each row.
+
+    Parameters:
+    - df: DataFrame with columns:
+        - trace_col: 1D averaged trace (np.array or list)
+        - time_col: list of time arrays per row (use first one only)
+
+    Returns:
+    - common_time_df: DataFrame with 1D shared time axis
+    - aligned_traces_df: DataFrame with 2D aligned traces
+    """
+    # Step 1: Extract and trim each trace and time axis to matching lengths
+    trace_list = []
+    time_list = []
+
+    for _, row in df.iterrows():
+        trace = np.array(row[trace_col])
+        time = np.array(row[time_col][0])  # use only the first time axis
+        n = min(len(trace), len(time))
+        trace_list.append(trace[:n])
+        time_list.append(time[:n])
+
+    # Step 2: Find common overlapping time range
+    start_times = [t[0] for t in time_list]
+    end_times = [t[-1] for t in time_list]
+    common_start = max(start_times)
+    common_end = min(end_times)
+    if common_start >= common_end:
+        raise ValueError("No overlapping time range across traces.")
+
+    # Step 3: Define common time axis using finest resolution
+    resolutions = [np.mean(np.diff(t)) for t in time_list]
+    min_res = min(resolutions)
+    common_time = np.arange(common_start, common_end + min_res, min_res)
+
+    # Step 4: Interpolate each trace to the common time axis
+    interpolated_traces = []
+    for trace, time in zip(trace_list, time_list):
+        valid_mask = (common_time >= time[0]) & (common_time <= time[-1])
+        interp_vals = np.interp(common_time[valid_mask], time, trace)
+        interpolated_traces.append(interp_vals)
+
+    # Step 5: Trim all to same length (shortest)
+    min_len = min(len(t) for t in interpolated_traces)
+    final_traces = np.array([t[:min_len] for t in interpolated_traces])
+    final_time = common_time[:min_len]
+
+    # Step 6: Return as DataFrames
+    common_time_df = pd.DataFrame(final_time, columns=['time'])
+    aligned_traces_df = pd.DataFrame(final_traces)
+
+    return common_time_df, aligned_traces_df
