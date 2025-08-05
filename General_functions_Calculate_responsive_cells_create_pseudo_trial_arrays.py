@@ -793,7 +793,8 @@ def process_and_filter_response_matrix(
     random_seed=None,
     scramble_stim_ids=False,
     max_trials_per_group=10,
-    min_width_val=2
+    min_width_val=2,
+    align_trials=True
 ):
     
     """
@@ -840,7 +841,17 @@ def process_and_filter_response_matrix(
     import random
     from schemas import spont_timescales
     from schemas import twop_opto_analysis
-
+    
+    if align_trials:
+        
+         
+        dff_aligned, time_axes_aligned = analyzeEvoked2P.align_traces_from_separate_lists(
+             dff_trials,
+             time_axes
+             )
+        
+        dff_trials=dff_aligned
+        time_axes=time_axes_aligned
     
     if random_seed is not None:
         np.random.seed(random_seed)

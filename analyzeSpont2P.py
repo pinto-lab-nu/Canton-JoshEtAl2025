@@ -1193,6 +1193,7 @@ def classify_fit_results_simple(fit_results):
 
 
 # %%
+
 def calculate_autocorrelations_df(a_df, signal_range=(0, 10000), max_lags=1000):
     """
     Calculate autocorrelations up to max_lags for each row in a 2D DataFrame.

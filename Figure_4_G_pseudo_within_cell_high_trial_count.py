@@ -58,7 +58,7 @@ filter_steps = [
     ('response_proportion >= 0.6', lambda df: df[df['response_proportion'] >= 0.6]),
     # ('peak_time_std <= 0.5', lambda df: df[df['peak_time_std'] <= 0.75]),
     # ('peak_time_avg <= 0.5', lambda df: df[df['peak_time_avg'] >= 1.0]),
-    ('peak_amp_avg >= 2', lambda df: df[df['peak_amp_avg'] >= 2]),
+    # ('peak_amp_avg >= 2', lambda df: df[df['peak_amp_avg'] >= 2]),
     ('roi_occurrence_all > 0', lambda df: df[df['roi_id_extended_dataset'].map(df['roi_id_extended_dataset'].value_counts()) > 0])
     ]
 # %%
@@ -142,7 +142,6 @@ for i in range(iterations_xval):
 xval_df_high_trial = pd.DataFrame(xval_summary)
 # %%
 
-
 xval_summary = []
 iterations_xval = 1000
 
@@ -168,15 +167,15 @@ xval_df = pd.DataFrame(xval_summary)
 
 analysis_plotting_functions.plot_ecdf_comparison(xval_df['correlation_r'],xval_df_high_trial['correlation_r'],
                      label1='"MOs high trial count pseudo_data', label2="MOs high trial count data",
-                     line_color1=params['general_params']['V1_cl'],line_color2=params['general_params']['M2_cl'],
+                     line_color1='k',line_color2='k',
                      xlabel="r values",
                      ylabel="proportion of iterations",
                      title='',
                      stat_test='auto',
-                     figsize=[5,5],
+                     figsize=[4,5],
                      # xticks_start=0, xticks_end=25, xticks_step=5,
                      # yticks_start=0, yticks_end=1, yticks_step=0.5,
-                     show_normality_pvals=True,
+                     # show_normality_pvals=True,
                      )
 
 # %%

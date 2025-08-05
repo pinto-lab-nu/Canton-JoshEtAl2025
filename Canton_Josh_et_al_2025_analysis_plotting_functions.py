@@ -2961,3 +2961,4 @@ def plot_single_point_sem_with_anova(
         plt.show()
 
     return anova_table
+

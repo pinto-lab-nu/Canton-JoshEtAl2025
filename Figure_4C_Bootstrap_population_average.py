@@ -131,7 +131,7 @@ fit_max_lag=250
 min_len = min(len(arr) for arr in result_M2_standard_non_stimd_filt['averaged_traces_all'])
 # Truncate all arrays to that length
 m2_avgs_array_2d = np.vstack([arr[:min_len] for arr in result_M2_standard_non_stimd_filt['averaged_traces_all']])
-bootstrap_avgs_m2=bootstrap_population_average(m2_avgs_array_2d, sample_size=10,n_samples=1)
+bootstrap_avgs_m2=bootstrap_population_average(m2_avgs_array_2d, sample_size=100,n_samples=10)
 
 
 bootstrap_avgs_m22 = pd.DataFrame(bootstrap_avgs_m2.tolist())
@@ -150,8 +150,8 @@ bootstrap_mean_trace_m2 = pd.DataFrame(bootstrap_df_short_m2.mean(axis=0, skipna
 
 # bootstrap_mean_trace_m2 -= bootstrap_mean_trace_m2.min(axis=1).values[:, None]
 
-acorr_df_m2 = calculate_autocorrelations_df(bootstrap_mean_trace_m2, signal_range=signal_range, max_lags=max_lag)
-fit_results_m2, _, _ = fit_exponentials_from_df(
+acorr_df_m2 = analyzeSpont2P.calculate_autocorrelations_df(bootstrap_mean_trace_m2, signal_range=signal_range, max_lags=max_lag)
+fit_results_m2, _, _ = analyzeSpont2P.fit_exponentials_from_df(
     acorr_df_m2, exclude_low_acorr=True, acorr_threshold=0.1, max_lag=fit_max_lag,bounded_fit=True
 )
 
@@ -167,7 +167,7 @@ fit_results_m2, _, _ = fit_exponentials_from_df(
 min_len = min(len(arr) for arr in result_V1_standard_non_stimd_filt['averaged_traces_all'])
 # Truncate all arrays to that length
 v1_avgs_array_2d = np.vstack([arr[:min_len] for arr in result_V1_standard_non_stimd_filt['averaged_traces_all']])
-bootstrap_avgs_v1=bootstrap_population_average(v1_avgs_array_2d, sample_size=10,n_samples=1)
+bootstrap_avgs_v1=bootstrap_population_average(v1_avgs_array_2d, sample_size=100,n_samples=10)
 
 
 bootstrap_avgs_v11 = pd.DataFrame(bootstrap_avgs_v1.tolist())
@@ -180,15 +180,25 @@ bootstrap_mean_trace_v1 = pd.DataFrame(bootstrap_df_short_v1.mean(axis=0, skipna
 # bootstrap_mean_trace_v1 -= bootstrap_mean_trace_v1.min(axis=1).values[:, None]
 
 
-acorr_df_v1 = calculate_autocorrelations_df(bootstrap_mean_trace_v1, signal_range=signal_range, max_lags=max_lag)
+acorr_df_v1 = analyzeSpont2P.calculate_autocorrelations_df(bootstrap_mean_trace_v1, signal_range=signal_range, max_lags=max_lag)
 
-fit_results_v1, _, _ = fit_exponentials_from_df(
+fit_results_v1, _, _ = analyzeSpont2P.fit_exponentials_from_df(
     acorr_df_v1, exclude_low_acorr=True, acorr_threshold=0.1, max_lag=fit_max_lag,bounded_fit=True
 )
 
 
 # fit_results_v1 = fit_results_v1[2:]
-# 
+# %%
+
+# acorr_df_v1 = analyzeSpont2P.calculate_autocorrelations_df(bootstrap_mean_trace_v1, signal_range=signal_range, max_lags=max_lag)
+fit_results_m2, _, _ = analyzeSpont2P.fit_exponentials_from_df(
+    bootstrap_df_short_v1, exclude_low_acorr=True, acorr_threshold=0.1, max_lag=fit_max_lag,bounded_fit=True
+)
+
+fit_results_v1, _, _ = analyzeSpont2P.fit_exponentials_from_df(
+    bootstrap_df_short_v1, exclude_low_acorr=True, acorr_threshold=0.1, max_lag=fit_max_lag,bounded_fit=True
+)
+
 # %%
 
 plot_acorr_with_fit_dual(
@@ -276,7 +286,108 @@ def bootstrap_acorr_analysis(
     ]
     
     return df_se, best_type
+# %%
 
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+def bootstrap_trace_decay_analysis(
+    data,
+    sample_size=50,
+    n_samples=50,
+    start_idx=100,
+    signal_range=(0, 288),
+    max_lag=280,
+    fit_max_lag=250,
+    tau_bounds=(2, 200),
+    r2_threshold=0.9,
+    acorr_1_threshold=0.2,
+    plot_title="",
+    label="",
+):
+    # Step 1: Bootstrap
+    bootstrap_data = bootstrap_population_average(data, sample_size=sample_size, n_samples=n_samples)
+    
+    # Step 2: Slice time range and convert to DataFrame
+    bootstrap_df = pd.DataFrame(bootstrap_data.tolist())
+    
+    bootstrap_df = analysis_plotting_functions.normalize_rows(bootstrap_df,'minmax',min_window=(0,80),max_window=(100,300))
+
+    bootstrap_df_short = bootstrap_df.iloc[:, start_idx:]
+    
+    # bootstrap_df_short = pd.DataFrame(bootstrap_df_short.mean(axis=0, skipna=True)).T
+
+    
+    # Step 3: Autocorrelation
+    # acorr_df = analyzeSpont2P.calculate_autocorrelations_df(bootstrap_df_short, signal_range=signal_range, max_lags=max_lag)
+    
+    # Step 4: Plot mean autocorrelation
+    # mean_acorr = acorr_df.mean(axis=0, skipna=True)
+    # plt.figure()
+    # plt.plot(mean_acorr)
+    # plt.xlabel('Lag')
+    # plt.ylabel('Mean autocorrelation')
+    # plt.title(f'{plot_title} - {label}')
+    
+    # Step 5: Fit exponentials
+    fit_results, good_acorr, valid_rows = analyzeSpont2P.fit_exponentials_from_df(
+        bootstrap_df_short, exclude_low_acorr=True, acorr_threshold=acorr_1_threshold, max_lag=fit_max_lag,
+        bounded_fit=True,tau_bounds=(0,300)
+    )
+    
+    # Step 6: Classify results
+    df_si, df_se, df_di, df_de, best_type = analyzeSpont2P.classify_fit_results_simple(fit_results)
+    
+    # Step 7: Filter results
+    df_se = df_se[
+        (df_se["tau"] >= tau_bounds[0]) &
+        (df_se["tau"] <= tau_bounds[1]) &
+        (df_se["r2"] >= r2_threshold) &
+        (df_se["acorr_1_index"] >= acorr_1_threshold)
+    ]
+    # Step 7: Filter results
+    df_di = df_di[
+        (df_di["tau2"] >= tau_bounds[0]) &
+        (df_di["tau2"] <= tau_bounds[1]) &
+        (df_di["r2"] >= r2_threshold) &
+        (df_di["acorr_1_index"] >= acorr_1_threshold)
+    ]
+    
+    return df_se, best_type
+
+# %%
+
+df_se_m2, best_type_m2 = bootstrap_trace_decay_analysis(
+    data=m2_avgs_array_2d, 
+    sample_size=100, 
+    n_samples=50,
+    label="M2",
+    # bounded_fit=True,
+    acorr_1_threshold=0,
+    r2_threshold=0.8
+    )
+
+df_se_v1, best_type_v1 = bootstrap_trace_decay_analysis(
+    data=v1_avgs_array_2d, 
+    sample_size=100, 
+    n_samples=50,
+    label="V1",
+    # bounded_fit=True
+    r2_threshold=0.8
+    )
+
+# Compare ECDFs
+analysis_plotting_functions.plot_ecdf_comparison(df_se_v1.tau*sampling_interval,df_se_m2.tau*sampling_interval,
+                      label1=params['general_params']['V1_lbl'], label2=params['general_params']['M2_lbl'],title='',
+                      line_color1=params['general_params']['V1_cl'],line_color2=params['general_params']['M2_cl'],
+                      xlabel="Population Taus",
+                      ylabel="Cum. prop. bootstraped expts",
+                      xticks_start=0, xticks_end=4, xticks_step=2,
+                      xlim=[0,4],
+                      stat_test='auto',
+                      figsize=[3,4],
+                      show_normality_pvals=True)
 # %%
 
 df_se_m2, best_type_m2 = bootstrap_acorr_analysis(
@@ -404,6 +515,7 @@ def compare_tau_distributions_vs_sample_size_repeat(
     tau_bounds=(2, 200),
     r2_threshold=0.8,
     acorr_1_threshold=0.2,
+    acorr_or_trace='trace'
 ):
     all_results = []
 
@@ -412,21 +524,39 @@ def compare_tau_distributions_vs_sample_size_repeat(
         for repeat_id in range(n_repeats):
             print(f"  Repeat {repeat_id+1}/{n_repeats}")
 
-            # Run bootstrap acorr and fit for both V1 and M2
-            df_se_v1, _ = bootstrap_acorr_analysis(
-                v1_data, sample_size=sample_size, n_samples=n_samples,
-                start_idx=start_idx, signal_range=signal_range, max_lag=max_lag,
-                fit_max_lag=fit_max_lag, tau_bounds=tau_bounds,
-                r2_threshold=r2_threshold, acorr_1_threshold=acorr_1_threshold,
-                label="V1"
-            )
-            df_se_m2, _ = bootstrap_acorr_analysis(
-                m2_data, sample_size=sample_size, n_samples=n_samples,
-                start_idx=start_idx, signal_range=signal_range, max_lag=max_lag,
-                fit_max_lag=fit_max_lag, tau_bounds=tau_bounds,
-                r2_threshold=r2_threshold, acorr_1_threshold=acorr_1_threshold,
-                label="M2"
-            )
+
+            if acorr_or_trace=='trace':
+                # Run bootstrap acorr and fit for both V1 and M2
+                df_se_v1, _ = bootstrap_trace_decay_analysis(
+                    v1_data, sample_size=sample_size, n_samples=n_samples,
+                    start_idx=start_idx, signal_range=signal_range, max_lag=max_lag,
+                    fit_max_lag=fit_max_lag, tau_bounds=tau_bounds,
+                    r2_threshold=r2_threshold, acorr_1_threshold=acorr_1_threshold,
+                    label="V1"
+                )
+                df_se_m2, _ = bootstrap_trace_decay_analysis(
+                    m2_data, sample_size=sample_size, n_samples=n_samples,
+                    start_idx=start_idx, signal_range=signal_range, max_lag=max_lag,
+                    fit_max_lag=fit_max_lag, tau_bounds=tau_bounds,
+                    r2_threshold=r2_threshold, acorr_1_threshold=acorr_1_threshold,
+                    label="M2"
+                )
+            else:
+                # Run bootstrap acorr and fit for both V1 and M2
+                df_se_v1, _ = bootstrap_acorr_analysis(
+                    v1_data, sample_size=sample_size, n_samples=n_samples,
+                    start_idx=start_idx, signal_range=signal_range, max_lag=max_lag,
+                    fit_max_lag=fit_max_lag, tau_bounds=tau_bounds,
+                    r2_threshold=r2_threshold, acorr_1_threshold=acorr_1_threshold,
+                    label="V1"
+                )
+                df_se_m2, _ = bootstrap_acorr_analysis(
+                    m2_data, sample_size=sample_size, n_samples=n_samples,
+                    start_idx=start_idx, signal_range=signal_range, max_lag=max_lag,
+                    fit_max_lag=fit_max_lag, tau_bounds=tau_bounds,
+                    r2_threshold=r2_threshold, acorr_1_threshold=acorr_1_threshold,
+                    label="M2"
+                )
 
             taus_v1 = df_se_v1["tau"].values
             taus_m2 = df_se_m2["tau"].values
@@ -470,7 +600,9 @@ results_df_se = compare_tau_distributions_vs_sample_size_repeat(
     m2_data=m2_avgs_array_2d,
     sample_sizes=sample_sizes,
     n_samples=100,
-    n_repeats=50
+    n_repeats=50,
+    acorr_or_trace='trace',
+    r2_threshold=0.8
 )
 # %%
 
@@ -479,7 +611,9 @@ results_df_di = compare_tau_distributions_vs_sample_size_repeat(
     m2_data=m2_avgs_array_2d,
     sample_sizes=sample_sizes,
     n_samples=100,
-    n_repeats=50
+    n_repeats=50,
+    acorr_or_trace='trace',
+    r2_threshold=0.8
 )
 
 # %%
@@ -526,6 +660,7 @@ def plot_pvalue_vs_sample_size(
     plt.show()
 
 # %%
+
 def plot_effects_vs_sample_size(results_df):
     df = results_df.copy()
 
@@ -547,6 +682,7 @@ def plot_effects_vs_sample_size(results_df):
     plt.show()
     
 # %%
+
 def plot_median_taus_vs_sample_size(
     results_df,
     fig_size=(8, 5),

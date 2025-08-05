@@ -4656,3 +4656,61 @@ def align_averaged_traces_from_lists(df, trace_col='averaged_traces_all', time_c
     aligned_traces_df = pd.DataFrame(final_traces)
 
     return common_time_df, aligned_traces_df
+# %%
+import numpy as np
+
+def align_traces_from_separate_lists(trials_list, time_axes_list):
+    """
+    Aligns a list of trials to a shared time axis by interpolating and trimming 
+    to the overlapping time range.
+
+    Parameters:
+    - trials_list: list of 1D arrays/lists of trace values
+    - time_axes_list: list of 1D arrays/lists of time values (same length as trials_list)
+
+    Returns:
+    - aligned_traces: list of aligned 1D arrays (all same length)
+    - aligned_time_axes: list of 1D arrays, each identical (shared aligned time axis)
+    """
+    if len(trials_list) != len(time_axes_list):
+        raise ValueError("trials_list and time_axes_list must be the same length")
+
+    trace_list = []
+    time_list = []
+
+    for trial, time in zip(trials_list, time_axes_list):
+        trace = np.array(trial)
+        time = np.array(time)
+        n = min(len(trace), len(time))
+        trace_list.append(trace[:n])
+        time_list.append(time[:n])
+
+    # Find common overlapping time range
+    start_times = [t[0] for t in time_list]
+    end_times = [t[-1] for t in time_list]
+    common_start = max(start_times)
+    common_end = min(end_times)
+    if common_start >= common_end:
+        raise ValueError("No overlapping time range across traces.")
+
+    # Define common time axis using finest resolution
+    resolutions = [np.mean(np.diff(t)) for t in time_list]
+    min_res = min(resolutions)
+    common_time = np.arange(common_start, common_end + min_res, min_res)
+
+    # Interpolate each trace to the common time axis (only within each trace's range)
+    interpolated_traces = []
+    for trace, time in zip(trace_list, time_list):
+        valid_mask = (common_time >= time[0]) & (common_time <= time[-1])
+        interp_vals = np.interp(common_time[valid_mask], time, trace)
+        interpolated_traces.append(interp_vals)
+
+    # Trim all to same minimum length
+    min_len = min(len(t) for t in interpolated_traces)
+    aligned_traces = [t[:min_len] for t in interpolated_traces]
+    aligned_time = common_time[:min_len]
+
+    # Return aligned time axis as a repeated list
+    aligned_time_axes = [aligned_time] * len(aligned_traces)
+
+    return aligned_traces, aligned_time_axes

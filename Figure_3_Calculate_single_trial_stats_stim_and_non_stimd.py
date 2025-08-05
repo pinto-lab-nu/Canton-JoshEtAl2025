@@ -111,7 +111,7 @@ analysis_plotting_functions.plot_ecdf_comparison(fhwm_v1*sampling_interval,fhwm_
                      yticks_start=0, yticks_end=1, yticks_step=0.5,
                      xlim=[0,3],
                      stat_test='auto',
-                     figsize=[3,4],
+                     figsize=[4,5],
                      show_normality_pvals=True)
 
 

@@ -106,7 +106,7 @@ def process_and_summarize_single_trial_data(
         roi_keys=single_trial_data['roi_keys'],
         time_axes=single_trial_data['time_axis_sec'],
         kernel_size=7,
-        peak_thresh=2.94,
+        peak_thresh=3,
         group_threshold=2,
         time_variance='peak_time',
         subsample=False,

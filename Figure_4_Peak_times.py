@@ -32,7 +32,7 @@ analysis_plotting_functions.plot_ecdf_comparison(peak_v1,peak_m2,
                      yticks_start=0, yticks_end=1, yticks_step=0.5,
                      xlim=[0,8],
                      stat_test='auto',
-                     figsize=[3,6],
+                     figsize=[4,5],
                      show_normality_pvals=True)
 
 
@@ -52,7 +52,6 @@ analysis_plotting_functions.prepare_and_plot_heatmap(result_M2_standard_non_stim
     figsize=(6,6),
     xlim=[-3,10])
 
-
 analysis_plotting_functions.prepare_and_plot_heatmap(result_V1_standard_non_stimd_filt,trace_column='averaged_traces_all',
     sort_by='peak_time_avg',
     vmin=0,
@@ -66,7 +65,6 @@ analysis_plotting_functions.prepare_and_plot_heatmap(result_V1_standard_non_stim
     norm_type='minmax',
     figsize=(6,6),
     xlim=[-3,10])
-
 
 # %%
 
