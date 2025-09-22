@@ -6,7 +6,7 @@ Created on Fri Aug  1 10:42:45 2025
 """
 
 
-trial_data=result_M2_high_trial_count_non_stimd_filt
+trial_data=result_V1_standard_non_stimd
 
 pseudo_dfs_iteration_M2=calculate_single_trial_features.generate_pseudo_trials_select_cells(
     roi_ids = np.array(trial_data['roi_id_extended_dataset']),
@@ -55,7 +55,10 @@ features_to_track = [
 
 # ---- Define filters ----
 filter_steps = [
-
+    ('response_proportion >= 0.6', lambda df: df[df['response_proportion'] >= 0.6]),
+    # ('peak_time_std <= 0.5', lambda df: df[df['peak_time_std'] <= 0.75]),
+    # ('peak_time_avg <= 0.5', lambda df: df[df['peak_time_avg'] >= 1.0]),
+    # ('peak_amp_avg >= 2', lambda df: df[df['peak_amp_avg'] >= 2]),
     ('roi_occurrence_all > 0', lambda df: df[df['roi_id_extended_dataset'].map(df['roi_id_extended_dataset'].value_counts()) > 0])
     ]
 # %%
@@ -73,10 +76,15 @@ for iter_label, pseudo_trials_dffs_iter in pseudo_results_multi_iter_M2.items():
     pseudo_results_filt_multi_iter_M2[iter_label] =  result_M2_pseudo_filt
 
 
+# %%
+
+result_M2_filt, summaries_M2 = calculate_single_trial_features.filter_and_summarize(result_V1_standard_non_stimd, result_V1_standard_non_stimd, filter_steps, features_to_track, label="pseudo")
+
 # %% Figure 4G
 
 xval_results = calculate_cross_corr.crossval_peak_timing_shuffle(
-    peak_or_com_series=result_M2_high_trial_count_non_stimd_filt['peak_time_by_trial'],
+    # peak_or_com_series=result_M2_standard_non_stimd['peak_time_by_trial'],
+    peak_or_com_series=result_M2_filt['peak_time_by_trial'],
     metric='peak',
     n_iter=10
     # random_seed=42
@@ -122,7 +130,7 @@ iterations_xval = 1000
 
 for i in range(iterations_xval):
     xval_results = calculate_cross_corr.crossval_peak_timing_shuffle(
-        peak_or_com_series=result_M2_high_trial_count_non_stimd_filt['peak_time_by_trial'],
+        peak_or_com_series=result_M2_filt['peak_time_by_trial'],
         metric='peak',
         n_iter=5,  # single iteration per call
         random_seed=None  # or set = i for reproducibility
@@ -137,7 +145,7 @@ for i in range(iterations_xval):
 
 # Convert to DataFrame
 xval_df_high_trial = pd.DataFrame(xval_summary)
-# %%
+
 
 xval_summary = []
 iterations_xval = 1000
@@ -163,14 +171,15 @@ xval_df = pd.DataFrame(xval_summary)
 # %%
 
 analysis_plotting_functions.plot_ecdf_comparison(xval_df['correlation_r'],xval_df_high_trial['correlation_r'],
-                     label1='"MOs high trial count pseudo_data', label2="MOs high trial count data",
+                     label1='"VISp 5 trial pseudo_data', label2="VISp 5 trial data",
                      line_color1='k',line_color2='k',
                      xlabel="r values",
                      ylabel="proportion of iterations",
                      title='',
                      stat_test='auto',
-                     figsize=[4,5],
-                     # xticks_start=0, xticks_end=25, xticks_step=5,
+                     figsize=[4,4],
+                      xticks_start=0, xticks_end=1, xticks_step=.2,
+                       xlim=(0,.5)
                      # yticks_start=0, yticks_end=1, yticks_step=0.5,
                      # show_normality_pvals=True,
                      )
@@ -223,6 +232,8 @@ analysis_plotting_functions.plot_ecdf_comparison(r_matrix_df_real[5],r_matrix_df
                      # yticks_start=0, yticks_end=1, yticks_step=0.5,
                      show_normality_pvals=True,
                      )
+
+
 
 # %%
 

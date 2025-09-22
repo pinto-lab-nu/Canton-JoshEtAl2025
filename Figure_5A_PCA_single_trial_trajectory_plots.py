@@ -313,7 +313,9 @@ def plot_single_trial_trajectory(
     plot_average=True, trial_indices=None, stride=1, skip=1,
     plot_style='solid', line_width=1.5, stim_period=False,
     smoothing_method='median', marker_same_color_as_line=False,
-    baseline_as_centroid=False, join=False
+    baseline_as_centroid=False, join=False, show_grid=True,
+    colors=None,  # <-- NEW: list of colors for trials
+    truncate_end=None  # <-- NEW: truncate last N points of each trial
 ):
     os.makedirs(output_dir, exist_ok=True)
 
@@ -331,15 +333,24 @@ def plot_single_trial_trajectory(
 
     fig = plt.figure(figsize=(8, 6))
     ax = fig.add_subplot(111, projection='3d')
-    cmap = plt.get_cmap('tab20')
+
+    # If colors not provided, default to colormap
+    if colors is None:
+        cmap = plt.get_cmap('tab20')
+        colors = [cmap(idx % cmap.N) for idx in range(len(trial_projs_basel))]
 
     for idx, (basel_trial, resp_trial) in enumerate(zip(trial_projs_basel, trial_projs_resp)):
-        color = cmap(idx % cmap.N)
+        color = colors[idx % len(colors)]
 
         if smoothing_method == 'median':
             basel_trial = smooth_trajectory_median(basel_trial, kernel_size=stride)
             resp_trial = smooth_trajectory_median(resp_trial, kernel_size=stride)
 
+
+         # --- NEW: truncate last N points if requested ---
+        if truncate_end is not None and truncate_end > 0:
+            resp_trial = resp_trial[:-truncate_end] if len(resp_trial) > truncate_end else resp_trial
+             
         basel_trial = basel_trial[::skip]
         resp_trial = resp_trial[::skip]
 
@@ -392,6 +403,11 @@ def plot_single_trial_trajectory(
             a_mean = a_mean[::skip]
             b_mean = b_mean[::skip]
 
+            # --- NEW: truncate end points for averages too ---
+            if truncate_end is not None and truncate_end > 0:
+                a_mean = a_mean[:-truncate_end] if len(a_mean) > truncate_end else a_mean
+                b_mean = b_mean[:-truncate_end] if len(b_mean) > truncate_end else b_mean
+
             linestyle = '--' if plot_style == 'dashed' else '-'
             ax.plot(a_mean[:, 0], a_mean[:, 1], a_mean[:, 2],
                     color='black', linewidth=3, label='Mean Baseline', linestyle=linestyle)
@@ -404,6 +420,7 @@ def plot_single_trial_trajectory(
                     color='black', linestyle='--', linewidth=2)
         except Exception as e:
             print(f"Error computing mean for expt {i}, index {j}: {e}")
+
 
     if stim_period:
         try:
@@ -419,7 +436,7 @@ def plot_single_trial_trajectory(
     ax.set_ylabel('PC2', fontsize=14)
     ax.set_zlabel('PC3', fontsize=14)
     ax.set_title(f'Trial Trajectories (Expt {i}, Index {j})', fontsize=16)
-
+    ax.grid(show_grid)   # <-- this line
     legend_elements = [
         Line2D([0], [0], marker='^', color='#444444', label='Trial start', markersize=6, linestyle='None'),
         Line2D([0], [0], marker='o', color='#444444', label='Stim start', markersize=6, linestyle='None'),
@@ -432,8 +449,15 @@ def plot_single_trial_trajectory(
     filename = f"pca_trial_lines_expt{i}_index{j}.svg"
     plt.savefig(os.path.join(output_dir, filename), bbox_inches='tight', format='svg')
 
+    # import plotly.io as pio
+    # import plotly.tools as tls
 
-# %% 
+    # fig_plotly = tls.mpl_to_plotly(fig)   # convert from matplotlib
+    # pio.write_html(fig_plotly, "trajectory.html")
+
+# %%  Figure_5A
+
+
 #  i=15,j=7, trial_indices=[4,3,1]
 plot_single_trial_trajectory(
     m2_pca_results,
@@ -441,16 +465,56 @@ plot_single_trial_trajectory(
     j=7,
     output_dir="pca_trajectory_plots_svg",
     plot_average=False,
-    trial_indices=[4,3,1],
-    stride=15,
+    trial_indices=[0,2,1],
+    stride=9,
     plot_style='solid',  # options: 'scatter', 'dashed', 'solid'
-    line_width=2.0,
-    skip=3,
+    line_width=2,
+    skip=1,
     stim_period=None,
     smoothing_method='median', # enable median filter smoothing
     join=True,         # Optional connection line
     baseline_as_centroid=True,
-    marker_same_color_as_line=True  # Optional matching marker color
+    marker_same_color_as_line=True,  # Optional matching marker color
+    show_grid=True,
+    colors=['#009E73', '#556B2F', '#000000'],
+    truncate_end=140
+)
+
+# %%
+
+# i=11
+# j=1
+# trial_indices=[0,1,2]
+
+
+# i=16
+# j=2
+# trial_indices=[0,3,2]
+
+
+i=6
+j=7
+trial_indices=[0,4,3]
+
+plot_single_trial_trajectory(
+    m2_pca_results,
+    i=i,
+    j=j,
+    output_dir="pca_trajectory_plots_svg",
+    plot_average=False,
+    trial_indices=trial_indices,
+    stride=9,
+    plot_style='solid',  # options: 'scatter', 'dashed', 'solid'
+    line_width=2,
+    skip=2,
+    stim_period=None,
+    smoothing_method='median', # enable median filter smoothing
+    join=True,         # Optional connection line
+    baseline_as_centroid=True,
+    marker_same_color_as_line=True,  # Optional matching marker color
+    show_grid=True,
+    colors=['#009E73', '#8E44AD', '#D55E00'],
+    truncate_end=0
 )
 
 # %%

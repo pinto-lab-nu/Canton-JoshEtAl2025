@@ -233,11 +233,11 @@ def normalize_rows(df, norm_type='minmax', min_window=None, max_window=None, pea
                 min_start, min_end = min_window
                 min_start = max(0, min_start)
                 min_end = min(n_cols, min_end)
-                min_val = np.nanmin(row.iloc[min_start:min_end])
+                min_val = np.nanmean(row.iloc[min_start:min_end])
             else:
                 min_val = np.nanmin(row)
 
-            # Get max from specified window
+            # Get max from specified windowa
             if max_window is not None:
                 max_start, max_end = max_window
                 max_start = max(0, max_start)
@@ -270,26 +270,36 @@ def normalize_rows(df, norm_type='minmax', min_window=None, max_window=None, pea
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_mean_trace_multiple_dataframe_input(result1, result2=None, result3=None, result4=None, result5=None, 
-                                             y_limits=[-8, 8], legend_names=None, norm_mean=False,
-                                             norm_type_row=None,norm_rows=True, time_array=None, exclude_windows=None):
-    
+def plot_mean_trace_multiple_dataframe_input(
+    result1, result2=None, result3=None, result4=None, result5=None, 
+    y_limits=[-8, 8],x_limits=[-3, 10], legend_names=None, norm_mean=False,
+    norm_type_row=None, norm_rows=True, time_array=None, exclude_windows=None,
+    line_colors=None, fill_alpha=0.75,
+    xticks=None, yticks=None, xlabel=None, ylabel=None
+):
     sampling_interval = 0.032958316
     data_samples = result1.shape[1]
 
     # Time vector logic
     if time_array is not None:
-        time = np.array(time_array)
+        if isinstance(time_array, pd.DataFrame):
+            time = time_array.squeeze().to_numpy()
+        else:
+            time = np.array(time_array)
     else:
         time = np.linspace(sampling_interval, sampling_interval * data_samples, data_samples)
+        
+    # Default colors if not provided
+    default_colors = plt.cm.jet(np.linspace(0, 1, 5))
+    if line_colors is None:
+        line_colors = default_colors
+    else:
+        while len(line_colors) < 5:
+            line_colors.append('gray')
 
-    # Colors and legend
-    colors = plt.cm.jet(np.linspace(0, 1, 5))
+    # Default legend names if not provided
     if legend_names is None:
         legend_names = ["Result 1", "Result 2", "Result 3", "Result 4", "Result 5"]
-
-    
-    
 
     # Normalize trace and SEM to peak
     def normalize_trace_and_sem(trace, sem):
@@ -309,12 +319,11 @@ def plot_mean_trace_multiple_dataframe_input(result1, result2=None, result3=None
 
     # Plotting function
     def process_and_plot(df, label, color):
-        if normalize_rows:
-            if norm_type_row=='minmax':
-                df = normalize_rows(df,norm_type_row,min_window=(0,80),max_window=(100,300))
+        if norm_rows:
+            if norm_type_row == 'minmax':
+                df = normalize_rows(df, norm_type_row, min_window=(0, 80), max_window=(100, 300))
             else:
-                df = normalize_rows(df,norm_type_row,peak_window=(100,300))
-
+                df = normalize_rows(df, norm_type_row, peak_window=(100, 300))
 
         y = df.mean(axis=0).to_numpy()
         y_sem = (df.std(axis=0) / np.sqrt(df.shape[0])).to_numpy()
@@ -326,7 +335,7 @@ def plot_mean_trace_multiple_dataframe_input(result1, result2=None, result3=None
             y, y_sem = exclude_trace_windows(y, y_sem, time, exclude_windows)
 
         plt.plot(time, y, label=label, color=color)
-        plt.fill_between(time, (y + y_sem).flatten(), (y - y_sem).flatten(), color=color, alpha=0.75)
+        plt.fill_between(time, (y + y_sem).flatten(), (y - y_sem).flatten(), color=color, alpha=fill_alpha)
 
     # Begin plotting
     fig, ax = plt.subplots()
@@ -338,12 +347,22 @@ def plot_mean_trace_multiple_dataframe_input(result1, result2=None, result3=None
         legend_names
     )):
         if result is not None:
-            process_and_plot(result, name, colors[idx])
+            process_and_plot(result, name, line_colors[idx])
 
     plt.ylim(y_limits)
+    plt.xlim(x_limits)
+
+    if xticks is not None:
+        plt.xticks(xticks)
+    if yticks is not None:
+        plt.yticks(yticks)
+    if xlabel is not None:
+        plt.xlabel(xlabel)
+    if ylabel is not None:
+        plt.ylabel(ylabel)
+
     plt.legend()
     plt.show()
-
 
 # %%
 import matplotlib.pyplot as plt
@@ -1742,6 +1761,66 @@ def bar_plot_two_dfs_with_lines_and_median(
 
     return sorted_distances, p_values, None
 
+# %%
+
+import matplotlib.pyplot as plt
+
+def plot_histogram(
+    data,
+    bins=20,
+    xlabel="X-axis",
+    ylabel="Y-axis",
+    title="Histogram",
+    color="blue",
+    edgecolor="black",
+    figsize=(6, 4),
+    xlim=None,
+    ylim=None,
+    xticks=None,
+    yticks=None
+):
+    """
+    General function to plot a histogram.
+
+    Parameters
+    ----------
+    data : array-like
+        Input data to plot.
+    bins : int or sequence, optional
+        Number of bins or bin edges.
+    xlabel, ylabel, title : str, optional
+        Axis labels and plot title.
+    color : str, optional
+        Fill color of histogram bars.
+    edgecolor : str, optional
+        Color of bar edges.
+    figsize : tuple, optional
+        Figure size (width, height).
+    xlim, ylim : tuple, optional
+        Axis limits (min, max).
+    xticks, yticks : list, optional
+        Custom tick locations.
+    """
+
+    plt.figure(figsize=figsize)
+    plt.hist(data, bins=bins, color=color, edgecolor=edgecolor)
+
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+
+    if xlim:
+        plt.xlim(xlim)
+    if ylim:
+        plt.ylim(ylim)
+    if xticks is not None:
+        plt.xticks(xticks)
+    if yticks is not None:
+        plt.yticks(yticks)
+
+    plt.tight_layout()
+    plt.show()
+
 
 # %%
 
@@ -2440,13 +2519,13 @@ def plot_autocorrelation_and_fit(
 
     # File saving
     if custom_filename:
-        filename = custom_filename if custom_filename.endswith('.svg') else custom_filename + '.svg'
+        filename = custom_filename if custom_filename.endswith('.jpg') else custom_filename + '.jpg'
     else:
         tau_str = f"tau0_{tau0:.2f}_tau1_{tau1:.2f}"
-        filename = f"{title_prefix}_cell{cell_id}_{tau_str}.svg"
+        filename = f"{title_prefix}_cell{cell_id}_{tau_str}.jpg"
 
     save_path = os.path.join(save_dir, filename)
-    fig.savefig(save_path, bbox_inches='tight', format='svg', dpi=300)
+    fig.savefig(save_path, bbox_inches='tight', format='jpg', dpi=300)
     print(f"Saved SVG: {save_path}")
 
 
@@ -2636,60 +2715,7 @@ def plot_cross_correlation_means(
     # plt.gca().set_aspect('equal', adjustable='box')
     plt.tight_layout()
     plt.show()
-# %%
-# def prepare_and_plot_heatmap(
-#     result_df,
-#     trace_column='averaged_traces_all',
-#     time_column='time_axes',
-#     sort_by='peak_time_array_mean_trial',
-#     vmin=-2,
-#     vmax=2,
-#     start_index=0,
-#     sampling_interval=0.032958316,
-#     exclude_window=None
-# ):
-#     """
-#     Aligns traces using the first time axis in each row, sorts them, and plots a heatmap.
 
-#     Parameters:
-#         result_df (pd.DataFrame): DataFrame with columns for sorting, traces, and time axes.
-#         trace_column (str): Column name containing the trace arrays.
-#         time_column (str): Column name containing list of time axes (first one used).
-#         sort_by (str): Column name to sort the DataFrame by.
-#         vmin (float): Min value for heatmap color scale.
-#         vmax (float): Max value for heatmap color scale.
-#         start_index (int): Start index for time axis.
-#         sampling_interval (float): Sampling interval for time axis.
-#         exclude_window (tuple or None): Optional window to exclude (e.g., (start, end) in seconds).
-#     """
-#     import analyzeEvoked2P
-
-#     # Align all traces to a shared time axis
-#     common_time_df, aligned_traces_df = analyzeEvoked2P.align_averaged_traces_from_lists(
-#         result_df,
-#         trace_col=trace_column,
-#         time_col=time_column
-#     )
-
-#     # Reset index before sorting
-#     result_df_reset = result_df.reset_index(drop=True)
-
-#     # Sort result_df and get sorted positional indices
-#     sorted_df = result_df_reset.sort_values(by=sort_by)
-#     sorted_positions = sorted_df.index
-
-#     # Reorder aligned traces by sorted positions using iloc
-#     aligned_traces_sorted = aligned_traces_df.iloc[sorted_positions].reset_index(drop=True)
-
-#     # Plot heatmap
-#     plot_heatmap(
-#         aligned_traces_sorted,
-#         vmin=vmin,
-#         vmax=vmax,
-#         start_index=start_index,
-#         sampling_interval=sampling_interval,
-#         exclude_window=exclude_window
-#     )
     
 # %%
 import numpy as np
@@ -2710,7 +2736,8 @@ def prepare_and_plot_heatmap(
     xlim=None,
     figsize=(8, 6),
     cbar_shrink=1.0,  # scalar to shrink colorbar height (1.0 = no shrink)
-    norm_type=None
+    norm_type=None,
+    align=True
 ):
     """
     Aligns traces using the first time axis in each row, sorts them, and plots a heatmap.
@@ -2732,6 +2759,7 @@ def prepare_and_plot_heatmap(
         cbar_height_shrink (float): Scalar to shrink colorbar height (default 1.0 = no shrink).
     """
     # Align all traces to a shared time axis
+    
     common_time_df, aligned_traces_df = analyzeEvoked2P.align_averaged_traces_from_lists(
         result_df,
         trace_col=trace_column,
@@ -2834,9 +2862,10 @@ def prepare_and_plot_heatmap(
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-from scipy.stats import sem, ttest_ind, linregress
+from scipy.stats import sem, linregress
 import statsmodels.api as sm
 from statsmodels.formula.api import ols
+from statsmodels.stats.multicomp import pairwise_tukeyhsd
 
 def plot_single_point_sem_with_anova(
     df1,
@@ -2856,8 +2885,8 @@ def plot_single_point_sem_with_anova(
 ):
     """
     Plots mean ± SEM per condition per group, with optional scatter and regression.
-    Performs two-way ANOVA and per-condition t-tests, adds asterisks for significance.
-    Optionally plots regression lines and switches y-axis to log scale.
+    Performs two-way ANOVA and Tukey HSD posthoc tests.
+    Annotates significant Tukey results directly on the plot.
     """
     assert df1.columns.equals(df2.columns), "df1 and df2 must have the same columns"
 
@@ -2920,7 +2949,13 @@ def plot_single_point_sem_with_anova(
     print("\n=== Two-Way ANOVA ===")
     print(anova_table)
 
-    # ===== Add per-condition t-test significance asterisks =====
+    # ===== Posthoc Tukey HSD =====
+    print("\n=== Posthoc Tukey HSD (all group-condition combinations) ===")
+    full_df["group_condition"] = full_df["group"].astype(str) + "_" + full_df["condition"].astype(str)
+    tukey = pairwise_tukeyhsd(endog=full_df["value"], groups=full_df["group_condition"], alpha=0.05)
+    print(tukey.summary())
+
+    # ===== Annotate Tukey results (Real vs Pseudo within each condition) =====
     def p_to_asterisks(p):
         if p < 0.001:
             return '***'
@@ -2935,13 +2970,20 @@ def plot_single_point_sem_with_anova(
     y_offset = 0.05 * y_max if not log_y else 0.1 * y_max
 
     for i, cond in enumerate(conditions):
-        vals1 = df1[cond].dropna()
-        vals2 = df2[cond].dropna()
-        stat, pval = ttest_ind(vals1, vals2, equal_var=False)
-        stars = p_to_asterisks(pval)
-        if stars:
-            y_star = max(vals1.max(), vals2.max()) + y_offset
-            ax.text(i, y_star, stars, ha='center', va='bottom', fontsize=14, color='black')
+        group1 = f"{group_labels[0]}_{cond}"
+        group2 = f"{group_labels[1]}_{cond}"
+
+        # Look up Tukey result for this pair
+        for res in tukey._results_table.data[1:]:
+            g1, g2, meandiff, p_adj, lower, upper, reject = res
+            # Convert to proper types
+            p_adj = float(p_adj)
+            reject = str(reject) == "True"
+
+            if (g1 == group1 and g2 == group2) or (g1 == group2 and g2 == group1):
+                if reject:
+                    y_star = max(df1[cond].max(), df2[cond].max()) + y_offset
+                    ax.text(i, y_star, p_to_asterisks(p_adj), ha='center', va='bottom', fontsize=14, color='black')
 
     # ===== Add ANOVA effect p-values to plot (in lower right) =====
     effects = ['C(group)', 'C(condition)', 'C(group):C(condition)']
@@ -2960,5 +3002,6 @@ def plot_single_point_sem_with_anova(
     if show:
         plt.show()
 
-    return anova_table
+    return anova_table, tukey
+
 

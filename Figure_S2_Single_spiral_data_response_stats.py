@@ -6,16 +6,23 @@ Created on Thu May 29 12:29:41 2025
 """
 
 # %% Stim'd cells
+import datetime
 
 
+target_dates = [datetime.date(2024, 12, 17),
+                datetime.date(2024, 12, 18),
+                datetime.date(2024, 12, 19),
+                # datetime.date(2025, 1, 15)
+                ]
 
+result_V1_short_stim_non_stimd_exc_filt = result_V1_short_stim_non_stimd_exc_filt[~result_V1_short_stim_non_stimd_exc_filt["session_date"].isin(target_dates)]
 # %%
 
-peak_array_v1=result_V1_standard_stimd_exc['peak_amp_avg']
-peak_array_m2=result_M2_standard_stimd_exc['peak_amp_avg']
+peak_array_v1=result_V1_short_stim_stimd['peak_amp_avg']
+peak_array_m2=result_M2_short_stim_stimd['peak_amp_avg']
 
-# peak_array_v1=result_V1_standard_stimd_exc['peak_array_mean_trial']
-# peak_array_m2=result_M2_standard_stimd_exc['peak_array_mean_trial']
+# peak_array_v1=result_V1_short_stim_stimd['peak_array_mean_trial']
+# peak_array_m2=result_M2_short_stim_stimd['peak_array_mean_trial']
 
 
 analysis_plotting_functions.plot_ecdf_comparison(peak_array_v1,peak_array_m2,
@@ -30,8 +37,8 @@ analysis_plotting_functions.plot_ecdf_comparison(peak_array_v1,peak_array_m2,
                      show_normality_pvals=True,
                      )
 # %%
-proportions_v1=result_V1_standard_stimd_exc['response_proportion']
-proportions_m2=result_M2_standard_stimd_exc['response_proportion']
+proportions_v1=result_V1_short_stim_stimd['response_proportion']
+proportions_m2=result_M2_short_stim_stimd['response_proportion']
 
 
 analysis_plotting_functions.plot_ecdf_comparison((1-proportions_v1),(1-proportions_m2),
@@ -44,10 +51,11 @@ analysis_plotting_functions.plot_ecdf_comparison((1-proportions_v1),(1-proportio
                      show_normality_pvals=True,
                      )
 
-# %% peak time for each trial of stimd_exc cells
+# %% peak time for each trial of stimd cells
 
-peak_v1 = result_V1_standard_stimd_exc['peak_time_avg'].explode().astype(float).to_numpy()
-peak_m2 = result_M2_standard_stimd_exc['peak_time_avg'].explode().astype(float).to_numpy()
+peak_v1 = result_V1_short_stim_stimd['peak_time_avg'].explode().astype(float).to_numpy()
+peak_m2 = result_M2_short_stim_stimd['peak_time_avg'].explode().astype(float).to_numpy()
+
 
 analysis_plotting_functions.plot_ecdf_comparison(peak_v1,peak_m2,
                      label1=params['general_params']['V1_lbl'], label2=params['general_params']['M2_lbl'],title='',
@@ -64,8 +72,8 @@ analysis_plotting_functions.plot_ecdf_comparison(peak_v1,peak_m2,
 
 # %% width for each trial of responsive cells
 
-fhwm_v1 = result_V1_standard_stimd_exc['fwhm_by_trial'].explode().astype(float).to_numpy()
-fhwm_m2 = result_M2_standard_stimd_exc['fwhm_by_trial'].explode().astype(float).to_numpy()
+fhwm_v1 = result_V1_short_stim_stimd['fwhm_by_trial'].explode().astype(float).to_numpy()
+fhwm_m2 = result_M2_short_stim_stimd['fwhm_by_trial'].explode().astype(float).to_numpy()
 
 
 analysis_plotting_functions.plot_ecdf_comparison(fhwm_v1,fhwm_m2,
@@ -82,7 +90,7 @@ analysis_plotting_functions.plot_ecdf_comparison(fhwm_v1,fhwm_m2,
 
 # %%
 
-analysis_plotting_functions.plot_ecdf_comparison(summary_stats_V1_standard_stimd_exc['responsive_proportion'],summary_stats_M2_standard_stimd_exc['responsive_proportion'],
+analysis_plotting_functions.plot_ecdf_comparison(summary_stats_V1_short_stim_stimd_exc['responsive_proportion'],summary_stats_M2_short_stim_stimd_exc['responsive_proportion'],
                      label1=params['general_params']['V1_lbl'], label2=params['general_params']['M2_lbl'],title='',
                      line_color1=params['general_params']['V1_cl'],line_color2=params['general_params']['M2_cl'],
                      xlabel="Prop. of responding neurons",
@@ -99,8 +107,8 @@ analysis_plotting_functions.plot_ecdf_comparison(summary_stats_V1_standard_stimd
 
 # %% width for each trial of responsive cells
 
-fhwm_v1 = result_V1_standard_non_stimd_exc_filt['fwhm_by_trial'].explode().astype(float).to_numpy()
-fhwm_m2 = result_M2_standard_non_stimd_exc_filt['fwhm_by_trial'].explode().astype(float).to_numpy()
+fhwm_v1 = result_V1_short_stim_non_stimd_exc_filt['fwhm_by_trial'].explode().astype(float).to_numpy()
+fhwm_m2 = result_M2_short_stim_non_stimd_exc_filt['fwhm_by_trial'].explode().astype(float).to_numpy()
 
 
 analysis_plotting_functions.plot_ecdf_comparison(fhwm_v1,fhwm_m2,
@@ -108,9 +116,9 @@ analysis_plotting_functions.plot_ecdf_comparison(fhwm_v1,fhwm_m2,
                      line_color1=params['general_params']['V1_cl'],line_color2=params['general_params']['M2_cl'],
                      xlabel="half peak width (s)",
                      ylabel="Directly stimulated cells",
-                     xticks_start=0, xticks_end=3, xticks_step=1,
-                     yticks_start=0, yticks_end=1, yticks_step=0.5,
-                     xlim=[0,3],
+                     # xticks_start=0, xticks_end=3, xticks_step=1,
+                     # yticks_start=0, yticks_end=1, yticks_step=0.5,
+                     # xlim=[0,3],
                      stat_test='auto',
                      figsize=[3,4],
                      show_normality_pvals=True)
@@ -118,10 +126,10 @@ analysis_plotting_functions.plot_ecdf_comparison(fhwm_v1,fhwm_m2,
 
 # %% peak for each trial of responsive cells
 
-# peak_v1 = result_V1_standard_non_stimd_exc_filt['peak_amp_avg'].explode().astype(float).to_numpy()
-# peak_m2 = result_M2_standard_non_stimd_exc_filt['peak_amp_avg'].explode().astype(float).to_numpy()
-peak_v1 = result_V1_standard_non_stimd_exc_filt['peak_array_mean_trial'].explode().astype(float).to_numpy()
-peak_m2 = result_M2_standard_non_stimd_exc_filt['peak_array_mean_trial'].explode().astype(float).to_numpy()
+# peak_v1 = result_V1_short_stim_non_stimd_exc_filt['peak_amp_avg'].explode().astype(float).to_numpy()
+# peak_m2 = result_M2_short_stim_non_stimd_exc_filt['peak_amp_avg'].explode().astype(float).to_numpy()
+peak_v1 = result_V1_short_stim_non_stimd_exc_filt['peak_array_mean_trial'].explode().astype(float).to_numpy()
+peak_m2 = result_M2_short_stim_non_stimd_exc_filt['peak_array_mean_trial'].explode().astype(float).to_numpy()
 
 analysis_plotting_functions.plot_ecdf_comparison(peak_v1,peak_m2,
                      label1=params['general_params']['V1_lbl'], label2=params['general_params']['M2_lbl'],title='',
@@ -140,8 +148,8 @@ analysis_plotting_functions.plot_ecdf_comparison(peak_array_v1,peak_array_m2)
 
 # %% this is reponse proportion each cell
 
-proportions_v1=result_V1_standard_non_stimd_exc_filt['response_proportion']
-proportions_m2=result_M2_standard_non_stimd_exc_filt['response_proportion']
+proportions_v1=result_V1_short_stim_non_stimd_exc_filt['response_proportion']
+proportions_m2=result_M2_short_stim_non_stimd_exc_filt['response_proportion']
 
 
 analysis_plotting_functions.plot_ecdf_comparison((1-proportions_v1),(1-proportions_m2),
@@ -155,8 +163,8 @@ analysis_plotting_functions.plot_ecdf_comparison((1-proportions_v1),(1-proportio
 # %% avg trial sig non stimd cells all
 
 
-peak_array_mean_V1=result_V1_standard_non_stimd_exc_filt['max_or_min_dff']
-peak_array_mean_M2=result_M2_standard_non_stimd_exc_filt['max_or_min_dff']
+peak_array_mean_V1=result_V1_short_stim_non_stimd_exc_filt['max_or_min_dff']
+peak_array_mean_M2=result_M2_short_stim_non_stimd_exc_filt['max_or_min_dff']
 
 analysis_plotting_functions.plot_ecdf_comparison(peak_array_mean_V1,peak_array_mean_M2)
 
@@ -165,10 +173,10 @@ analysis_plotting_functions.plot_ecdf_comparison(peak_array_mean_V1,peak_array_m
 # %%
 
 # Set variables and exclude 0s
-prop_V1 = summary_stats_V1_standard_non_stimd_exc['responsive_proportion']
-# prop_V1 = summary_stats_M2_short_stim_non_stimd_exc['responsive_proportion']
+prop_V1 = summary_stats_V1_short_stim_non_stimd_exc['responsive_proportion']
+# prop_V1 = summary_stats_V1_standard_non_stimd['responsive_proportion']
 
-prop_M2 = summary_stats_M2_standard_non_stimd_exc['responsive_proportion']
+prop_M2 = summary_stats_M2_short_stim_non_stimd_exc['responsive_proportion']
 
 prop_V1 = prop_V1[prop_V1 > 0]
 prop_M2 = prop_M2[prop_M2 > 0]
@@ -183,10 +191,11 @@ analysis_plotting_functions.plot_ecdf_comparison(
     line_color2=params['general_params']['M2_cl'],
     xlabel="Prop. of responding neurons",
     ylabel="Prop. of stimulated neuron",
-    xticks_start=0, xticks_end=0.15, xticks_step=0.05,
+    # xticks_start=0, xticks_end=0.10, xticks_step=0.05,
     yticks_start=0, yticks_end=1, yticks_step=0.5,
     stat_test='auto',
     figsize=[3, 4],
+    xlim=[0,0.10],
     show_normality_pvals=True
 )
 
@@ -204,14 +213,14 @@ dist_col = 'min_dist_from_stim_um'
 xtick_labels = np.linspace(50,400,8).astype('int')
 
 V1_dist_df, V1_values_T, V1_labels, V1_bin_centers = analyzeEvoked2P.calculate_proportion_by_distance_bin(
-    result_V1_standard_non_stimd_exc_filt,
+    result_V1_short_stim_non_stimd_exc_filt,
     group_cols,
     dist_col,
     bins
 )
 
 M2_dist_df, M2_values_T, M2_labels, M2_bin_centers = analyzeEvoked2P.calculate_proportion_by_distance_bin(
-    result_M2_standard_non_stimd_exc_filt,
+    result_M2_short_stim_non_stimd_exc_filt,
     group_cols,
     dist_col,
     bins
@@ -245,16 +254,16 @@ xtick_labels = np.linspace(50,400,8).astype('int')
 
 
 V1_dist_df, V1_values_T, V1_labels, V1_bin_centers = analyzeEvoked2P.calculate_responsive_proportion_by_distance_bin_by_all_cells(
-    result_V1_standard_non_stimd_exc_filt,
-    result_V1_standard_non_stimd_exc,
+    result_V1_short_stim_non_stimd_exc_filt,
+    result_V1_short_stim_non_stimd_exc,
     group_cols,
     dist_col,
     bins
 )
 
 M2_dist_df, M2_values_T, M2_labels, M2_bin_centers = analyzeEvoked2P.calculate_responsive_proportion_by_distance_bin_by_all_cells(
-    result_M2_standard_non_stimd_exc_filt,
-    result_M2_standard_non_stimd_exc,
+    result_M2_short_stim_non_stimd_exc_filt,
+    result_M2_short_stim_non_stimd_exc,
     group_cols,
     dist_col,
     bins
@@ -287,14 +296,14 @@ dist_col = 'peak_time_avg'
 xtick_labels = [0, .5, 1, 1.5, 2., 2.50, 3.00] 
 
 V1_dist_df, V1_values_T, V1_labels, V1_bin_centers = analyzeEvoked2P.calculate_proportion_by_distance_bin(
-    result_V1_standard_non_stimd_exc_filt,
+    result_V1_short_stim_non_stimd_exc_filt,
     group_cols,
     dist_col,
     bins
 )
 
 M2_dist_df, M2_values_T, M2_labels, M2_bin_centers = analyzeEvoked2P.calculate_proportion_by_distance_bin(
-    result_M2_standard_non_stimd_exc_filt,
+    result_M2_short_stim_non_stimd_exc_filt,
     group_cols,
     dist_col,
     bins

@@ -120,7 +120,7 @@ key_with_param['inclusion_param_set_id'] = incl_set_id
 acorr_vec, t_vec, mono_params, dual_params, r2_s, bic_s, r2_d, bic_d = analyzeSpont2P.extract_fit_data_for_key(key_with_param)
 
 
-# %%
+# %% Figure 2D 
 
 plot_autocorrelation_and_fit(
     acorr_vector=acorr_vec,
@@ -166,7 +166,7 @@ key_with_param['inclusion_param_set_id'] = incl_set_id
 acorr_vec, t_vec, mono_params, dual_params, r2_s, bic_s, r2_d, bic_d = analyzeSpont2P.extract_fit_data_for_key(key_with_param)
 
 
-# %%
+# %% Figure 2D
 
 plot_autocorrelation_and_fit(
     acorr_vector=acorr_vec,

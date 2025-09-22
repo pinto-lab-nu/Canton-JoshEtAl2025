@@ -23,8 +23,6 @@ from analyzeSpont2P import params as tau_params
 import analyzeSpont2P
 import Canton_Josh_et_al_2025_analysis_plotting_functions as analysis_plotting_functions
 
-
-
 import time
 
 # connect to dj 
@@ -1424,93 +1422,225 @@ def get_opsin_expression_vs_response(area, params=params, expt_type='standard'):
 
 # ---------------
 # %% plot correlation between opsin expression for stimd cells and response magnitude
-def plot_opsin_expression_vs_response(params=params, expt_type='standard', resp_type='dff', v1_data=None, m2_data=None, plot_what='stimd', axis_handle=None):
+# def plot_opsin_expression_vs_response(params=params, expt_type='standard', resp_type='dff', v1_data=None, m2_data=None, plot_what='stimd', axis_handle=None):
     
-    """
-    plot_opsin_expression_vs_response(params=params, expt_type='standard', resp_type='dff', v1_data=None, m2_data=None, plot_what='stimd', axis_handle=None)
-    plots correlation between opsin expression and response magnitude for V1 and M2
+#     """
+#     plot_opsin_expression_vs_response(params=params, expt_type='standard', resp_type='dff', v1_data=None, m2_data=None, plot_what='stimd', axis_handle=None)
+#     plots correlation between opsin expression and response magnitude for V1 and M2
     
-    INPUTS:
-        params       : dict, analysis parameters (default is params from top of this script)
-        expt_type    : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
-        resp_type    : str, 'dff' (default) or 'deconv'
-        v1_data      : dict with V1 expression stats, output of get_opsin_expression_vs_response (optional, if not provided will call that method)
-        m2_data      : dict with M2 expression stats, get_opsin_expression_vs_response (optional, if not provided will call that method)
-        plot_what    : str, 'stimd' (default) or 'non_stimd'
-        axis_handle  : axis handle for plotting (optional)
+#     INPUTS:
+#         params       : dict, analysis parameters (default is params from top of this script)
+#         expt_type    : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+#         resp_type    : str, 'dff' (default) or 'deconv'
+#         v1_data      : dict with V1 expression stats, output of get_opsin_expression_vs_response (optional, if not provided will call that method)
+#         m2_data      : dict with M2 expression stats, get_opsin_expression_vs_response (optional, if not provided will call that method)
+#         plot_what    : str, 'stimd' (default) or 'non_stimd'
+#         axis_handle  : axis handle for plotting (optional)
         
-    OUTPUTS:
-        expression_stats : dict with summary stats
-        ax               : axis handle
-    """
+#     OUTPUTS:
+#         expression_stats : dict with summary stats
+#         ax               : axis handle
+#     """
     
+#     # get data if necessary
+#     if v1_data is None:
+#         v1_data = get_opsin_expression_vs_response('V1', params=params, expt_type=expt_type
+#                                                    # , resp_type=resp_type
+#                                                    )
+#     if m2_data is None:
+#         m2_data = get_opsin_expression_vs_response('M2', params=params, expt_type=expt_type
+#                                                    # , resp_type=resp_type
+#                                                    )
+    
+#     # stats
+#     expression_stats = dict()
+#     expression_stats['V1_summary'] = v1_data
+#     expression_stats['M2_summary'] = m2_data
+    
+#     if plot_what != 'stimd' and plot_what != 'non_stimd':
+#         print('Unknown plot_what, returning analysis without plot')
+#         return expression_stats, None
+    
+#     # plot
+#     if axis_handle is None:
+#         plt.figure()
+#         ax = plt.gca()
+#     else:
+#         ax = axis_handle
+        
+#     # easy access variables
+#     x_v1  = v1_data['expression_levels']
+#     x_m2  = m2_data['expression_levels']
+#     y_v1  = v1_data['abs_resp_'+plot_what]
+#     cc_v1 = v1_data['cc_express_vs_'+plot_what+'_resp']
+#     p_v1  = v1_data['pval_express_vs_'+plot_what+'_resp']
+#     y_m2  = m2_data['abs_resp_'+plot_what]
+#     cc_m2 = m2_data['cc_express_vs_'+plot_what+'_resp']
+#     p_m2  = m2_data['pval_express_vs_'+plot_what+'_resp']
+#     x_v1  = x_v1[~np.isnan(y_v1)]
+#     y_v1  = y_v1[~np.isnan(y_v1)]
+#     x_m2  = x_m2[~np.isnan(y_m2)]
+#     y_m2  = y_m2[~np.isnan(y_m2)]
+    
+#     # fit for display only
+#     olsfit_v1 = sm.OLS(y_v1,sm.add_constant(x_v1)).fit()
+#     x_hat_v1  = np.arange(np.min(np.concatenate((x_v1,x_m2))),np.max(np.concatenate((x_v1,x_m2)))+.1,.1)
+#     y_hat_v1  = olsfit_v1.predict(sm.add_constant(x_hat_v1))
+#     predci    = olsfit_v1.get_prediction(sm.add_constant(x_hat_v1)).summary_frame()
+#     ci_up_v1  = predci.loc[:,'mean_ci_upper']
+#     ci_low_v1 = predci.loc[:,'mean_ci_lower']
+    
+#     olsfit_m2 = sm.OLS(y_m2,sm.add_constant(x_m2)).fit()
+#     x_hat_m2  = x_hat_v1
+#     y_hat_m2  = olsfit_m2.predict(sm.add_constant(x_hat_m2))
+#     predci    = olsfit_m2.get_prediction(sm.add_constant(x_hat_m2)).summary_frame()
+#     ci_up_m2  = predci.loc[:,'mean_ci_upper']
+#     ci_low_m2 = predci.loc[:,'mean_ci_lower']
+
+#     # finally plot everything
+#     ax.plot(x_v1,y_v1,'o',color=params['general_params']['V1_sh'],mew=0)
+#     ax.plot(x_hat_v1,y_hat_v1,'-',color=params['general_params']['V1_cl'],label=params['general_params']['V1_lbl'])
+#     ax.plot(x_hat_v1,ci_up_v1,'--',color=params['general_params']['V1_cl'],lw=.4)
+#     ax.plot(x_hat_v1,ci_low_v1,'--',color=params['general_params']['V1_cl'],lw=.4)
+    
+#     ax.plot(x_m2,y_m2,'o',color=params['general_params']['M2_sh'],mew=0)
+#     ax.plot(x_hat_m2,y_hat_m2,'-',color=params['general_params']['M2_cl'],label=params['general_params']['M2_lbl'])
+#     ax.plot(x_hat_m2,ci_up_m2,'--',color=params['general_params']['M2_cl'],lw=.4)
+#     ax.plot(x_hat_m2,ci_low_m2,'--',color=params['general_params']['M2_cl'],lw=.4)
+
+#     xl = ax.get_xlim()
+#     yl = ax.get_ylim()
+#     ax.text(xl[0]+.05,yl[1]*.9,'{}: r = {:1.2f}, p = {:1.2g}'.format(params['general_params']['V1_lbl'],cc_v1,p_v1),horizontalalignment='left',color=params['general_params']['V1_cl'])
+#     ax.text(xl[0]+.05,yl[1]*.82,'{}: r = {:1.2f}, p = {:1.2g}'.format(params['general_params']['M2_lbl'],cc_m2,p_m2),horizontalalignment='left',color=params['general_params']['M2_cl'])
+    
+#     if 'zscore' in v1_data['expression_level_type']:
+#         ax.set_xlabel('Opsin expression level (z-score)')
+#     else:
+#         ax.set_xlabel('Opsin expression level (a.u.)')
+#     if plot_what == 'stimd':
+#         ax.set_ylabel("Max abs(response), stim'd cells (z-score)")
+#     else:
+#         ax.set_ylabel("Max abs(response), non-stim'd cells (z-score)")
+
+#     ax.legend()
+#     ax.spines['right'].set_visible(False)
+#     ax.spines['top'].set_visible(False)
+    
+#     return expression_stats, ax     
+# %% plot correlation between opsin expression for stimd cells and response magnitude
+def plot_opsin_expression_vs_response(
+    params=params,
+    expt_type='standard',
+    resp_type='dff',
+    v1_data=None,
+    m2_data=None,
+    plot_what='stimd',
+    axis_handle=None,
+    xlim=None,
+    ylim=None,
+    xticks=None,
+    yticks=None,
+    figsize=(6, 4)
+):
+    """
+    plot_opsin_expression_vs_response(params=params, expt_type='standard', resp_type='dff',
+                                      v1_data=None, m2_data=None, plot_what='stimd',
+                                      axis_handle=None, xlim=None, ylim=None,
+                                      xticks=None, yticks=None, figsize=(6,4))
+    plots correlation between opsin expression and response magnitude for V1 and M2
+    """
+
     # get data if necessary
     if v1_data is None:
-        v1_data = get_opsin_expression_vs_response('V1', params=params, expt_type=expt_type, resp_type=resp_type)
+        v1_data = get_opsin_expression_vs_response('V1', params=params, expt_type=expt_type)
     if m2_data is None:
-        m2_data = get_opsin_expression_vs_response('M2', params=params, expt_type=expt_type, resp_type=resp_type)
-    
+        m2_data = get_opsin_expression_vs_response('M2', params=params, expt_type=expt_type)
+
     # stats
     expression_stats = dict()
     expression_stats['V1_summary'] = v1_data
     expression_stats['M2_summary'] = m2_data
-    
-    if plot_what != 'stimd' and plot_what != 'non_stimd':
+
+    if plot_what not in ['stimd', 'non_stimd']:
         print('Unknown plot_what, returning analysis without plot')
         return expression_stats, None
-    
+
     # plot
     if axis_handle is None:
-        plt.figure()
+        plt.figure(figsize=figsize)
         ax = plt.gca()
     else:
         ax = axis_handle
-        
+
     # easy access variables
-    x_v1  = v1_data['expression_levels']
-    x_m2  = m2_data['expression_levels']
-    y_v1  = v1_data['abs_resp_'+plot_what]
-    cc_v1 = v1_data['cc_express_vs_'+plot_what+'_resp']
-    p_v1  = v1_data['pval_express_vs_'+plot_what+'_resp']
-    y_m2  = m2_data['abs_resp_'+plot_what]
-    cc_m2 = m2_data['cc_express_vs_'+plot_what+'_resp']
-    p_m2  = m2_data['pval_express_vs_'+plot_what+'_resp']
-    x_v1  = x_v1[~np.isnan(y_v1)]
-    y_v1  = y_v1[~np.isnan(y_v1)]
-    x_m2  = x_m2[~np.isnan(y_m2)]
-    y_m2  = y_m2[~np.isnan(y_m2)]
-    
+    x_v1 = v1_data['expression_levels']
+    x_m2 = m2_data['expression_levels']
+    y_v1 = v1_data['abs_resp_' + plot_what]
+    cc_v1 = v1_data['cc_express_vs_' + plot_what + '_resp']
+    p_v1 = v1_data['pval_express_vs_' + plot_what + '_resp']
+    y_m2 = m2_data['abs_resp_' + plot_what]
+    cc_m2 = m2_data['cc_express_vs_' + plot_what + '_resp']
+    p_m2 = m2_data['pval_express_vs_' + plot_what + '_resp']
+    x_v1 = x_v1[~np.isnan(y_v1)]
+    y_v1 = y_v1[~np.isnan(y_v1)]
+    x_m2 = x_m2[~np.isnan(y_m2)]
+    y_m2 = y_m2[~np.isnan(y_m2)]
+
     # fit for display only
-    olsfit_v1 = sm.OLS(y_v1,sm.add_constant(x_v1)).fit()
-    x_hat_v1  = np.arange(np.min(np.concatenate((x_v1,x_m2))),np.max(np.concatenate((x_v1,x_m2)))+.1,.1)
-    y_hat_v1  = olsfit_v1.predict(sm.add_constant(x_hat_v1))
-    predci    = olsfit_v1.get_prediction(sm.add_constant(x_hat_v1)).summary_frame()
-    ci_up_v1  = predci.loc[:,'mean_ci_upper']
-    ci_low_v1 = predci.loc[:,'mean_ci_lower']
-    
-    olsfit_m2 = sm.OLS(y_m2,sm.add_constant(x_m2)).fit()
-    x_hat_m2  = x_hat_v1
-    y_hat_m2  = olsfit_m2.predict(sm.add_constant(x_hat_m2))
-    predci    = olsfit_m2.get_prediction(sm.add_constant(x_hat_m2)).summary_frame()
-    ci_up_m2  = predci.loc[:,'mean_ci_upper']
-    ci_low_m2 = predci.loc[:,'mean_ci_lower']
+    olsfit_v1 = sm.OLS(y_v1, sm.add_constant(x_v1)).fit()
+    x_hat_v1 = np.arange(np.min(np.concatenate((x_v1, x_m2))),
+                         np.max(np.concatenate((x_v1, x_m2))) + .1, .1)
+    y_hat_v1 = olsfit_v1.predict(sm.add_constant(x_hat_v1))
+    predci = olsfit_v1.get_prediction(sm.add_constant(x_hat_v1)).summary_frame()
+    ci_up_v1 = predci.loc[:, 'mean_ci_upper']
+    ci_low_v1 = predci.loc[:, 'mean_ci_lower']
+
+    olsfit_m2 = sm.OLS(y_m2, sm.add_constant(x_m2)).fit()
+    x_hat_m2 = x_hat_v1
+    y_hat_m2 = olsfit_m2.predict(sm.add_constant(x_hat_m2))
+    predci = olsfit_m2.get_prediction(sm.add_constant(x_hat_m2)).summary_frame()
+    ci_up_m2 = predci.loc[:, 'mean_ci_upper']
+    ci_low_m2 = predci.loc[:, 'mean_ci_lower']
 
     # finally plot everything
-    ax.plot(x_v1,y_v1,'o',color=params['general_params']['V1_sh'],mew=0)
-    ax.plot(x_hat_v1,y_hat_v1,'-',color=params['general_params']['V1_cl'],label=params['general_params']['V1_lbl'])
-    ax.plot(x_hat_v1,ci_up_v1,'--',color=params['general_params']['V1_cl'],lw=.4)
-    ax.plot(x_hat_v1,ci_low_v1,'--',color=params['general_params']['V1_cl'],lw=.4)
-    
-    ax.plot(x_m2,y_m2,'o',color=params['general_params']['M2_sh'],mew=0)
-    ax.plot(x_hat_m2,y_hat_m2,'-',color=params['general_params']['M2_cl'],label=params['general_params']['M2_lbl'])
-    ax.plot(x_hat_m2,ci_up_m2,'--',color=params['general_params']['M2_cl'],lw=.4)
-    ax.plot(x_hat_m2,ci_low_m2,'--',color=params['general_params']['M2_cl'],lw=.4)
+    ax.plot(x_v1, y_v1, 'o', color=params['general_params']['V1_sh'], mew=0)
+    ax.plot(x_hat_v1, y_hat_v1, '-', color=params['general_params']['V1_cl'],
+            label=params['general_params']['V1_lbl'])
+    ax.plot(x_hat_v1, ci_up_v1, '--', color=params['general_params']['V1_cl'], lw=.4)
+    ax.plot(x_hat_v1, ci_low_v1, '--', color=params['general_params']['V1_cl'], lw=.4)
 
-    xl = ax.get_xlim()
-    yl = ax.get_ylim()
-    ax.text(xl[0]+.05,yl[1]*.9,'{}: r = {:1.2f}, p = {:1.2g}'.format(params['general_params']['V1_lbl'],cc_v1,p_v1),horizontalalignment='left',color=params['general_params']['V1_cl'])
-    ax.text(xl[0]+.05,yl[1]*.82,'{}: r = {:1.2f}, p = {:1.2g}'.format(params['general_params']['M2_lbl'],cc_m2,p_m2),horizontalalignment='left',color=params['general_params']['M2_cl'])
-    
+    ax.plot(x_m2, y_m2, 'o', color=params['general_params']['M2_sh'], mew=0)
+    ax.plot(x_hat_m2, y_hat_m2, '-', color=params['general_params']['M2_cl'],
+            label=params['general_params']['M2_lbl'])
+    ax.plot(x_hat_m2, ci_up_m2, '--', color=params['general_params']['M2_cl'], lw=.4)
+    ax.plot(x_hat_m2, ci_low_m2, '--', color=params['general_params']['M2_cl'], lw=.4)
+
+    # Apply optional limits and ticks
+    if xlim is not None:
+        ax.set_xlim(xlim)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    if xticks is not None:
+        ax.set_xticks(xticks)
+    if yticks is not None:
+        ax.set_yticks(yticks)
+
+    # Safe limits after applying overrides
+    xl = xlim if xlim is not None else ax.get_xlim()
+    yl = ylim if ylim is not None else ax.get_ylim()
+
+    # Place text inside visible area
+    x_text = xl[0] + 0.05 * (xl[1] - xl[0])
+    y_text_v1 = yl[1] - 0.1 * (yl[1] - yl[0])
+    y_text_m2 = yl[1] - 0.18 * (yl[1] - yl[0])
+
+    ax.text(x_text, y_text_v1,
+            '{}: r = {:1.2f}, p = {:1.2g}'.format(params['general_params']['V1_lbl'], cc_v1, p_v1),
+            horizontalalignment='left', color=params['general_params']['V1_cl'])
+    ax.text(x_text, y_text_m2,
+            '{}: r = {:1.2f}, p = {:1.2g}'.format(params['general_params']['M2_lbl'], cc_m2, p_m2),
+            horizontalalignment='left', color=params['general_params']['M2_cl'])
+
     if 'zscore' in v1_data['expression_level_type']:
         ax.set_xlabel('Opsin expression level (z-score)')
     else:
@@ -1523,149 +1653,8 @@ def plot_opsin_expression_vs_response(params=params, expt_type='standard', resp_
     ax.legend()
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
-    
-    return expression_stats, ax     
 
-# ---------------
-# # %% get single-trial opto-triggered responses for an area and experiment type
-# def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', relax_timing_criteria=params['xval_relax_timing_criteria']):
-    
-#     """
-#     get_single_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', relax_timing_criteria=params['xval_relax_timing_criteria'])
-#     retrieves single-trial opto-triggered responses for a given area and experiment type
-    
-#     INPUTS:
-#         area                  : str, 'V1' or 'M2' (default is 'M2')
-#         params                : dict, analysis parameters (default is params from top of this script)
-#         expt_type             : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
-#         resp_type             : str, 'dff' (default) or 'deconv'
-#         eg_ids                : list of int, experiment group ids to restrict to (optional, default is None)
-#         signif_only           : bool, if True only include significant neurons (default is True)
-#         which_neurons         : str, 'non_stimd' (default), 'all', 'stimd'
-#         relax_timing_criteria : bool, if True relax timing criteria (default is in params['xval_relax_timing_criteria']). 
-#                                 This will fetch from a different param set that doesn't require the timing criteria
-        
-#     OUTPUTS:
-#         trial_data : dict with summary data and single-trial responses
-#     """
-    
-#     start_time      = time.time()
-#     print('Fetching opto-triggered trials...')
-    
-#     # get relevant keys
-#     expt_keys = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
-    
-#     # restrict to only desired rec/stim if applicable
-#     if eg_ids is not None:
-#         if isinstance(eg_ids,list) == False:
-#             eg_ids = [eg_ids]
-#         expt_keys = list(np.array(expt_keys)[np.array(eg_ids).astype(int)])
-    
-#     # loop through keys to fetch the responses
-#     trigdff_param_set_id = params['trigdff_param_set_id_{}'.format(resp_type)]
-#     if relax_timing_criteria:
-#         trigdff_inclusion_param_set_id = params['trigdff_inclusion_param_set_id_notiming']
-#     else:
-#         trigdff_inclusion_param_set_id = params['trigdff_inclusion_param_set_id']
-    
-#     trial_resps = list()
-#     trial_ids   = list()
-#     stim_ids    = list()
-#     roi_ids     = list()
-#     peak_ts     = list()
-#     peak_amp    = list()
-#     coms        = list()
-#     t_axes      = list()
-#     num_expt    = len(expt_keys)
-#     for ct, ikey in enumerate(expt_keys):
-#         print('     {} of {}...'.format(ct+1,num_expt))
-#         this_key = {'subject_fullname' : ikey['subject_fullname'], 
-#                     'session_date': ikey['session_date'], 
-#                     'trigdff_param_set_id': trigdff_param_set_id, 
-#                     'trigdff_inclusion_param_set_id': trigdff_inclusion_param_set_id
-#                     }
-        
-#         # do selecion at the fetching level for speed
-#         if which_neurons == 'stimd':
-#             # stimd neurons bypass inclusion criteria
-#             avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('KEY')
-#             # tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & avg_keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
-#             sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & avg_keys).fetch('is_significant', 'is_included', 'KEY')
-            
-#             if signif_only:
-#                 idx  = np.argwhere(np.array(sig)==1).flatten()
-#                 keys = list(np.array(keys)[idx])
-#                 sig  = list(np.array(sig)[idx]) 
-        
-#             tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
-
-#         elif which_neurons == 'non_stimd':
-#             avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=0').fetch('KEY')
-#             sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & avg_keys).fetch('is_significant', 'is_included', 'KEY')
-#             idx  = np.argwhere(np.array(incl)==1).flatten()   #need to comment this in, but worried about distance cutoff
-#             keys = list(np.array(keys)[idx])
-#             sig  = list(np.array(sig)[idx])
-            
-#             if signif_only:
-#                 idx  = np.argwhere(np.array(sig)==1).flatten()
-#                 keys = list(np.array(keys)[idx])
-#                 sig  = list(np.array(sig)[idx]) 
-            
-#             tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
-#         else:
-#             print('code not implemented for this category of which_neurons, returning nothing')
-#             return None
-
-#         # pick trough or peak time, whichever is higher magnitude
-#         maxmin_t = list()
-#         for iNeuron in range(len(trought)):
-#             if maxmin[iNeuron] < 0:
-#                 maxmin_t.append(trought[iNeuron])
-#             else:
-#                 maxmin_t.append(peakt[iNeuron])
-                
-#         # flatten lists
-#         [trial_resps.append(trial) for trial in trials]
-#         [trial_ids.append(int(tid)) for tid in tids]
-#         [stim_ids.append(int(sid)) for sid in sids]
-#         [roi_ids.append(int(rid+(ct*10000))) for rid in rids] # 10000 is arbitrary experiment increment to make roi_ids unique
-#         [t_axes.append(t) for t in ts]
-#         [coms.append(co) for co in com]
-#         [peak_ts.append(pt) for pt in maxmin_t]
-#         [peak_amp.append(pa) for pa in maxmin]
-            
-#     # convert to arrays for easy indexing, trial and time vectors remain lists
-#     trial_ids = np.array(trial_ids)
-#     stim_ids  = np.array(stim_ids)
-#     roi_ids   = np.array(roi_ids)
-#     coms      = np.array(coms)
-#     peak_ts   = np.array(peak_ts)
-#     peak_amp  = np.array(peak_amp)
-        
-#     # collect summary data   
-#     trial_data = {
-#                 'trig_dff_trials'         : trial_resps, 
-#                 'trial_ids'               : trial_ids, 
-#                 'time_axis_sec'           : t_axes,
-#                 'signif_only'             : signif_only,
-#                 'stim_ids'                : stim_ids, 
-#                 'roi_ids'                 : roi_ids, 
-#                 'com_sec'                 : coms, 
-#                 'peak_or_trough_time_sec' : peak_ts, 
-#                 'peak_amp_value'          : peak_amp,
-#                 'relax_timing_criteria'   : relax_timing_criteria,
-#                 'which_neurons'           : which_neurons,
-#                 'response_type'           : resp_type, 
-#                 'experiment_type'         : expt_type, 
-#                 'analysis_params'         : deepcopy(params),
-#                 'sig'                     : sig
-#                 }
-    
-#     end_time = time.time()
-#     print("     done after {: 1.2f} min".format((end_time-start_time)/60))
-    
-#     return trial_data
-
+    return expression_stats, ax
 
 
 # %% get single-trial opto-triggered responses for an area and experiment type
@@ -2356,6 +2345,7 @@ def xval_trial_data(area='M2', params=params, expt_type='high_trial_count', resp
     return xval_results, trial_data
 # ---------------
 # %% plot response timing cross-validation results
+from scipy.stats import pearsonr
 
 def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp_type='dff',
                     signif_only=True, which_neurons='non_stimd', xval_results=None,
@@ -2387,6 +2377,7 @@ def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp
         fig          : figure handle
         xval_results : dict with xval results
     """
+
     
     # run analysis if necessary
     if xval_results is None:
@@ -2403,9 +2394,9 @@ def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp
         ax = axis_handle
         fig = fig_handle
 
-    half1 = xval_results['median_trialset1']
-    half2 = xval_results['median_trialset2']
-    sem = xval_results['trial_sem']
+    half1 = np.array(xval_results['median_trialset1'])
+    half2 = np.array(xval_results['median_trialset2'])
+    sem = np.array(xval_results['trial_sem'])
 
     # set default axis limits if not provided
     if xlim is None or ylim is None:
@@ -2419,7 +2410,8 @@ def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp
     this_cmap.set_bad(color='w')
 
     # scatter plot
-    sc = ax.scatter(x=half1, y=half2, c=sem, cmap=this_cmap, edgecolors=[.5, .5, .5], linewidths=.5)
+    sc = ax.scatter(x=half1, y=half2, c=sem, cmap=this_cmap,
+                    edgecolors=[.5, .5, .5], linewidths=.5)
 
     # axis settings
     ax.plot(xlim, ylim, '--', color=[.8, .8, .8])
@@ -2436,14 +2428,20 @@ def plot_trial_xval(area='M2', params=params, expt_type='high_trial_count', resp
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
 
+    # correlation stats
+    r, p = pearsonr(half1, half2)
+
+    # annotate with r and p
+    ax.text(0.05, 0.95, f"r = {r:.2f}\np = {p:.1e}", 
+            transform=ax.transAxes, ha='left', va='top')
+
     # colorbar
     cb = fig.colorbar(sc, label='S.E.M. (sec)')
     if clim is not None:
         sc.set_clim(clim)
-        # cb.set_clim(clim)
 
     return ax, fig, xval_results
-        
+
 # ---------------
 # %% plot average response heatmap
 def plot_avg_response_heatmap(area, params=params, expt_type='standard', resp_type='dff',
@@ -3950,26 +3948,33 @@ def plot_pca_dist_scatter_dual(
     return ax, trial_pca_results_1
 
 
+
 # %%
 import numpy as np
 from scipy.signal import medfilt, find_peaks, peak_widths
 from scipy.stats import zscore
 
 def process_trig_dff_trials(a, kernel_size=5, z_score=False,
-                             peak_window=[0, 250], use_prominence=False,
-                             prominence_val=0.1, return_all_peaks=False,
-                             peak_thresh=None,
-                             trace_start=100,
-                             min_width_val=2):  # <- new optional input
+                              peak_window=[0, 250], use_prominence=False,
+                              prominence_val=0.1, return_all_peaks=False,
+                              peak_thresh=None,
+                              trace_start=100,
+                              min_width_val=2,
+                              pad_start=True,
+                              pad_length=10,
+                              filt='median',
+                              use_half_width=True
+                              ):
+                              
     peak_values = []
     auc_values = []
     fwhm_values = []
     peak_times = []
     com_values = []
     com_times = []
-
+    
     for i, trace in enumerate(a):
-        # Skip if trace is invalid
+        # Skip invalid trace
         if trace is None or len(trace) < 121 or np.all(np.isnan(trace)):
             peak_values.append(np.nan)
             auc_values.append(np.nan)
@@ -3978,81 +3983,115 @@ def process_trig_dff_trials(a, kernel_size=5, z_score=False,
             com_values.append(np.nan)
             com_times.append(np.nan)
             continue
-
+        
         # Optional z-scoring
         if z_score:
             trace = zscore(trace, nan_policy='omit')
-
-        # Apply median filter to the trace starting at index 100
-        filtered = medfilt(trace[trace_start:], kernel_size=kernel_size)
-
-        # Normalize to have min = 0
-        filtered = filtered - np.nanmin(filtered)
-
+        
+        if filt=='median':
+            filtered = medfilt(trace[trace_start:], kernel_size=kernel_size)
+        else:
+            from scipy.signal import butter, filtfilt
+            b, a = butter(N=5, Wn=0.05)  # N=order, Wn=normalized cutoff (0-1)
+            filtered = filtfilt(b, a, trace[trace_start:])
+        
+        # this is generally a bad idea
+        # Normalize so min = 0
+        # filtered = filtered - np.nanmin(filtered)
+        
         # AUC of the filtered trace
         auc = np.nansum(filtered)
-
-        # Peak detection (within window)
+        
+        # Peak detection in the given window
         pw_start, pw_end = peak_window
         signal_segment = filtered[pw_start:pw_end]
         
-        # Prepend a 0 to help detect early peaks
-        signal_segment_padded = np.insert(signal_segment, 0, 0)
+        # Optionally pad the start with zeros
+        if pad_start and pad_length > 0:
+            pad_array = np.zeros(pad_length)
+            padded_segment = np.concatenate([pad_array, signal_segment])
+            pad_offset = pad_length
+        else:
+            padded_segment = signal_segment
+            pad_offset = 0
         
-
-        # Set find_peaks parameters
+        # Find peaks
         peak_kwargs = {}
         if use_prominence:
             peak_kwargs['prominence'] = prominence_val
-        peak_kwargs['width'] = min_width_val  # Set your minimum width here
+        peak_kwargs['width'] = min_width_val
         
-        peaks, properties = find_peaks(signal_segment, **peak_kwargs)
-
-        # # Adjust peaks indices because of the prepended 0
-        # peaks = peaks - 1
+        peaks, properties = find_peaks(padded_segment, **peak_kwargs)
         
-        # # Remove any peaks that are now at negative index due to shift
-        # valid_indices = peaks >= 0
-        # peaks = peaks[valid_indices]
-        # for key in properties:
-        #     properties[key] = properties[key][valid_indices]
-
         if len(peaks) == 0:
             peak_val = np.nan
             fwhm = np.nan
             main_peak = np.nan
         else:
-            # Select the most prominent or highest peak
             if return_all_peaks:
-                peak_val = np.nanmean(signal_segment[peaks])
-                widths_result = peak_widths(signal_segment, peaks, rel_height=0.5)
+                peak_val = np.nanmean(padded_segment[peaks])
+                widths_result = peak_widths(padded_segment, peaks, rel_height=0.5)
                 fwhm = np.nanmean(widths_result[0])
             else:
                 if use_prominence:
                     main_peak_idx = np.argmax(properties['prominences'])
                 else:
-                    main_peak_idx = np.argmax(signal_segment[peaks])
-
+                    main_peak_idx = np.argmax(padded_segment[peaks])
+        
                 main_peak = peaks[main_peak_idx]
-                peak_val = signal_segment[main_peak]
-
-                # Calculate FWHM using peak_widths
-                widths_result = peak_widths(signal_segment, [main_peak], rel_height=0.5)
+                peak_val = padded_segment[main_peak]
+        
+                # Calculate initial FWHM
+                widths_result = peak_widths(padded_segment, [main_peak], rel_height=0.5)
                 fwhm = widths_result[0][0]
 
-        # Center of mass within the peak window
+                if use_half_width:
+                    fwhm = fwhm/2
+                
+                # Boundary correction logic
+                left_idx = widths_result[2][0]
+                right_idx = widths_result[3][0]
+                n_samples = len(padded_segment)
+        
+                left_half_width = main_peak - left_idx
+                right_half_width = right_idx - main_peak
+        
+                dist_to_start = main_peak
+                dist_to_end = (n_samples - 1) - main_peak
+        
+                if dist_to_start < right_half_width and dist_to_end >= right_half_width:
+                    if use_half_width:
+                        fwhm = right_half_width
+                    else:
+                        fwhm = right_half_width * 2
+                        
+                elif dist_to_end < left_half_width and dist_to_start >= left_half_width:
+                    if use_half_width:
+                        fwhm = left_half_width
+                    else:
+                        fwhm = left_half_width * 2
+                        
+                elif dist_to_start < left_half_width and dist_to_end < right_half_width:
+                    fwhm = np.nan
+        
+                # Adjust main_peak to remove padding from reported time
+                main_peak -= pad_offset
+                if main_peak < 0:  # Peak was in padding, so it's outside detection window
+                    main_peak = 0
+        
+        # Center of mass in the peak window (unpadded segment only)
         window_vals = signal_segment
         time_indices = np.arange(pw_start, pw_end)
         window_vals_sum = np.nansum(window_vals)
-
+        
         if window_vals_sum == 0 or np.isnan(window_vals_sum):
             com = np.nan
             com_time = np.nan
         else:
             com = np.nansum(time_indices * window_vals) / window_vals_sum
             com_time = int(np.round(com))
-
-        # Apply threshold to nan out values if peak is below threshold
+        
+        # Threshold check
         if peak_thresh is not None and (np.isnan(peak_val) or peak_val < peak_thresh):
             peak_val = np.nan
             auc = np.nan
@@ -4060,21 +4099,24 @@ def process_trig_dff_trials(a, kernel_size=5, z_score=False,
             main_peak = np.nan
             com = np.nan
             com_time = np.nan
-
+        
         # Append metrics
         peak_values.append(peak_val)
         auc_values.append(auc)
         fwhm_values.append(fwhm)
-        peak_times.append(main_peak)
+        peak_times.append(main_peak if not np.isnan(main_peak) else np.nan)
         com_values.append(com)
         com_times.append(com_time)
-
+        
     return (np.array(peak_values),
             np.array(auc_values),
             np.array(fwhm_values),
             np.array(peak_times),
             np.array(com_values),
-            np.array(com_times))
+            np.array(com_times),
+            )
+
+
 # %%
 import numpy as np
 from itertools import combinations
@@ -4193,7 +4235,8 @@ def create_pseudo_trials_from_baseline(
 
     for start_idx in start_idxs:
         trial = baseline_dff[start_idx : start_idx + trial_length].copy()
-
+        trial[within_trial_baseline_frames:within_trial_baseline_frames+20] = np.nan
+        
         if zscore_to_baseline:
             if within_trial_baseline_frames > len(trial):
                 raise ValueError("Baseline window for z-scoring exceeds trial length.")
@@ -4210,6 +4253,121 @@ def create_pseudo_trials_from_baseline(
 
     return pseudo_trials
 
+# %%
+import numpy as np
+
+def create_pseudo_trials_decoupled(
+    baseline_dff,
+    number_of_trials,
+    baseline_length,
+    poststim_length,
+    baseline_range=None,
+    poststim_range=None,
+    zscore_to_baseline=True,
+    nan_value=20,
+    random_seed=None,
+    bootstrap=True,
+    min_spacing_between_starts=50
+):
+    """
+    Create pseudo-trials by decoupling baseline and poststim periods.
+    Each pseudo-trial is formed by concatenating a randomly sampled baseline 
+    window and a randomly sampled poststim window from the baseline_dff trace.
+
+    Parameters
+    ----------
+    baseline_dff : 1D array
+        Long baseline trace (e.g., from spontaneous period).
+    number_of_trials : int
+        Number of pseudo-trials to generate.
+    baseline_length : int
+        Length of baseline window.
+    poststim_length : int
+        Length of poststim window.
+    baseline_range : tuple (start, end) or None
+        Allowed index range for baseline segment (default = whole trace).
+    poststim_range : tuple (start, end) or None
+        Allowed index range for poststim segment (default = whole trace).
+    zscore_to_baseline : bool
+        Whether to z-score the whole trial using its baseline segment.
+    nan_value : int
+        Number of leading frames in the poststim segment to replace with NaN.
+    random_seed : int or None
+        Seed for reproducibility.
+    bootstrap : bool
+        Sample with replacement (True) or not (False).
+    min_spacing_between_starts : int
+        Minimum distance (in frames) between start indices (only applies if bootstrap=False).
+
+    Returns
+    -------
+    pseudo_trials : list of np.ndarray
+        List of pseudo-trials (each length = baseline_length + poststim_length).
+    """
+
+    if random_seed is not None:
+        np.random.seed(random_seed)
+
+    baseline_dff = np.array(baseline_dff).flatten()
+    total_frames = len(baseline_dff)
+
+    # Define ranges for baseline and poststim selection
+    if baseline_range is None:
+        baseline_range = (0, total_frames - baseline_length)
+    if poststim_range is None:
+        poststim_range = (0, total_frames - poststim_length)
+
+    baseline_candidates = np.arange(baseline_range[0], baseline_range[1])
+    poststim_candidates = np.arange(poststim_range[0], poststim_range[1])
+
+    def sample_indices(candidates, window_length, n, bootstrap, min_spacing):
+        """Helper for selecting start indices with optional spacing."""
+        if bootstrap or min_spacing == 0:
+            if len(candidates) < n and not bootstrap:
+                raise ValueError("Not enough data to sample requested number of windows.")
+            return np.random.choice(candidates, size=n, replace=bootstrap)
+        else:
+            selected = []
+            candidates_set = set(candidates)
+            while len(selected) < n:
+                if not candidates_set:
+                    raise ValueError("Cannot find enough non-overlapping start indices.")
+                new_start = np.random.choice(list(candidates_set))
+                selected.append(new_start)
+                exclusion_zone = set(range(new_start - min_spacing + 1,
+                                           new_start + min_spacing))
+                candidates_set.difference_update(exclusion_zone)
+            return selected
+
+    # Sample indices separately for baseline and poststim
+    baseline_starts = sample_indices(baseline_candidates, baseline_length,
+                                     number_of_trials, bootstrap, min_spacing_between_starts)
+    poststim_starts = sample_indices(poststim_candidates, poststim_length,
+                                     number_of_trials, bootstrap, min_spacing_between_starts)
+
+    pseudo_trials = []
+    for b_start, p_start in zip(baseline_starts, poststim_starts):
+        baseline_seg = baseline_dff[b_start:b_start + baseline_length].copy()
+        poststim_seg = baseline_dff[p_start:p_start + poststim_length].copy()
+
+        # Replace first nan_value frames of poststim segment with NaN
+        if nan_value > 0:
+            n_replace = min(nan_value, len(poststim_seg))
+            poststim_seg[:n_replace] = np.nan
+
+        trial = np.concatenate([baseline_seg, poststim_seg])
+
+        if zscore_to_baseline:
+            baseline_mean = np.nanmean(baseline_seg)
+            baseline_std = np.nanstd(baseline_seg)
+            if baseline_std == 0 or np.isnan(baseline_std):
+                trial = np.zeros_like(trial)
+            else:
+                trial = (trial - baseline_mean) / baseline_std
+
+        pseudo_trials.append(trial)
+
+    return pseudo_trials
 
 # %%
 
@@ -4422,6 +4580,7 @@ def calculate_responsive_proportion_by_distance_bin_by_all_cells(df_responsive,
 
     return proportion_df, just_values_T, bin_labels, bin_centers
 # %%
+
 import pandas as pd
 import numpy as np
 
@@ -4502,18 +4661,18 @@ def calculate_condition_proportion_by_bin(df,
 import pandas as pd
 import numpy as np
 
-def bin_column_values(df, bin_col, value_col, bins):
+def bin_column_values(df, group_by_col, collect_col, bins):
     """
-    Bins one column and collects values from another column into a 2D DataFrame.
+    Bins values from one column and collects another column's values into a 2D DataFrame.
 
     Parameters
     ----------
     df : pd.DataFrame
         Input DataFrame.
-    bin_col : str
-        Column to bin (e.g., 'distance').
-    value_col : str
-        Column with values to collect (e.g., 'dff_peak').
+    group_by_col : str
+        Column whose values determine the bins (e.g., 'distance').
+    collect_col : str
+        Column with values to collect into bins (e.g., 'dff_peak').
     bins : list
         Bin edges.
 
@@ -4530,20 +4689,20 @@ def bin_column_values(df, bin_col, value_col, bins):
 
     # Create bin labels
     bin_labels = [
-        f"{int(bins[i])}-{int(bins[i + 1])}" if np.isfinite(bins[i + 1]) else f"{int(bins[i])}+"
+        f"{bins[i]:.2f}-{bins[i + 1]:.2f}" if np.isfinite(bins[i + 1]) else f"{bins[i]:.2f}+"
         for i in range(len(bins) - 1)
     ]
-    
-    # Bin the values
-    df['bin'] = pd.cut(df[bin_col], bins=bins, labels=bin_labels, right=False)
+
+    # Bin the group_by_col values
+    df['bin'] = pd.cut(df[group_by_col], bins=bins, labels=bin_labels, right=False)
 
     # Collect values for each bin
-    binned_series = df.groupby('bin')[value_col].apply(list).reindex(bin_labels)
+    binned_series = df.groupby('bin')[collect_col].apply(list).reindex(bin_labels)
 
     # Find the max list length
     max_len = binned_series.dropna().apply(len).max()
 
-    # Pad with NaNs and convert to DataFrame
+    # Pad with NaNs
     binned_data = [
         np.pad(vals, (0, max_len - len(vals)), constant_values=np.nan) if isinstance(vals, list) else [np.nan] * max_len
         for vals in binned_series
@@ -4714,3 +4873,291 @@ def align_traces_from_separate_lists(trials_list, time_axes_list):
     aligned_time_axes = [aligned_time] * len(aligned_traces)
 
     return aligned_traces, aligned_time_axes
+
+# %%
+import pandas as pd
+import numpy as np
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+
+def run_pca_on_response_features(
+    df,
+    feature_cols=None,
+    color_by='response_proportion',
+    n_components=2,
+    plot=True,
+    biplot=False,
+    return_data=False,
+    xlim=None,
+    ylim=None,
+    cmap='viridis',
+    fit_pca=True,
+    use_existing_pca=None,
+    vmin=None,
+    vmax=None
+):
+    """
+    Perform PCA on selected features of a DataFrame and plot the result with optional biplot.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame with per-ROI or per-stimulus features.
+    feature_cols : list of str or None
+        Columns to include in PCA. If None, a default list is used.
+    color_by : str
+        Column name to use for coloring points in the plot.
+    n_components : int
+        Number of principal components to compute (ignored if using existing PCA).
+    plot : bool
+        If True, display a scatter plot of the first two PCs.
+    biplot : bool
+        If True, draw arrows showing feature contributions (PCA loadings).
+    return_data : bool
+        If True, return PCA results and cleaned DataFrame.
+    xlim, ylim : tuple or None
+        Axis limits.
+    cmap : str
+        Colormap for point coloring.
+    fit_pca : bool
+        Whether to fit a new PCA (True) or use an existing one (False).
+    use_existing_pca : PCA object or None
+        Optional pretrained PCA model for projection only.
+    vmin, vmax : float or None
+        Min and max values for colormap normalization.
+
+    Returns
+    -------
+    If return_data is True:
+        X_pca : np.ndarray
+            PCA-transformed feature matrix (n_samples x n_components)
+        df_clean : pd.DataFrame
+            Subset of df used in PCA (NaNs removed)
+        pca : PCA object
+            Fitted PCA model (or the reused one)
+        explained_variance : np.ndarray
+            Variance explained by each PC
+        loadings_df : pd.DataFrame
+            PCA loadings (contribution of each feature to each PC)
+    """
+
+    if feature_cols is None:
+        feature_cols = [
+            'peak_amp_avg', 'peak_amp_std',
+            'com_avg', 'com_std',
+            'auc_avg', 'auc_std',
+            'peak_time_avg', 'peak_time_std',
+            'fwhm_avg', 'fwhm_std',
+            'response_proportion',
+            'peak_array_mean_trial',
+            # 'event_rate'
+        ]
+
+    # Drop rows with NaNs in the selected features
+    features_df = df[feature_cols]
+    features_df_clean = features_df.dropna()
+    df_clean = df.loc[features_df_clean.index]
+
+    # Standardize features
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(features_df_clean)
+
+    # PCA Fit or Transform
+    if fit_pca:
+        pca = PCA(n_components=n_components)
+        X_pca = pca.fit_transform(X_scaled)
+    else:
+        if use_existing_pca is None:
+            raise ValueError("fit_pca=False requires a valid use_existing_pca model.")
+        pca = use_existing_pca
+        X_pca = pca.transform(X_scaled)
+
+    # Extract variance and loadings if possible
+    explained_variance = getattr(pca, 'explained_variance_ratio_', np.full(n_components, np.nan))
+    if hasattr(pca, 'components_'):
+        loadings = pca.components_
+        loadings_df = pd.DataFrame(
+            loadings.T,
+            index=feature_cols,
+            columns=[f'PC{i+1}' for i in range(pca.n_components_)]
+        )
+    else:
+        loadings_df = pd.DataFrame()
+
+    # Plot
+    if plot and pca.n_components_ >= 2:
+        color_values = df_clean[color_by] if color_by in df_clean.columns else None
+        plt.figure(figsize=(9, 7))
+        scatter = plt.scatter(
+            X_pca[:, 0], X_pca[:, 1],
+            c=color_values,
+            cmap=cmap,
+            edgecolor='k',
+            vmin=vmin,
+            vmax=vmax
+        )
+        plt.xlabel(f'PC1 ({explained_variance[0]*100:.1f}% var)')
+        plt.ylabel(f'PC2 ({explained_variance[1]*100:.1f}% var)')
+        plt.title('PCA of Response Features')
+
+        if color_values is not None:
+            plt.colorbar(scatter, label=color_by)
+
+        if xlim: plt.xlim(xlim)
+        if ylim: plt.ylim(ylim)
+
+        if biplot and hasattr(pca, 'components_'):
+            arrow_scale = 2.5
+            for i, feature in enumerate(feature_cols):
+                x_vec, y_vec = loadings[0, i], loadings[1, i]
+                plt.arrow(0, 0, x_vec * arrow_scale, y_vec * arrow_scale,
+                          color='red', alpha=0.6, head_width=0.05, length_includes_head=True)
+                plt.text(x_vec * arrow_scale * 4,
+                         y_vec * arrow_scale * 4,
+                         feature,
+                         color='k', fontsize=12)
+
+        plt.tight_layout()
+        plt.show()
+
+    if return_data:
+        return X_pca, df_clean, pca, explained_variance, loadings_df
+
+
+# %%
+import pandas as pd
+import numpy as np
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D  # required for 3D plots
+
+def run_pca_3d_response_features(
+    df,
+    feature_cols=None,
+    color_by='response_proportion',
+    plot=True,
+    biplot=True,
+    return_data=False,
+    cmap='viridis',
+    arrow_scale=3.0,
+    vmin=None,
+    vmax=None
+):
+    """
+    Perform 3D PCA on selected features and plot with optional biplot.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame with per-ROI or per-stimulus features.
+    feature_cols : list of str or None
+        Columns to include in PCA. If None, a default list is used.
+    color_by : str
+        Column name to use for coloring points.
+    plot : bool
+        If True, display a 3D scatter plot.
+    biplot : bool
+        If True, overlay PCA loadings as arrows in 3D.
+    return_data : bool
+        If True, return PCA outputs and cleaned data.
+    cmap : str
+        Matplotlib colormap for points.
+    arrow_scale : float
+        Scaling factor for feature arrows.
+    vmin : float or None
+        Minimum value for colormap normalization.
+    vmax : float or None
+        Maximum value for colormap normalization.
+
+    Returns
+    -------
+    If return_data is True:
+        X_pca : np.ndarray
+        df_clean : pd.DataFrame
+        pca : PCA object
+        explained_variance : np.ndarray
+        loadings_df : pd.DataFrame
+    """
+    if feature_cols is None:
+        feature_cols = [
+            'peak_amp_avg', 'peak_amp_std',
+            'com_avg', 'com_std',
+            'auc_avg', 'auc_std',
+            'peak_time_avg', 'peak_time_std',
+            'fwhm_avg', 'fwhm_std',
+            'response_proportion',
+            'peak_array_mean_trial',
+            'is_shuffled'
+        ]
+
+    features_df = df[feature_cols].dropna()
+    df_clean = df.loc[features_df.index]
+
+    # Standardize
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(features_df)
+
+    # PCA (3 components)
+    pca = PCA(n_components=3)
+    X_pca = pca.fit_transform(X_scaled)
+
+    # Variance and loadings
+    explained_variance = pca.explained_variance_ratio_
+    loadings = pca.components_
+    loadings_df = pd.DataFrame(
+        loadings.T,
+        index=feature_cols,
+        columns=[f'PC{i+1}' for i in range(3)]
+    )
+
+    # Plot
+    if plot:
+        fig = plt.figure(figsize=(10, 8))
+        ax = fig.add_subplot(111, projection='3d')
+
+        # Point coloring
+        color_values = df_clean[color_by] if color_by in df_clean.columns else None
+        scatter = ax.scatter(
+            X_pca[:, 0], X_pca[:, 1], X_pca[:, 2],
+            c=color_values,
+            cmap=cmap,
+            edgecolor='k',
+            s=50,
+            vmin=vmin,
+            vmax=vmax
+        )
+
+        ax.set_xlabel(f'PC1 ({explained_variance[0]*100:.1f}%)')
+        ax.set_ylabel(f'PC2 ({explained_variance[1]*100:.1f}%)')
+        ax.set_zlabel(f'PC3 ({explained_variance[2]*100:.1f}%)')
+        ax.set_title("3D PCA of Response Features")
+
+        if color_values is not None:
+            cbar = fig.colorbar(scatter, ax=ax, pad=0.1, label=color_by)
+
+        # Feature arrows
+        if biplot:
+            for i, feature in enumerate(feature_cols):
+                x, y, z = loadings[0, i], loadings[1, i], loadings[2, i]
+                ax.quiver(
+                    0, 0, 0,
+                    x * arrow_scale, y * arrow_scale, z * arrow_scale,
+                    color='red', linewidth=1, arrow_length_ratio=0.1
+                )
+                ax.text(
+                    x * arrow_scale * 1.1,
+                    y * arrow_scale * 1.1,
+                    z * arrow_scale * 1.1,
+                    feature,
+                    color='red',
+                    fontsize=9
+                )
+
+        plt.tight_layout()
+        plt.show()
+
+    if return_data:
+        return X_pca, df_clean, pca, explained_variance, loadings_df
+

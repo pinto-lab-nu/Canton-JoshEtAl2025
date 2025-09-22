@@ -327,17 +327,33 @@ def generate_pseudo_trials(
                 baseline_dff = (VM['twophoton'].Rawf2P & roi_key).fetch1('rawf')[0][baseline_window[0]:baseline_window[1]]
                 # baseline_dff = (VM['twophoton'].Dff2P & roi_key).fetch1('dff')[0][baseline_window[0]:baseline_window[1]]
 
-                pseudo_trials = analyzeEvoked2P.create_pseudo_trials_from_baseline(
+                # pseudo_trials = analyzeEvoked2P.create_pseudo_trials_decoupled(
+                #     baseline_dff=baseline_dff,
+                #     number_of_trials=len(real_trials),
+                #     trial_length=min_len,
+                #     baseline_start_idx=baseline_start_idx,
+                #     max_offset=max_offset,
+                #     zscore_to_baseline=zscore_to_baseline,
+                #     within_trial_baseline_frames=baseline_window_for_z,
+                #     bootstrap=False,
+                #     min_spacing_between_starts=100
+                # )
+                
+            
+                pseudo_trials = analyzeEvoked2P.create_pseudo_trials_decoupled(
                     baseline_dff=baseline_dff,
                     number_of_trials=len(real_trials),
-                    trial_length=min_len,
-                    baseline_start_idx=baseline_start_idx,
-                    max_offset=max_offset,
+                    baseline_length=baseline_window_for_z-baseline_start_idx,
+                    poststim_length=min_len-baseline_window_for_z,
+                    baseline_range=None,
+                    poststim_range=None,
                     zscore_to_baseline=zscore_to_baseline,
-                    within_trial_baseline_frames=baseline_window_for_z,
-                    bootstrap=False,
+                    # within_trial_baseline_frames=baseline_window_for_z,
                     min_spacing_between_starts=100
                 )
+                
+
+                
                 pseudo_trial_dffs.extend(pseudo_trials)
                 pseudo_dffs_list.extend(pseudo_trials)
 
@@ -533,236 +549,6 @@ def generate_pseudo_trials_subsampled(
     return pseudo_dfs_iteration
 
 
-# %%
-
-# def process_and_filter_response_matrix(
-#     dff_trials,
-#     roi_ids,
-#     stim_ids,
-#     roi_keys,
-#     kernel_size=15,
-#     z_score=False,
-#     use_prominence=False,
-#     prominence_val=1.96,
-#     peak_thresh=1.96,
-#     group_threshold=2,
-#     proportion_thresh=0.5,
-#     std_min=0.1,
-#     std_max=30,
-#     time_avg_sort='peak_time',
-#     time_variance='peak_time',
-#     null_thresh=-10,
-#     sort=True,
-#     frame_range = (105, 300),
-#     peak_thresh_mean= 1.96,
-#     sampling_interval=0.032958316
-# ):
-#     """
-#     Full pipeline to extract features, group by ROI/stim, filter by reliability, 
-#     and return a 2D array of trial-averaged DFFs.
-
-#     Parameters
-#     ----------
-#     dff_trials : list of np.arrays
-#         Trial-wise DFF traces.
-#     roi_ids, stim_ids : list-like
-#         Same length as dff_trials, indicating ROI and stim identifiers.
-#     roi_keys : list
-#         List of DataJoint keys to use for SNR or event rate.
-#     kernel_size : int
-#         Kernel for smoothing during peak detection.
-#     z_score : bool
-#         Whether to z-score each trace before processing.
-#     use_prominence : bool
-#         Use prominence instead of height threshold for peak detection.
-#     prominence_val : float
-#         Minimum prominence or height threshold.
-#     peak_thresh : float
-#         Peak amplitude threshold for grouping.
-#     group_threshold : float
-#         Threshold used in group_peaks_by_roi_and_stim.
-#     proportion_thresh : float
-#         Minimum response proportion for inclusion.
-#     std_min, std_max : float
-#         Std dev filter range on peak time or COM.
-#     sort_by_com : bool
-#         Whether to sort output array by average COM or peak time.
-#     time_variance : 'peak_time' or 'com'
-#         uses std to remove trials that 
-
-#     Returns
-#     -------
-#     filtered_array : 2D np.ndarray
-#         (ROIs × timepoints) array of average DFF traces after filtering and sorting.
-#     """
-#     # Step 1: Extract metrics from each trial
-#     peak_array, auc_array, fwhm_array, peak_time_array, com_array, com_times = analyzeEvoked2P.process_trig_dff_trials(
-#         dff_trials,
-#         kernel_size=kernel_size,
-#         z_score=z_score,
-#         use_prominence=use_prominence,
-#         prominence_val=prominence_val,
-#         peak_thresh=peak_thresh
-#     )
-    
-#     # Step 2
-#     # Group by ROI and stim for each feature
-#     peak_amp, peak_proportions_dict, proportions = group_peaks_by_roi_and_stim(
-#         peak_array, roi_ids, stim_ids, peak_thresh
-#     )
-    
-#     auc, auc_proportions_dict, _ = group_peaks_by_roi_and_stim(
-#         auc_array, roi_ids, stim_ids, null_thresh
-#     )
-    
-#     fwhm, fwhm_proportions_dict, _ = group_peaks_by_roi_and_stim(
-#         fwhm_array, roi_ids, stim_ids, null_thresh
-#     )
-    
-#     peak_times, peak_times_proportions_dict, _ = group_peaks_by_roi_and_stim(
-#         peak_time_array*sampling_interval, roi_ids, stim_ids, null_thresh
-#     )
-    
-#     com, com_proportions_dict, _ = group_peaks_by_roi_and_stim(
-#         com_array*sampling_interval, roi_ids, stim_ids, null_thresh
-#     )
-
-
-#     # Extract trials
-#     roi_trials, _, _ = group_peaks_by_roi_and_stim(
-#         dff_trials, roi_ids, stim_ids, null_thresh
-#     )
-    
-#     averaged_traces_all = average_arrays_within_dict(roi_trials)
-    
-#     peak_array_mean_trial, auc_array_mean_trial, fwhm_array_mean_trial,peak_time_array_mean_trial, com_array_mean_trial, com_times_mean_trial= analyzeEvoked2P.process_trig_dff_trials(
-#         dict_of_arrays_to_2d_array_padded(averaged_traces_all),
-#         kernel_size=kernel_size,
-#         z_score=z_score,
-#         use_prominence=use_prominence,
-#         prominence_val=prominence_val,
-#         peak_thresh=0
-#     )
-    
-#     roi_keys_dict = group_dicts_by_roi_and_stim(
-#         roi_keys, roi_ids, stim_ids
-#     )
-    
-            
-#     roi_keys_list = []
-
-#     for (roi_id, stim_id), dicts in roi_keys_dict.items():
-#         if len(dicts) == 0:
-#             continue  # skip empty
-#         first_entry = dict(dicts[0])  # shallow copy of the first dict
-#         first_entry['roi_id_extended_dataset'] = roi_id
-#         first_entry['stim_id_extended_dataset'] = stim_id
-#         roi_keys_list.append(first_entry)
-    
-#     # Get SNR and event rate from the baseline period, The loop is unfortunately necessary due to how the fetch works
-#     snr_values = []
-#     snr_keys = []
-#     event_rate_values = []
-
-#     for roi in roi_keys_list:
-#         # Fetch SNR and associated key (e.g. ROI, session, etc.)
-#         snr, key = (VM['twophoton'].Snr2P & roi).fetch('snr', 'KEY')
-#         event_rate=(VM['twophoton'].Snr2P & roi).fetch('events_per_min')
-        
-#         event_rate_values.extend(event_rate)
-#         snr_values.extend(snr)
-#         snr_keys.extend(key)
-
-    
-#     # Step 5: Apply same response filter across all using peak_proportions_dict and proportion_thresh
-#     peak_amp_std = get_std_com_above_threshold(peak_amp, peak_proportions_dict, threshold=proportion_thresh)
-#     peak_amp_avg = get_avg_com_above_threshold(peak_amp, peak_proportions_dict, threshold=proportion_thresh)
-    
-#     auc_std = get_std_com_above_threshold(auc, peak_proportions_dict, threshold=proportion_thresh)
-#     auc_avg = get_avg_com_above_threshold(auc, peak_proportions_dict, threshold=proportion_thresh)
-    
-#     fwhm_std = get_std_com_above_threshold(fwhm, peak_proportions_dict, threshold=proportion_thresh)
-#     fwhm_avg = get_avg_com_above_threshold(fwhm, peak_proportions_dict, threshold=proportion_thresh)
-    
-#     peak_time_std = get_std_com_above_threshold(peak_times, peak_proportions_dict, threshold=proportion_thresh)
-#     peak_time_avg = get_avg_com_above_threshold(peak_times, peak_proportions_dict, threshold=proportion_thresh)
-    
-#     com_std = get_std_com_above_threshold(com, peak_proportions_dict, threshold=proportion_thresh)
-#     com_avg = get_avg_com_above_threshold(com, peak_proportions_dict, threshold=proportion_thresh)
-
-    
-#     if time_variance=='peak_time':
-#         feature_std_filter=peak_time_std
-#     else:
-#         feature_std_filter=com_std
-        
-#     if time_avg_sort=='peak_time':
-#         feature_avg =peak_time_avg
-#     else:
-#         feature_avg =com_avg
-    
-        
-#     response_proportions = filter_dict_by_threshold(peak_proportions_dict, feature_std_filter, std_min, std_max)
-    
-#     filtered_trials = filter_dict_by_threshold(roi_trials, feature_std_filter, std_min, std_max)
-#     filtered_avg_metric = filter_dict_by_threshold(feature_avg, feature_std_filter, std_min, std_max)
-    
-
-#     # # Step 4: Trial averaging
-#     averaged_traces = average_arrays_within_dict(filtered_trials)
-
-#     # Step 5: Optional sorting
-#     if sort:
-#         sorted_keys = sorted(filtered_avg_metric, key=filtered_avg_metric.get)
-#         averaged_traces = {k: averaged_traces[k] for k in sorted_keys}
-    
-    
-#     # Construct dataframe rows by merging results into dicts
-#     result_records = []
-    
-#     for entry in roi_keys_list:
-#         key = (entry['roi_id_extended_dataset'], entry['stim_id'])
-    
-#         record = {
-#             **entry,  # contains roi_id, stim_id, and any DataJoint metadata
-#             # 'peak_array_mean_trial':peak_array_mean_trial,
-#             'peak_amp_avg': peak_amp_avg.get(key, np.nan),
-#             'peak_amp_std': peak_amp_std.get(key, np.nan),
-#             'auc_avg': auc_avg.get(key, np.nan),
-#             'auc_std': auc_std.get(key, np.nan),
-#             'fwhm_avg': fwhm_avg.get(key, np.nan),
-#             'fwhm_std': fwhm_std.get(key, np.nan),
-#             'peak_time_avg': peak_time_avg.get(key, np.nan),
-#             'peak_time_std': peak_time_std.get(key, np.nan),
-#             'com_avg': com_avg.get(key, np.nan),
-#             'com_std': com_std.get(key, np.nan),
-#             'response_proportion': peak_proportions_dict.get(key, np.nan),
-#             'trials_arrays':roi_trials.get(key),
-#             'averaged_traces_all':averaged_traces_all.get(key, np.nan),
-#             'roi_keys':roi_keys_dict.get(key, np.nan)
-#         }
-    
-#         # # You could also attach filtered avg trace or peak array mean for plotting
-#         # if key in averaged_traces:
-#         #     record['trace_avg'] = averaged_traces[key]
-#         # else:
-#         #     record['trace_avg'] = np.nan
-    
-#         result_records.append(record)
-
-#     # Create dataframe
-#     results_df = pd.DataFrame(result_records)
-#     results_df['peak_array_mean_trial'] = peak_array_mean_trial
-#     results_df['snr'] = snr_values
-#     results_df['event_rate'] = event_rate_values
-#     results_df['com_array_mean_trial'] = com_array_mean_trial*sampling_interval
-#     results_df['peak_time_array_mean_trial'] = peak_time_array_mean_trial*sampling_interval
-#     results_df['peak_time_calc_abs_diff_mean_trial']=np.abs((peak_time_array_mean_trial*sampling_interval)-results_df['peak_time_avg'].to_numpy())
-#     results_df['com_calc_abs_diff_mean_trial']=np.abs((com_array_mean_trial*sampling_interval)-results_df['com_avg'].to_numpy())
-    
-
-#     # # Step 6: Convert to 2D array (ROIs × time)
-#     return dict_of_arrays_to_2d_array_padded(averaged_traces), roi_keys_list,results_df
 
 # %%
 
@@ -794,7 +580,9 @@ def process_and_filter_response_matrix(
     scramble_stim_ids=False,
     max_trials_per_group=10,
     min_width_val=2,
-    align_trials=True
+    align_trials=True,
+    peak_window_sec=[0.3,10],
+    inhibited_cells=False
 ):
     
     """
@@ -842,6 +630,10 @@ def process_and_filter_response_matrix(
     from schemas import spont_timescales
     from schemas import twop_opto_analysis
     
+    if inhibited_cells:
+        dff_trials = [arr * -1 for arr in dff_trials]
+        
+    
     if align_trials:
         
          
@@ -852,6 +644,16 @@ def process_and_filter_response_matrix(
         
         dff_trials=dff_aligned
         time_axes=time_axes_aligned
+        
+        
+        trace_start = np.where(time_axes_aligned[0] > peak_window_sec[0])[0][0]
+        trace_end=np.where(time_axes_aligned[0] > peak_window_sec[1])[0][0]
+        peak_window = [trace_start, trace_end]-trace_start
+        
+    else:
+        peak_window=[0, 250]
+        trace_start=100
+    
     
     if random_seed is not None:
         np.random.seed(random_seed)
@@ -882,17 +684,40 @@ def process_and_filter_response_matrix(
 
 
         # t_axes_all = np.array(trial_data['time_axis_sec'], dtype=object)
-
+        
+        
+    # peak_window=[0, 250]
+    # trace_start=100
+    
     # Step 1: Extract metrics from each trial
-    peak_array, auc_array, fwhm_array, peak_time_array, com_array, com_times = analyzeEvoked2P.process_trig_dff_trials(
+    peak_array, auc_array, _, peak_time_array, com_array, com_times = analyzeEvoked2P.process_trig_dff_trials(
         dff_trials,
         kernel_size=kernel_size,
         z_score=z_score,
         use_prominence=use_prominence,
         prominence_val=prominence_val,
         peak_thresh=peak_thresh,
-        min_width_val=min_width_val
+        min_width_val=min_width_val,
+        peak_window=peak_window,
+        trace_start=trace_start,
+        filt='median'
+        
     )
+    
+    _, _,fwhm_array, _, _, _ = analyzeEvoked2P.process_trig_dff_trials(
+        dff_trials,
+        kernel_size=kernel_size,
+        z_score=z_score,
+        use_prominence=use_prominence,
+        prominence_val=prominence_val,
+        peak_thresh=peak_thresh,
+        min_width_val=min_width_val,
+        peak_window=peak_window,
+        trace_start=trace_start,
+        filt="butterworth"
+        
+    )
+    
     
     # Step 2
     # Group by ROI and stim for each feature
@@ -905,7 +730,7 @@ def process_and_filter_response_matrix(
     )
     
     fwhm, fwhm_proportions_dict, _ = group_peaks_by_roi_and_stim(
-        fwhm_array, roi_ids, stim_ids, null_thresh
+        fwhm_array*sampling_interval, roi_ids, stim_ids, null_thresh
     )
     
     peak_times, peak_times_proportions_dict, _ = group_peaks_by_roi_and_stim(
@@ -1146,7 +971,7 @@ def process_and_filter_response_matrix_from_df(
     # Add the new metrics as columns to your original DataFrame
     entire_df['peak_amp_by_trial'] = peak_array
     entire_df['auc_by_trial'] = auc_array
-    entire_df['fwhm_by_trial'] = fwhm_array
+    entire_df['fwhm_by_trial'] = fwhm_array*sampling_interval
     entire_df['peak_time_by_trial'] = peak_time_array*sampling_interval
     entire_df['com_by_trial'] = com_array*sampling_interval
     entire_df['com_time_by_trial'] = com_times*sampling_interval

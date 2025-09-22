@@ -5,9 +5,13 @@ Created on Tue Jul  8 22:47:34 2025
 @author: jec822
 """
 
+# %%
+
+# V1 portion
+
 # %% This generate pseudo trial form responsive cells only
 
-trial_data=result_V1_standard_non_stimd_filt
+trial_data=result_V1_standard_non_stimd_exc_filt
 
 pseudo_dfs_iteration_V1=calculate_single_trial_features.generate_pseudo_trials_select_cells(
     roi_ids = np.array(trial_data['roi_id_extended_dataset']),
@@ -21,10 +25,10 @@ pseudo_dfs_iteration_V1=calculate_single_trial_features.generate_pseudo_trials_s
     max_offset=5000,
     zscore_to_baseline=True,
     baseline_window_for_z=80,
-    repeat_count=10
+    repeat_count=1
 )
 
-joblib.dump(pseudo_dfs_iteration_V1, 'pseudo_trial_within_cell_control_V1_1000_iter_20250724.joblib')
+# joblib.dump(pseudo_dfs_iteration_V1, 'pseudo_trial_within_cell_control_V1_1000_iter_20250724.joblib')
 
 # pseudo_dfs_iteration_V1=joblib.load('pseudo_trial_within_cell_control_V1_1000_iter_20250724.joblib')
 
@@ -64,9 +68,22 @@ for iter_label, pseudo_trials_dffs_iter in pseudo_dfs_iteration_V1.items():
     # Store the result DataFrame in the dictionary
     pseudo_results_multi_iter_V1[iter_label] =  result_V1_pseudo
     
-# 
-joblib.dump(pseudo_results_multi_iter_V1, 'results_pseudo_trial_within_cell_control_V1_1000_iter_20250724.joblib')
 # %%
+joblib.dump(pseudo_results_multi_iter_V1, 'results_pseudo_trial_within_cell_control_V1_1000_iter_20250915_1_stim.joblib')
+
+# %%
+pseudo_results_multi_iter_V1=joblib.load('results_pseudo_trial_within_cell_control_V1_1000_iter_20250910_1_stim.joblib')
+
+# %%
+
+# ---- Define filters ----
+filter_steps = [
+    ('response_proportion >= 0.6', lambda df: df[df['response_proportion'] >= 0.6]),
+    ('peak_time_std <= 0.75', lambda df: df[df['peak_time_std'] <=0.75]),
+    # ('peak_time_avg <= 0.5', lambda df: df[df['peak_time_avg'] >= 1.0]),
+    # ('peak_amp_avg >= 2', lambda df: df[df['peak_array_mean_trial'] >= 1.0]),
+    ('roi_occurrence_all > 0', lambda df: df[df['roi_id_extended_dataset'].map(df['roi_id_extended_dataset'].value_counts()) > 0])
+]
 
 pseudo_results_filt_multi_iter_V1 = {}
 
@@ -80,13 +97,14 @@ for iter_label, pseudo_trials_dffs_iter in pseudo_results_multi_iter_V1.items():
     # Store the result DataFrame in the dictionary
     pseudo_results_filt_multi_iter_V1[iter_label] =  result_V1_pseudo_filt
     
-# %%
-
-pseudo_results_filt_multi_iter_V1=joblib.load('results_pseudo_trial_within_cell_control_V1_1000_iter_20250724.joblib')
 
 # %%
-result_V1_wihtin_cell_pseudo=pseudo_results_filt_multi_iter_V1['iter_0']
+
+joblib.dump(pseudo_results_filt_multi_iter_V1, 'results_pseudo_trial_within_cell_control_V1_1000_iter_20250915_filt_1_stim.joblib')
+
+# result_V1_wihtin_cell_pseudo=pseudo_results_filt_multi_iter_V1['iter_0']
 # %%
+
 from collections import Counter
 
 # Dictionary to track how many iterations each ROI appears in
@@ -104,19 +122,26 @@ roi_iteration_df = pd.DataFrame({
 })
 
 
+
 # Plot histogram of the counts
-plt.figure(figsize=(6, 4))
-plt.hist(roi_iteration_df ['iteration_count'], bins=20, edgecolor='black')
-plt.xlabel('Count of ROI occurrences')
-plt.ylabel('Frequency')
-plt.title('Histogram of ROI Counts')
-plt.tight_layout()
-plt.show()
+analysis_plotting_functions.plot_histogram(
+    roi_iteration_df['iteration_count'],
+    bins=15,
+    xlabel="Count of ROI occurrences",
+    ylabel="Frequency",
+    title="Histogram of ROI Counts",
+    color=params['general_params']['V1_cl'],
+    figsize=(6, 4),
+    xlim=(0, 100),
+    ylim=(0, 40),
+    xticks=range(0, 101, 10),
+    yticks=range(0, 41, 10)
+)
+
 # %%  THis counts across all iterations (multipe er iteration possible)
 combined_df = pd.concat(pseudo_results_filt_multi_iter_V1.values(), axis=0, ignore_index=True)
 
-
-threshold = 50  # Filter on count, not roi_id value
+threshold = 25  # Filter on count, not roi_id value
 
 # Get the Series
 roi_ids = combined_df['roi_id_extended_dataset']
@@ -144,13 +169,51 @@ plt.ylabel('Frequency')
 plt.title('Histogram of ROI Counts')
 plt.tight_layout()
 plt.show()
-# %%
-filtered_result_V1_filt = result_V1_filt[~result_V1_filt['roi_id_extended_dataset'].isin(df_result['roi_id'])]
+# %% Remaining cells,
 
+filtered_result_V1_filt = result_V1_standard_non_stimd_exc_filt[~result_V1_standard_non_stimd_exc_filt['roi_id_extended_dataset'].isin(df_result['roi_id'])]
+
+
+analysis_plotting_functions.prepare_and_plot_heatmap(filtered_result_V1_filt,trace_column='averaged_traces_all',
+    sort_by='peak_time_avg',
+    vmin=0,
+    vmax=1,
+    # start_index=0,
+    # sampling_interval=0.032958316,
+    exclude_window=None,
+    cbar_shrink=0.2,  # shrink colorbar height to 60%
+    invert_y=True,
+    cmap='bone',
+    norm_type='minmax',
+    figsize=(6,6),
+    xlim=[-3,10])
+
+# %% excluded cells
+
+filtered_result_V1_filt = result_V1_standard_non_stimd_exc_filt[result_V1_standard_non_stimd_exc_filt['roi_id_extended_dataset'].isin(df_result['roi_id'])]
+
+
+analysis_plotting_functions.prepare_and_plot_heatmap(filtered_result_V1_filt,trace_column='averaged_traces_all',
+    sort_by='peak_time_avg',
+    vmin=0,
+    vmax=1,
+    # start_index=0,
+    # sampling_interval=0.032958316,
+    exclude_window=None,
+    cbar_shrink=0.2,  # shrink colorbar height to 60%
+    invert_y=True,
+    cmap='bone',
+    norm_type='minmax',
+    figsize=(6,6),
+    xlim=[-3,10])
+
+# %%%%
+
+# M2 portion
 
 # %% This generate pseudo trial form responsive cells only M2 Version
 
-trial_data=result_M2_standard_non_stimd_filt
+trial_data=result_M2_standard_non_stimd_exc_filt
 
 pseudo_dfs_iteration_M2=calculate_single_trial_features.generate_pseudo_trials_select_cells(
     roi_ids = np.array(trial_data['roi_id_extended_dataset']),
@@ -164,10 +227,10 @@ pseudo_dfs_iteration_M2=calculate_single_trial_features.generate_pseudo_trials_s
     max_offset=5000,
     zscore_to_baseline=True,
     baseline_window_for_z=80,
-    repeat_count=10
+    repeat_count=1
 )
 
-joblib.dump(pseudo_dfs_iteration_M2, 'pseudo_trial_within_cell_control_M2_1000_iter_20250724.joblib')
+# joblib.dump(pseudo_dfs_iteration_M2, 'pseudo_trial_within_cell_control_M2_1000_iter_20250910.joblib')
 
 
 # 
@@ -210,9 +273,22 @@ for iter_label, pseudo_trials_dffs_iter in pseudo_dfs_iteration_M2.items():
     pseudo_results_multi_iter_M2[iter_label] =  result_M2_pseudo
     
 # %%
-joblib.dump(pseudo_results_multi_iter_M2, 'results_pseudo_trial_within_cell_control_M2_1000_iter_20250724.joblib')
+joblib.dump(pseudo_results_multi_iter_M2, 'results_pseudo_trial_within_cell_control_M2_1000_iter_20250915_single.joblib')
+# %%
+
+pseudo_results_multi_iter_M2=joblib.load( 'results_pseudo_trial_within_cell_control_M2_1000_iter_20250915_single.joblib')
 
 # %%
+
+# ---- Define filters ----
+filter_steps = [
+    ('response_proportion >= 0.6', lambda df: df[df['response_proportion'] >= 0.6]),
+    ('peak_time_std <= 0.75', lambda df: df[df['peak_time_std'] <=0.75]),
+    # ('peak_time_avg <= 0.5', lambda df: df[df['peak_time_avg'] >= 1.0]),
+    # ('peak_amp_avg >= 2', lambda df: df[df['peak_array_mean_trial'] >= 1.0]),
+    ('roi_occurrence_all > 0', lambda df: df[df['roi_id_extended_dataset'].map(df['roi_id_extended_dataset'].value_counts()) > 0])
+]
+
 pseudo_results_filt_multi_iter_M2 = {}
 
 # Loop over all iterations in your pseudo dataframe dictionary
@@ -225,8 +301,12 @@ for iter_label, pseudo_trials_dffs_iter in pseudo_results_multi_iter_M2.items():
     # Store the result DataFrame in the dictionary
     pseudo_results_filt_multi_iter_M2[iter_label] =  result_M2_pseudo_filt
 
+# %%
+
+joblib.dump(pseudo_results_filt_multi_iter_M2, 'results_pseudo_trial_within_cell_control_M2_1000_iter_20250915_filt_1_stim.joblib')
 
 # %%
+
 from collections import Counter
 
 # Dictionary to track how many iterations each ROI appears in
@@ -245,18 +325,26 @@ roi_iteration_df = pd.DataFrame({
 
 
 # Plot histogram of the counts
-plt.figure(figsize=(6, 4))
-plt.hist(roi_iteration_df ['iteration_count'], bins=20, edgecolor='black')
-plt.xlabel('Count of ROI occurrences')
-plt.ylabel('Frequency')
-plt.title('Histogram of ROI Counts')
-plt.tight_layout()
-plt.show()
-# %%  THis counts across all iterations (multipe er iteration possible)
+plot_histogram(
+    roi_iteration_df['iteration_count'],
+    bins=15,
+    xlabel="Count of ROI occurrences",
+    ylabel="Frequency",
+    title="Histogram of ROI Counts",
+    color=params['general_params']['M2_cl'],
+    figsize=(6, 4),
+    xlim=(0, 100),
+    ylim=(0, 40),
+    xticks=range(0, 101, 10),
+    yticks=range(0, 41, 10)
+)
+
+
+# %%  THis counts across all iterations (multiple iteration possible)
+
 combined_df = pd.concat(pseudo_results_filt_multi_iter_M2.values(), axis=0, ignore_index=True)
 
-
-threshold = 150  # Filter on count, not roi_id value
+threshold =25  # Filter on count, not roi_id value
 
 # Get the Series
 roi_ids = combined_df['roi_id_extended_dataset']
@@ -272,6 +360,7 @@ df_result = pd.DataFrame({
     'roi_id': filtered_counts.index,
     'count': filtered_counts.values
 })
+
 # %%
 import matplotlib.pyplot as plt
 
@@ -284,13 +373,38 @@ plt.title('Histogram of ROI Counts')
 plt.tight_layout()
 plt.show()
 # %%
-filtered_result_M2_filt = result_M2_filt[~result_M2_filt['roi_id_extended_dataset'].isin(df_result['roi_id'])]
+
+filtered_result_M2_filt = result_M2_standard_non_stimd_exc_filt[~result_M2_standard_non_stimd_exc_filt['roi_id_extended_dataset'].isin(df_result['roi_id'])]
+
+analysis_plotting_functions.prepare_and_plot_heatmap(filtered_result_M2_filt,trace_column='averaged_traces_all',
+    sort_by='peak_time_avg',
+    vmin=0,
+    vmax=1,
+    # start_index=0,
+    # sampling_interval=0.032958316,
+    exclude_window=None,
+    cbar_shrink=0.2,  # shrink colorbar height to 60%
+    invert_y=True,
+    cmap='bone',
+    norm_type='minmax',
+    figsize=(6,6),
+    xlim=[-3,10])
+
 
 # %%
-plt.figure()
-plt.scatter(non_overlapping_df_sorted['peak_time_avg'].to_numpy(),non_overlapping_df_sorted['roi_occurrence_all'].to_numpy())
+filtered_result_M2_filt = result_M2_standard_non_stimd_exc_filt[result_M2_standard_non_stimd_exc_filt['roi_id_extended_dataset'].isin(df_result['roi_id'])]
 
-plt.figure()
-plt.scatter(non_overlapping_df_sorted['peak_time_avg'].to_numpy(),non_overlapping_df_sorted['peak_time_std'].to_numpy())
-
+analysis_plotting_functions.prepare_and_plot_heatmap(filtered_result_M2_filt,trace_column='averaged_traces_all',
+    sort_by='peak_time_avg',
+    vmin=0,
+    vmax=1,
+    # start_index=0,
+    # sampling_interval=0.032958316,
+    exclude_window=None,
+    cbar_shrink=0.2,  # shrink colorbar height to 60%
+    invert_y=True,
+    cmap='bone',
+    norm_type='minmax',
+    figsize=(6,6),
+    xlim=[-3,10])
 

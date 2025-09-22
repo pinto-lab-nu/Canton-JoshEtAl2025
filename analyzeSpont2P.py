@@ -194,9 +194,55 @@ def extract_fit_data_for_key(key):
         r2_d,
         bic_d
     )
+# %%
+def extract_fit_data_for_keys_df(keys):
+    """
+    Given a list of DataJoint keys, fetch and organize all parameters
+    needed to analyze autocorrelation and exponential fits.
 
+    Returns:
+    - pandas DataFrame with each row corresponding to a key
+    """
+    import pandas as pd
 
+    # Create a restriction for multiple keys
+    restriction = spont_timescales.TwopTau & keys
+    acorr_data = (spont_timescales.TwopAutocorr & keys).fetch('KEY', 'autocorr_vals', 'lags_sec', as_dict=True)
+    tau_data = restriction.fetch('KEY', 'tau', 'r2_fit_single', 'bic_single', 'r2_fit_double', 'bic_double', 
+                                  'single_fit_params', 'double_fit_params', as_dict=True)
 
+    # Convert to DataFrame
+    acorr_df = pd.DataFrame(acorr_data)
+    tau_df = pd.DataFrame(tau_data)
+
+    # Merge on all key fields (they are shared)
+    df = pd.merge(acorr_df, tau_df, on=list(keys[0].keys()))
+
+    # Filter out invalid tau values
+    df = df[df['tau'] > 0].copy()
+
+    # Build fit parameter columns
+    df['mono_fit_params'] = df['single_fit_params'].apply(lambda p: {
+        'A': p['A_fit_mono'],
+        'tau': p['tau_fit_mono'],
+        'offset': p['offset_fit_mono']
+    })
+
+    df['dual_fit_params'] = df['double_fit_params'].apply(lambda p: {
+        'A0': p['A_fit_0'],
+        'tau0': p['tau_fit_0'],
+        'A1': p['A_fit_1'],
+        'tau1': p['tau_fit_1'],
+        'offset': p['offset_fit_dual']
+    })
+
+    # Clean up if desired
+    df.drop(columns=['single_fit_params', 'double_fit_params'], inplace=True)
+
+    # Truncate lags to match acorr length
+    df['time_vector'] = [lags[:len(acorr)] for acorr, lags in zip(df['autocorr_vals'], df['lags_sec'])]
+
+    return df
 
 # ---------------
 # %% retrieve all taus for a given area and set of parameters, from dj database
@@ -300,7 +346,10 @@ def get_all_tau(area, params=params, dff_type='residuals_dff'):
     tau_entries = (spont_timescales.TwopTau & keys).fetch('tau', 'KEY')
     taus_all, keys_all = tau_entries
     mask = taus_all > 0.1
+    
     taus = taus_all[mask]
+    # mask = taus < 15
+    # taus = taus[mask]
     keys = [keys_all[i] for i in np.where(mask)[0]]
 
     # figure out how many of those are somas
@@ -1009,6 +1058,140 @@ def compute_bic(y_true, y_pred, num_params):
     bic = n * np.log(sse / n) + num_params * np.log(n)
     return bic
 
+# def fit_exponentials_from_df(
+#     acorr_df,
+#     exclude_low_acorr=False,
+#     acorr_threshold=0.1,
+#     max_lag=None,
+#     bounded_fit=False,
+#     tau_bounds=(0.1, 100)
+# ):
+#     """
+#     Fit single and double exponential models to autocorrelation data in a DataFrame.
+
+#     Parameters:
+#     - acorr_df: DataFrame where each row is an autocorrelation trace
+#     - exclude_low_acorr: bool, whether to skip traces with weak acorr[1] values
+#     - acorr_threshold: float, threshold for acorr[1] to include trace
+#     - max_lag: int, optional max number of lags to fit
+#     - bounded_fit: bool, whether to apply bounds to exponential fits
+#     - tau_bounds: tuple (min_tau, max_tau), bounds on tau parameter for both fits
+
+#     Returns:
+#     - results: list of dictionaries with fit results
+#     - filtered_acorr: list of autocorrelation arrays used in fitting
+#     - valid_indices: list of row indices in acorr_df that were successfully fit
+#     """
+#     from scipy.optimize import curve_fit
+
+#     results = []
+#     filtered_acorr = []
+#     valid_indices = []
+
+#     tau_min, tau_max = tau_bounds
+
+#     for i, row in acorr_df.iterrows():
+#         y_full = row.to_numpy()
+#         x_full = np.arange(len(y_full))
+
+#         # Skip if invalid
+#         if len(y_full) == 0 or np.all(np.isnan(y_full)) or np.all(y_full == 0) or np.all(y_full == y_full[0]):
+#             continue
+
+#         acorr1_val = y_full[1] - np.nanmin(y_full) if len(y_full) > 1 else np.nan
+#         if exclude_low_acorr and acorr1_val < acorr_threshold:
+#             continue
+
+#         filtered_acorr.append(y_full)
+#         valid_indices.append(i)
+
+#         for trim in [False, True]:
+#             x = x_full[2:] if trim else x_full
+#             y = y_full[2:] if trim else y_full
+
+#             if max_lag is not None:
+#                 x = x[:max_lag]
+#                 y = y[:max_lag]
+
+#             if len(y) < 5:
+#                 continue
+
+#             entry = {
+#                 'index': i,
+#                 'exclude_first_two': trim,
+#                 'acorr1': acorr1_val
+#             }
+
+#             # --- Single exponential fit ---
+#             try:
+#                 if bounded_fit:
+#                     bounds_s = ([0, tau_min, -np.inf], [np.inf, tau_max, np.inf])
+#                     popt_s, _ = curve_fit(single_exp, x, y, p0=(1, 1, 0), bounds=bounds_s, maxfev=10000)
+#                 else:
+#                     popt_s, _ = curve_fit(single_exp, x, y, p0=(1, 1, 0), maxfev=10000)
+
+#                 y_pred_s = single_exp(x, *popt_s)
+#                 r2_s = compute_r2(y, y_pred_s)
+#                 bic_s = compute_bic(y, y_pred_s, num_params=3)
+#                 entry_single = {
+#                     **entry,
+#                     'type': 'single_exp',
+#                     'params': dict(zip(['a', 'tau', 'c'], popt_s)),
+#                     'r2': r2_s,
+#                     'bic': bic_s
+#                 }
+#             except Exception:
+#                 entry_single = {
+#                     **entry,
+#                     'type': 'single_exp',
+#                     'params': {'a': np.nan, 'tau': np.nan, 'c': np.nan},
+#                     'r2': np.nan,
+#                     'bic': np.nan
+#                 }
+
+#             results.append(entry_single)
+
+#             # --- Double exponential fit ---
+#             try:
+#                 if bounded_fit:
+#                     bounds_d = (
+#                         [0, tau_min, 0, tau_min, -np.inf],  # a1, tau1, a2, tau2, c
+#                         [np.inf, tau_max, np.inf, tau_max, np.inf]
+#                     )
+#                     popt_d, _ = curve_fit(
+#                         double_exp, x, y, p0=(1, 1, 0.5, 5, 0),
+#                         bounds=bounds_d, maxfev=10000
+#                     )
+#                 else:
+#                     popt_d, _ = curve_fit(
+#                         double_exp, x, y, p0=(1, 1, 0.5, 5, 0), maxfev=10000
+#                     )
+
+#                 y_pred_d = double_exp(x, *popt_d)
+#                 r2_d = compute_r2(y, y_pred_d)
+#                 bic_d = compute_bic(y, y_pred_d, num_params=5)
+#                 entry_double = {
+#                     **entry,
+#                     'type': 'double_exp',
+#                     'params': dict(zip(['a1', 'tau1', 'a2', 'tau2', 'c'], popt_d)),
+#                     'r2': r2_d,
+#                     'bic': bic_d
+#                 }
+#             except Exception:
+#                 entry_double = {
+#                     **entry,
+#                     'type': 'double_exp',
+#                     'params': {'a1': np.nan, 'tau1': np.nan, 'a2': np.nan, 'tau2': np.nan, 'c': np.nan},
+#                     'r2': np.nan,
+#                     'bic': np.nan
+#                 }
+
+#             results.append(entry_double)
+
+#     return results, filtered_acorr, valid_indices
+
+# %%
+
 def fit_exponentials_from_df(
     acorr_df,
     exclude_low_acorr=False,
@@ -1018,22 +1201,11 @@ def fit_exponentials_from_df(
     tau_bounds=(0.1, 100)
 ):
     """
-    Fit single and double exponential models to autocorrelation data in a DataFrame.
-
-    Parameters:
-    - acorr_df: DataFrame where each row is an autocorrelation trace
-    - exclude_low_acorr: bool, whether to skip traces with weak acorr[1] values
-    - acorr_threshold: float, threshold for acorr[1] to include trace
-    - max_lag: int, optional max number of lags to fit
-    - bounded_fit: bool, whether to apply bounds to exponential fits
-    - tau_bounds: tuple (min_tau, max_tau), bounds on tau parameter for both fits
-
-    Returns:
-    - results: list of dictionaries with fit results
-    - filtered_acorr: list of autocorrelation arrays used in fitting
-    - valid_indices: list of row indices in acorr_df that were successfully fit
+    Faster version: avoids iterrows, uses NumPy arrays.
     """
-    from scipy.optimize import curve_fit
+    arr = acorr_df.to_numpy(dtype=float)
+    n_rows, n_cols = arr.shape
+    x_full = np.arange(n_cols)
 
     results = []
     filtered_acorr = []
@@ -1041,22 +1213,22 @@ def fit_exponentials_from_df(
 
     tau_min, tau_max = tau_bounds
 
-    for i, row in acorr_df.iterrows():
-        y_full = row.to_numpy()
-        x_full = np.arange(len(y_full))
+    for i in range(n_rows):
+        y_full = arr[i]
 
         # Skip if invalid
-        if len(y_full) == 0 or np.all(np.isnan(y_full)) or np.all(y_full == 0) or np.all(y_full == y_full[0]):
+        if (y_full.size == 0 or np.all(np.isnan(y_full)) or
+            np.all(y_full == 0) or np.all(y_full == y_full[0])):
             continue
 
-        acorr1_val = y_full[1] - np.nanmin(y_full) if len(y_full) > 1 else np.nan
+        acorr1_val = y_full[1] - np.nanmin(y_full) if y_full.size > 1 else np.nan
         if exclude_low_acorr and acorr1_val < acorr_threshold:
             continue
 
         filtered_acorr.append(y_full)
         valid_indices.append(i)
 
-        for trim in [False, True]:
+        for trim in (False, True):
             x = x_full[2:] if trim else x_full
             y = y_full[2:] if trim else y_full
 
@@ -1064,50 +1236,53 @@ def fit_exponentials_from_df(
                 x = x[:max_lag]
                 y = y[:max_lag]
 
-            if len(y) < 5:
+            if y.size < 5 or np.all(np.isnan(y)):
                 continue
 
             entry = {
-                'index': i,
-                'exclude_first_two': trim,
-                'acorr1': acorr1_val
+                "index": i,
+                "exclude_first_two": trim,
+                "acorr1": acorr1_val
             }
 
             # --- Single exponential fit ---
             try:
                 if bounded_fit:
-                    bounds_s = ([0, tau_min, -np.inf], [np.inf, tau_max, np.inf])
-                    popt_s, _ = curve_fit(single_exp, x, y, p0=(1, 1, 0), bounds=bounds_s, maxfev=10000)
+                    bounds_s = ([0, tau_min, -np.inf],
+                                [np.inf, tau_max, np.inf])
+                    popt_s, _ = curve_fit(
+                        single_exp, x, y, p0=(1, 1, 0),
+                        bounds=bounds_s, maxfev=10000
+                    )
                 else:
-                    popt_s, _ = curve_fit(single_exp, x, y, p0=(1, 1, 0), maxfev=10000)
+                    popt_s, _ = curve_fit(
+                        single_exp, x, y, p0=(1, 1, 0), maxfev=10000
+                    )
 
                 y_pred_s = single_exp(x, *popt_s)
-                r2_s = compute_r2(y, y_pred_s)
-                bic_s = compute_bic(y, y_pred_s, num_params=3)
                 entry_single = {
                     **entry,
-                    'type': 'single_exp',
-                    'params': dict(zip(['a', 'tau', 'c'], popt_s)),
-                    'r2': r2_s,
-                    'bic': bic_s
+                    "type": "single_exp",
+                    "params": dict(zip(["a", "tau", "c"], popt_s)),
+                    "r2": compute_r2(y, y_pred_s),
+                    "bic": compute_bic(y, y_pred_s, num_params=3),
                 }
             except Exception:
                 entry_single = {
                     **entry,
-                    'type': 'single_exp',
-                    'params': {'a': np.nan, 'tau': np.nan, 'c': np.nan},
-                    'r2': np.nan,
-                    'bic': np.nan
+                    "type": "single_exp",
+                    "params": {"a": np.nan, "tau": np.nan, "c": np.nan},
+                    "r2": np.nan,
+                    "bic": np.nan,
                 }
-
             results.append(entry_single)
 
             # --- Double exponential fit ---
             try:
                 if bounded_fit:
                     bounds_d = (
-                        [0, tau_min, 0, tau_min, -np.inf],  # a1, tau1, a2, tau2, c
-                        [np.inf, tau_max, np.inf, tau_max, np.inf]
+                        [0, tau_min, 0, tau_min, -np.inf],
+                        [np.inf, tau_max, np.inf, tau_max, np.inf],
                     )
                     popt_d, _ = curve_fit(
                         double_exp, x, y, p0=(1, 1, 0.5, 5, 0),
@@ -1119,29 +1294,25 @@ def fit_exponentials_from_df(
                     )
 
                 y_pred_d = double_exp(x, *popt_d)
-                r2_d = compute_r2(y, y_pred_d)
-                bic_d = compute_bic(y, y_pred_d, num_params=5)
                 entry_double = {
                     **entry,
-                    'type': 'double_exp',
-                    'params': dict(zip(['a1', 'tau1', 'a2', 'tau2', 'c'], popt_d)),
-                    'r2': r2_d,
-                    'bic': bic_d
+                    "type": "double_exp",
+                    "params": dict(zip(["a1", "tau1", "a2", "tau2", "c"], popt_d)),
+                    "r2": compute_r2(y, y_pred_d),
+                    "bic": compute_bic(y, y_pred_d, num_params=5),
                 }
             except Exception:
                 entry_double = {
                     **entry,
-                    'type': 'double_exp',
-                    'params': {'a1': np.nan, 'tau1': np.nan, 'a2': np.nan, 'tau2': np.nan, 'c': np.nan},
-                    'r2': np.nan,
-                    'bic': np.nan
+                    "type": "double_exp",
+                    "params": {"a1": np.nan, "tau1": np.nan,
+                               "a2": np.nan, "tau2": np.nan, "c": np.nan},
+                    "r2": np.nan,
+                    "bic": np.nan,
                 }
-
             results.append(entry_double)
 
     return results, filtered_acorr, valid_indices
-
-
 
 
 # %%
@@ -1191,43 +1362,266 @@ def classify_fit_results_simple(fit_results):
 
     return df_single_inc, df_single_exc, df_double_inc, df_double_exc, best_fit_type
 
+# %%
+def classify_fit_results(fit_results, subset, snr_threshold=1.5, event_rate_threshold=0.5):
+
+    # Fetch SNR and event rate arrays
+    snr_array = (VM['twophoton'].Snr2P & subset).fetch('snr')
+    event_rate_array = (VM['twophoton'].Snr2P & subset).fetch('events_per_min')
+
+    # Check matching lengths
+    assert len(snr_array) == len(event_rate_array), "Mismatched SNR and event rate lengths"
+
+    # Apply thresholds
+    valid_indices = (snr_array > snr_threshold) & (event_rate_array > event_rate_threshold)
+
+    # Containers
+    single_inc, single_exc = [], []
+    double_inc, double_exc = [], []
+
+    for result in fit_results:
+        idx = result['index']
+        exclude = result['exclude_first_two']
+        r2 = result['r2']
+        bic = result['bic']
+        acorr1= result['acorr1']
+        
+        if result['type'] == 'single_exp':
+            tau = result['params']['tau']
+            entry = {'index': idx, 'tau': tau, 'r2': r2, 'bic': bic, 'acorr_1_index': acorr1}
+            if exclude:
+                single_exc.append(entry)
+            else:
+                single_inc.append(entry)
+
+        elif result['type'] == 'double_exp':
+            tau1 = result['params']['tau1']
+            tau2 = result['params']['tau2']
+            entry = {'index': idx, 'tau1': tau1, 'tau2': tau2, 'r2': r2, 'bic': bic,'acorr_1_index': acorr1}
+            if exclude:
+                double_exc.append(entry)
+            else:
+                double_inc.append(entry)
+
+    
+    # Convert lists to DataFrames
+    df_single_inc = pd.DataFrame(single_inc)
+    df_single_exc = pd.DataFrame(single_exc)
+    df_double_inc = pd.DataFrame(double_inc)
+    df_double_exc = pd.DataFrame(double_exc)
+    
+    # Add snr and event_rate based on 'index' column
+    for df in [df_single_inc, df_single_exc, df_double_inc, df_double_exc]:
+       if not df.empty:
+           df['snr'] = df.index.map(lambda i: snr_array[i] if i < len(snr_array) else pd.NA)
+           df['event_rate'] = df.index.map(lambda i: event_rate_array[i] if i < len(event_rate_array) else pd.NA)
+
+    # Compare average R² across categories
+    avg_r2 = {
+        'single_inc': df_single_inc['r2'].mean() if not df_single_inc.empty else float('-inf'),
+        'single_exc': df_single_exc['r2'].mean() if not df_single_exc.empty else float('-inf'),
+        'double_inc': df_double_inc['r2'].mean() if not df_double_inc.empty else float('-inf'),
+        'double_exc': df_double_exc['r2'].mean() if not df_double_exc.empty else float('-inf')
+    }
+    best_fit_type = max(avg_r2, key=avg_r2.get)
+
+    return df_single_inc, df_single_exc, df_double_inc, df_double_exc, best_fit_type
+# %%
+def classify_fit_results_old(fit_results, subset, snr_threshold=1.5, event_rate_threshold=0.5):
+
+    # Fetch SNR and event rate arrays
+    snr_array = (VM['twophoton'].Snr2P & subset).fetch('snr')
+    event_rate_array = (VM['twophoton'].Snr2P & subset).fetch('events_per_min')
+
+    # Check matching lengths
+    assert len(snr_array) == len(event_rate_array), "Mismatched SNR and event rate lengths"
+
+    # Apply thresholds
+    valid_indices = (snr_array > snr_threshold) & (event_rate_array > event_rate_threshold)
+
+    # Containers
+    single_inc, single_exc = [], []
+    double_inc, double_exc = [], []
+
+    for result in fit_results:
+        idx = result['index']
+        exclude = result['exclude_first_two']
+        r2 = result['r2']
+        bic = result['bic']
+        acorr1= result['acorr1']
+        
+        if result['type'] == 'single_exp':
+            tau = result['params']['tau']
+            entry = {'index': idx, 'tau': tau, 'r2': r2, 'bic': bic, 'acorr_1_index': acorr1}
+            if exclude:
+                single_exc.append(entry)
+            else:
+                single_inc.append(entry)
+
+        elif result['type'] == 'double_exp':
+            tau1 = result['params']['tau0']
+            tau2 = result['params']['tau1']
+            entry = {'index': idx, 'tau1': tau1, 'tau2': tau2, 'r2': r2, 'bic': bic,'acorr_1_index': acorr1}
+            if exclude:
+                double_exc.append(entry)
+            else:
+                double_inc.append(entry)
+
+    
+    # Convert lists to DataFrames
+    df_single_inc = pd.DataFrame(single_inc)
+    df_single_exc = pd.DataFrame(single_exc)
+    df_double_inc = pd.DataFrame(double_inc)
+    df_double_exc = pd.DataFrame(double_exc)
+    
+    # Add snr and event_rate based on 'index' column
+    for df in [df_single_inc, df_single_exc, df_double_inc, df_double_exc]:
+       if not df.empty:
+           df['snr'] = df.index.map(lambda i: snr_array[i] if i < len(snr_array) else pd.NA)
+           df['event_rate'] = df.index.map(lambda i: event_rate_array[i] if i < len(event_rate_array) else pd.NA)
+
+    # Compare average R² across categories
+    avg_r2 = {
+        'single_inc': df_single_inc['r2'].mean() if not df_single_inc.empty else float('-inf'),
+        'single_exc': df_single_exc['r2'].mean() if not df_single_exc.empty else float('-inf'),
+        'double_inc': df_double_inc['r2'].mean() if not df_double_inc.empty else float('-inf'),
+        'double_exc': df_double_exc['r2'].mean() if not df_double_exc.empty else float('-inf')
+    }
+    best_fit_type = max(avg_r2, key=avg_r2.get)
+
+    return df_single_inc, df_single_exc, df_double_inc, df_double_exc, best_fit_type
+# %%
+
+# def calculate_autocorrelations_df(a_df, signal_range=(0, 10000), max_lags=1000):
+#     """
+#     Calculate autocorrelations up to max_lags for each row in a 2D DataFrame.
+
+#     Parameters:
+#     - a_df: DataFrame where each row is a 1D time-series signal
+#     - signal_range: tuple, start and end indices for slicing the signal
+#     - max_lags: int, number of lags for autocorrelation
+
+#     Returns:
+#     - acorr_df: DataFrame of shape (n_signals, max_lags + 1)
+#     """
+#     acorr_list = []
+
+#     for _, row in a_df.iterrows():
+#         try:
+#             signal = row.iloc[signal_range[0]:signal_range[1]].to_numpy()
+#             signal = signal - np.nanmean(signal)
+
+#             if np.all(np.isnan(signal)) or len(signal) < max_lags:
+#                 acorr = np.full(max_lags + 1, np.nan)
+#             else:
+#                 acorr_full = np.correlate(signal, signal, mode='full')
+#                 mid = len(acorr_full) // 2
+#                 acorr = acorr_full[mid:mid + max_lags + 1]
+#                 acorr = acorr / acorr[0] if acorr[0] != 0 else np.full_like(acorr, np.nan)
+#         except Exception:
+#             acorr = np.full(max_lags + 1, np.nan)
+
+#         acorr_list.append(acorr)
+
+#     # Convert to 2D DataFrame
+#     acorr_df = pd.DataFrame(acorr_list)
+#     acorr_df.columns = [f"lag_{i}" for i in range(max_lags + 1)]
+
+#     return acorr_df
 
 # %%
+# import numpy as np
+# import pandas as pd
+# from numpy.fft import fft, ifft
+
+# def calculate_autocorrelations_df(a_df, signal_range=(0, 10000), max_lags=1000):
+#     """
+#     Vectorized autocorrelation up to max_lags for each row in a 2D DataFrame.
+#     Returns a DataFrame of shape (n_signals, max_lags + 1).
+#     """
+#     # Convert once to NumPy
+#     arr = a_df.iloc[:, signal_range[0]:signal_range[1]].to_numpy(dtype=float)
+
+#     # Subtract mean per row (ignoring NaN)
+#     row_means = np.nanmean(arr, axis=1, keepdims=True)
+#     arr = arr - row_means
+
+#     n_signals, n_time = arr.shape
+#     acorrs = np.full((n_signals, max_lags + 1), np.nan)
+
+#     # FFT method: much faster than np.correlate for long signals
+#     n_fft = 1 << (2 * n_time - 1).bit_length()  # next power of 2 for speed
+#     arr[np.isnan(arr)] = 0  # replace NaNs with 0 for FFT
+
+#     fft_data = fft(arr, n=n_fft, axis=1)
+#     acorr_full = ifft(fft_data * np.conjugate(fft_data), axis=1).real
+#     acorr_full = acorr_full[:, :n_time]  # keep positive lags only
+
+#     # Normalize by lag 0
+#     norm = acorr_full[:, 0].copy()
+#     valid = norm > 0
+#     acorr_full[valid] = acorr_full[valid] / norm[valid, None]
+
+#     # Slice up to max_lags
+#     acorrs[valid] = acorr_full[valid, :max_lags + 1]
+
+#     # Back to DataFrame
+#     acorr_df = pd.DataFrame(acorrs, columns=[f"lag_{i}" for i in range(max_lags + 1)])
+#     return acorr_df
+import numpy as np
+import pandas as pd
+from numpy.fft import fft, ifft
 
 def calculate_autocorrelations_df(a_df, signal_range=(0, 10000), max_lags=1000):
     """
-    Calculate autocorrelations up to max_lags for each row in a 2D DataFrame.
-
-    Parameters:
-    - a_df: DataFrame where each row is a 1D time-series signal
-    - signal_range: tuple, start and end indices for slicing the signal
-    - max_lags: int, number of lags for autocorrelation
-
-    Returns:
-    - acorr_df: DataFrame of shape (n_signals, max_lags + 1)
+    Vectorized autocorrelation up to max_lags for each row in a 2D array or DataFrame.
+    Returns a DataFrame of shape (n_signals, max_lags + 1).
+    
+    Parameters
+    ----------
+    a_df : pd.DataFrame or np.ndarray
+        Each row is a 1D signal.
+    signal_range : tuple
+        Start and end indices to slice each signal.
+    max_lags : int
+        Maximum number of lags to compute.
+    
+    Returns
+    -------
+    acorr_df : pd.DataFrame
+        Normalized autocorrelations for each row.
     """
-    acorr_list = []
 
-    for _, row in a_df.iterrows():
-        try:
-            signal = row.iloc[signal_range[0]:signal_range[1]].to_numpy()
-            signal = signal - np.nanmean(signal)
+    # --- Convert to NumPy array if DataFrame ---
+    if isinstance(a_df, pd.DataFrame):
+        arr = a_df.values[:, signal_range[0]:signal_range[1]].astype(float)
+    else:
+        arr = a_df[:, signal_range[0]:signal_range[1]].astype(float)
 
-            if np.all(np.isnan(signal)) or len(signal) < max_lags:
-                acorr = np.full(max_lags + 1, np.nan)
-            else:
-                acorr_full = np.correlate(signal, signal, mode='full')
-                mid = len(acorr_full) // 2
-                acorr = acorr_full[mid:mid + max_lags + 1]
-                acorr = acorr / acorr[0] if acorr[0] != 0 else np.full_like(acorr, np.nan)
-        except Exception:
-            acorr = np.full(max_lags + 1, np.nan)
+    # Subtract row-wise mean ignoring NaNs
+    row_means = np.nanmean(arr, axis=1, keepdims=True)
+    arr = arr - row_means
 
-        acorr_list.append(acorr)
+    n_signals, n_time = arr.shape
+    acorrs = np.full((n_signals, max_lags + 1), np.nan)
 
-    # Convert to 2D DataFrame
-    acorr_df = pd.DataFrame(acorr_list)
-    acorr_df.columns = [f"lag_{i}" for i in range(max_lags + 1)]
+    # Replace NaNs with 0 for FFT
+    arr[np.isnan(arr)] = 0
 
+    # FFT method for speed
+    n_fft = 1 << (2 * n_time - 1).bit_length()  # next power of 2
+    fft_data = fft(arr, n=n_fft, axis=1)
+    acorr_full = ifft(fft_data * np.conjugate(fft_data), axis=1).real
+    acorr_full = acorr_full[:, :n_time]  # positive lags
+
+    # Normalize by lag 0
+    norm = acorr_full[:, 0].copy()
+    valid = norm > 0
+    acorr_full[valid] = acorr_full[valid] / norm[valid, None]
+
+    # Slice up to max_lags
+    acorrs[valid] = acorr_full[valid, :max_lags + 1]
+
+    # Convert to DataFrame with lag columns
+    acorr_df = pd.DataFrame(acorrs, columns=[f"lag_{i}" for i in range(max_lags + 1)])
     return acorr_df
-
