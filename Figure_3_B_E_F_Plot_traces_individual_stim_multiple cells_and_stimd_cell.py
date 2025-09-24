@@ -23,7 +23,7 @@ plt.plot(data['trig_dff_trials'][100])
 
 list_of_arrays = [np.expand_dims(x, axis=0) for x in data['trig_dff_trials']]
 
-# %%
+# %% Figure 3E
 
 analysis_plotting_functions.plot_nonoverlapping_traces(
     list_of_arrays,
@@ -43,7 +43,8 @@ analysis_plotting_functions.plot_nonoverlapping_traces(
 )
 
 
-# %% Stimulated cells
+# %% # %% Figure 3B 
+# Stimulated cells
 list_of_arrays = [np.expand_dims(x, axis=0) for x in data_stim['trig_dff_trials']]
 
 analysis_plotting_functions.plot_nonoverlapping_traces(
@@ -68,7 +69,8 @@ analysis_plotting_functions.plot_nonoverlapping_traces(
 
 list_of_arrays_V1 = [np.expand_dims(x, axis=0) for x in data_V1['trig_dff_trials']]
 
-# %%
+# %% # %% Figure 3F
+
 analysis_plotting_functions.plot_nonoverlapping_traces(
     list_of_arrays_V1,
     trace_indices=[3,5,10,15,20,26,30,35,40,45],
