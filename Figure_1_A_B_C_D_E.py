@@ -39,6 +39,15 @@ fig_1_b_merfish_data = pickle.load(open(os.path.join(repo_dir, 'Plotting', f'fig
 fig_1_b_tau_data = pickle.load(open(os.path.join(repo_dir, 'Plotting', f'fig_1_b_tau_data.pickle'), 'rb'))
 fig_1_a_data_dict = pickle.load(open(os.path.join(repo_dir, 'Plotting', f'fig_1_a_data_dict.pickle'), 'rb'))
 
+# temp_path = 'R:\Basic_Sciences\Phys\PintoLab\Tau_Processing\H3\Cux2-Ai96\pooling0.1mm\GenePredictors\Merfish-Imputed'
+# meta_dict = pickle.load(open(os.path.join(temp_path,f'plotting_data.pickle'), 'rb'))
+# temp_path = 'R:\Basic_Sciences\Phys\PintoLab\Tau_Processing\H3'
+# used_merfish_genes_longnames = pickle.load(open(os.path.join(temp_path,f'merfishImputed_usedLongGeneNames.pickle'), 'rb'))
+# fig_1_b_merfish_data = pickle.load(open(os.path.join(temp_path,f'fig_1_b_merfish_data.pickle'), 'rb'))
+# fig_1_b_tau_data = pickle.load(open(os.path.join(temp_path,f'fig_1_b_tau_data.pickle'), 'rb'))
+# fig_1_a_data_dict = pickle.load(open(os.path.join(temp_path,f'fig_1_a_data_dict.pickle'), 'rb'))
+
+
 # Cross layers codes (comparing model performance for merfish data isolated to different layers):
 # 0 : L2/3
 # 1 : L4/5
@@ -47,6 +56,7 @@ fig_1_a_data_dict = pickle.load(open(os.path.join(repo_dir, 'Plotting', f'fig_1_
 # plot_gene_enrichment() and plot_regressions() return lists of figure handles,
 # the number of which are determined by how many layers are resquested in the output
 # (e.g. cross_layers = [0, 2] will return two figures, one for each layer)
+
 
 ### Fig 1 A, tau vs AP CCF & ML CCF ###
 def plot_fig_1_a(fig_1_a_data_dict):
@@ -79,6 +89,7 @@ def plot_fig_1_a(fig_1_a_data_dict):
 
 fig_1_a_ml_ap_tau = plot_fig_1_a(fig_1_a_data_dict)
 
+
 ### Fig 1 B, MERFISH & tau in CCF space ###
 def plot_fig_1_b(fig_1_b_merfish_data, fig_1_b_tau_data):
 
@@ -104,6 +115,7 @@ def plot_fig_1_b(fig_1_b_merfish_data, fig_1_b_tau_data):
     return fig_1_b_merfish, fig_1_b_tau
 
 fig_1_b_merfish, fig_1_b_tau = plot_fig_1_b(fig_1_b_merfish_data, fig_1_b_tau_data)
+
 
 ### Fig 1 C, L2/3 transcript enrichment analysis
 ### & significant fold change catagory fractions
