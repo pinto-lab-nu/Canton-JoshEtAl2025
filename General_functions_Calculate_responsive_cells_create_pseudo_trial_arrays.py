@@ -630,6 +630,22 @@ def process_and_filter_response_matrix(
     from schemas import spont_timescales
     from schemas import twop_opto_analysis
     
+    # DIAGNOSTIC - add at very top of process_and_filter_response_matrix
+    diag_df = pd.DataFrame({'roi_id': roi_ids, 'stim_id': stim_ids})
+    print("=== INPUT DIAGNOSTIC ===")
+    print(f"Total input rows: {len(roi_ids)}")
+    print(f"Unique ROIs in input: {diag_df['roi_id'].nunique()}")
+    print(f"Unique stims in input: {diag_df['stim_id'].nunique()}")
+    print(f"ROIs per stim:")
+    print(diag_df.groupby('stim_id')['roi_id'].nunique())
+    
+    # Check if roi_ids from scan 3 are even distinguishable
+    # roi_id alone is not unique across scans - check the actual values
+    print(f"\nFirst 5 roi_ids: {roi_ids[:5]}")
+    print(f"First 5 stim_ids: {stim_ids[:5]}")
+    print(f"Type of roi_ids: {type(roi_ids)}, dtype: {getattr(roi_ids, 'dtype', 'N/A')}")
+    # =========================
+    
     if inhibited_cells:
         dff_trials = [arr * -1 for arr in dff_trials]
         
@@ -771,14 +787,21 @@ def process_and_filter_response_matrix(
             
     roi_keys_list = []
 
-    for (roi_id, stim_id), dicts in roi_keys_dict.items():
+    # for (roi_id, stim_id), dicts in roi_keys_dict.items():
+    #     if len(dicts) == 0:
+    #         continue  # skip empty
+    #     first_entry = dict(dicts[0])  # shallow copy of the first dict
+    #     first_entry['roi_id_extended_dataset'] = roi_id
+    #     first_entry['stim_id_extended_dataset'] = stim_id
+    #     roi_keys_list.append(first_entry)
+    
+    for (roi_id_extended, stim_id), dicts in roi_keys_dict.items():
         if len(dicts) == 0:
-            continue  # skip empty
-        first_entry = dict(dicts[0])  # shallow copy of the first dict
-        first_entry['roi_id_extended_dataset'] = roi_id
+            continue
+        first_entry = dict(dicts[0])  # original roi_id preserved here from DataJoint key
+        first_entry['roi_id_extended_dataset'] = roi_id_extended  # compound string
         first_entry['stim_id_extended_dataset'] = stim_id
         roi_keys_list.append(first_entry)
-    
 
     
     # Step 5: Apply same response filter across all using peak_proportions_dict and proportion_thresh
@@ -828,7 +851,8 @@ def process_and_filter_response_matrix(
     result_records = []
     
     for entry in roi_keys_list:
-        key = (entry['roi_id_extended_dataset'], entry['stim_id'])
+        # key = (entry['roi_id_extended_dataset'], entry['stim_id'])
+        key = (entry['roi_id_extended_dataset'], entry['stim_id_extended_dataset'])
     
         record = {
             **entry,  # contains roi_id, stim_id, and any DataJoint metadata
@@ -858,17 +882,56 @@ def process_and_filter_response_matrix(
         result_records.append(record)
 
     # Create dataframe
+    
     results_df = pd.DataFrame(result_records)
-    results_df['peak_array_mean_trial'] = peak_array_mean_trial
+    # results_df['peak_array_mean_trial'] = peak_array_mean_trial
 
 
-    # results_df['event_rate'] = event_rate_values
-    results_df['com_array_mean_trial'] = com_array_mean_trial*sampling_interval
-    results_df['peak_time_array_mean_trial'] = peak_time_array_mean_trial*sampling_interval
-    results_df['peak_time_calc_abs_diff_mean_trial']=np.abs((peak_time_array_mean_trial*sampling_interval)-results_df['peak_time_avg'].to_numpy())
-    results_df['com_calc_abs_diff_mean_trial']=np.abs((com_array_mean_trial*sampling_interval)-results_df['com_avg'].to_numpy())
+    # # results_df['event_rate'] = event_rate_values
+    # results_df['com_array_mean_trial'] = com_array_mean_trial*sampling_interval
+    # results_df['peak_time_array_mean_trial'] = peak_time_array_mean_trial*sampling_interval
+    # results_df['peak_time_calc_abs_diff_mean_trial']=np.abs((peak_time_array_mean_trial*sampling_interval)-results_df['peak_time_avg'].to_numpy())
+    # results_df['com_calc_abs_diff_mean_trial']=np.abs((com_array_mean_trial*sampling_interval)-results_df['com_avg'].to_numpy())
     
 
+    # Build a key-aligned mapping:
+    averaged_keys = list(averaged_traces_all.keys())  # same order as dict_of_arrays_to_2d_array_padded
+    
+    peak_mean_by_key = {
+        key: peak_array_mean_trial[i] 
+        for i, key in enumerate(averaged_keys)
+    }
+    
+    # results_df['peak_array_mean_trial'] = results_df.apply(
+    #     lambda row: peak_mean_by_key.get(
+    #         (row['roi_id_extended_dataset'], row['stim_id']), np.nan
+    #     ), axis=1
+    # )
+    
+    results_df['peak_array_mean_trial'] = results_df.apply(
+        lambda row: peak_mean_by_key.get(
+            (row['roi_id_extended_dataset'], row['stim_id_extended_dataset']), np.nan
+        ), axis=1
+    )
+    
+    # Same for other mean_trial columns:
+    com_mean_by_key   = {key: com_array_mean_trial[i]        for i, key in enumerate(averaged_keys)}
+    ptime_mean_by_key = {key: peak_time_array_mean_trial[i]  for i, key in enumerate(averaged_keys)}
+    
+    results_df['com_array_mean_trial'] = results_df.apply(
+        lambda row: com_mean_by_key.get(
+            (row['roi_id_extended_dataset'], row['stim_id_extended_dataset']), np.nan
+        ), axis=1) * sampling_interval
+    results_df['peak_time_array_mean_trial'] = results_df.apply(
+        lambda row: ptime_mean_by_key.get(
+            (row['roi_id_extended_dataset'], row['stim_id_extended_dataset']), np.nan
+        ), axis=1) * sampling_interval
+    
+  
+    # results_df['com_array_mean_trial']        = results_df.apply(lambda row: com_mean_by_key.get((row['roi_id_extended_dataset'], row['stim_id']), np.nan), axis=1) * sampling_interval
+    # results_df['peak_time_array_mean_trial']  = results_df.apply(lambda row: ptime_mean_by_key.get((row['roi_id_extended_dataset'], row['stim_id']), np.nan), axis=1) * sampling_interval
+    # results_df['peak_time_calc_abs_diff_mean_trial'] = np.abs(results_df['peak_time_array_mean_trial'] - results_df['peak_time_avg'].to_numpy())
+    # results_df['com_calc_abs_diff_mean_trial']        = np.abs(results_df['com_array_mean_trial']       - results_df['com_avg'].to_numpy())
     # # Step 6: Convert to 2D array (ROIs × time)
     return peak_array, roi_keys_list,results_df
 

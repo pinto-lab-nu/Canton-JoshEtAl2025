@@ -363,7 +363,112 @@ def plot_mean_trace_multiple_dataframe_input(
 
     plt.legend()
     plt.show()
+# %%
 
+# def plot_mean_trace_multiple_dataframe_input(
+#     result1, result2=None, result3=None, result4=None, result5=None, 
+#     y_limits=[-8, 8], x_limits=[-3, 10], legend_names=None, norm_mean=False,
+#     norm_type_row=None, norm_rows=True, time_array=None, exclude_windows=None,
+#     line_colors=None, fill_alpha=0.75,
+#     xticks=None, yticks=None, xlabel=None, ylabel=None
+# ):
+#     sampling_interval = 0.032958316
+#     data_samples = result1.shape[1]
+#     # Time vector logic
+#     if time_array is not None:
+#         if isinstance(time_array, pd.DataFrame):
+#             time = time_array.squeeze().to_numpy()
+#         else:
+#             time = np.array(time_array).squeeze()
+#     else:
+#         time = np.linspace(sampling_interval, sampling_interval * data_samples, data_samples)
+
+#     # ---- TRUNCATE ALL RESULTS TO MATCH TIME AXIS LENGTH ----
+#     def truncate_to_time(result):
+#         if result is None:
+#             return None
+#         n_time = len(time)
+#         if result.shape[1] != n_time:
+#             min_len = min(result.shape[1], n_time)
+#             return result.iloc[:, :min_len]
+#         return result
+
+#     time_len         = len(time)
+#     result1          = truncate_to_time(result1)
+#     result2          = truncate_to_time(result2)
+#     result3          = truncate_to_time(result3)
+#     result4          = truncate_to_time(result4)
+#     result5          = truncate_to_time(result5)
+#     time             = time[:time_len]  # also truncate time to min length
+#     # --------------------------------------------------------
+#     # breakpoint()
+#     # Default colors if not provided
+#     default_colors = plt.cm.jet(np.linspace(0, 1, 5))
+#     if line_colors is None:
+#         line_colors = default_colors
+#     else:
+#         while len(line_colors) < 5:
+#             line_colors.append('gray')
+
+#     if legend_names is None:
+#         legend_names = ["Result 1", "Result 2", "Result 3", "Result 4", "Result 5"]
+
+#     def normalize_trace_and_sem(trace, sem):
+#         max_val = np.nanmax(trace)
+#         if max_val != 0:
+#             return trace / max_val, sem / max_val
+#         return trace, sem
+
+#     def exclude_trace_windows(trace, sem, time, exclude_windows):
+#         if exclude_windows:
+#             for start, end in exclude_windows:
+#                 mask = (time >= start) & (time <= end)
+#                 trace[mask] = np.nan
+#                 sem[mask] = np.nan
+#         return trace, sem
+
+#     def process_and_plot(df, label, color):
+#         if norm_rows:
+#             if norm_type_row == 'minmax':
+#                 df = normalize_rows(df, norm_type_row, min_window=(0, 80), max_window=(100, 300))
+#             else:
+#                 df = normalize_rows(df, norm_type_row, peak_window=(100, 300))
+#         y     = df.mean(axis=0).to_numpy()
+#         y_sem = (df.std(axis=0) / np.sqrt(df.shape[0])).to_numpy()
+#         if norm_mean:
+#             y, y_sem = normalize_trace_and_sem(y, y_sem)
+#         if exclude_windows:
+#             y, y_sem = exclude_trace_windows(y, y_sem, time, exclude_windows)
+
+#         # Final safety truncation in case of any remaining mismatch
+#         min_len = min(len(time), len(y))
+#         plt.plot(time[:min_len], y[:min_len], label=label, color=color)
+#         plt.fill_between(time[:min_len], (y + y_sem).flatten()[:min_len],
+#                          (y - y_sem).flatten()[:min_len], color=color, alpha=fill_alpha)
+
+#     fig, ax = plt.subplots()
+#     ax.set_box_aspect(1)
+#     ax.spines[['right', 'top']].set_visible(False)
+
+#     for idx, (result, name) in enumerate(zip(
+#         [result1, result2, result3, result4, result5],
+#         legend_names
+#     )):
+#         if result is not None:
+#             process_and_plot(result, name, line_colors[idx])
+
+#     plt.ylim(y_limits)
+#     plt.xlim(x_limits)
+#     if xticks is not None:
+#         plt.xticks(xticks)
+#     if yticks is not None:
+#         plt.yticks(yticks)
+#     if xlabel is not None:
+#         plt.xlabel(xlabel)
+#     if ylabel is not None:
+#         plt.ylabel(ylabel)
+#     plt.legend()
+    # plt.show()
 # %%
 import matplotlib.pyplot as plt
 import numpy as np

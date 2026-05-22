@@ -345,6 +345,7 @@ def get_avg_trig_responses(area, params=params, expt_type='standard', resp_type=
  
         for this_stim in these_stim_ids:
             this_key['stim_id'] = this_stim   #Theres was a bug here due to float
+            print(f"  stim {this_stim}: found {len((twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('KEY'))} inclusion entries, key={this_key}")
             sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch('is_significant', 'is_included', 'KEY')
 
             # do selecion at the fetching level for speed
@@ -1658,214 +1659,535 @@ def plot_opsin_expression_vs_response(
 
 
 # %% get single-trial opto-triggered responses for an area and experiment type
+# def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', relax_timing_criteria=params['xval_relax_timing_criteria']):
+    
+#     """
+#     get_single_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', relax_timing_criteria=params['xval_relax_timing_criteria'])
+#     retrieves single-trial opto-triggered responses for a given area and experiment type
+    
+#     INPUTS:
+#         area                  : str, 'V1' or 'M2' (default is 'M2')
+#         params                : dict, analysis parameters (default is params from top of this script)
+#         expt_type             : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
+#         resp_type             : str, 'dff' (default) or 'deconv'
+#         eg_ids                : list of int, experiment group ids to restrict to (optional, default is None)
+#         signif_only           : bool, if True only include significant neurons (default is True)
+#         which_neurons         : str, 'non_stimd' (default), 'all', 'stimd'
+#         relax_timing_criteria : bool, if True relax timing criteria (default is in params['xval_relax_timing_criteria']). 
+#                                 This will fetch from a different param set that doesn't require the timing criteria
+        
+#     OUTPUTS:
+#         trial_data : dict with summary data and single-trial responses
+#     """
+    
+#     start_time      = time.time()
+#     print('Fetching opto-triggered trials...')
+    
+#     # get relevant keys
+#     expt_keys = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
+    
+#     # restrict to only desired rec/stim if applicable
+#     if eg_ids is not None:
+#         if isinstance(eg_ids,list) == False:
+#             eg_ids = [eg_ids]
+#         expt_keys = list(np.array(expt_keys)[np.array(eg_ids).astype(int)])
+    
+#     # loop through keys to fetch the responses
+#     trigdff_param_set_id = params['trigdff_param_set_id_{}'.format(resp_type)]
+#     if relax_timing_criteria:
+#         trigdff_inclusion_param_set_id = params['trigdff_inclusion_param_set_id_notiming']
+#     else:
+#         trigdff_inclusion_param_set_id = params['trigdff_inclusion_param_set_id']
+    
+#     trial_resps = list()
+#     trial_ids   = list()
+#     stim_ids    = list()
+#     roi_ids     = list()
+#     peak_ts     = list()
+#     peak_amp    = list()
+#     coms        = list()
+#     t_axes      = list()
+#     roi_keys_list      = list()
+#     sig           = np.array([]) 
+#     trought = np.array([]) 
+#     num_expt    = len(expt_keys)
+#     for ct, ikey in enumerate(expt_keys):
+#         print('     {} of {}...'.format(ct+1,num_expt))
+#         this_key = {
+#         'subject_fullname': ikey['subject_fullname'],
+#         'session_date'    : ikey['session_date'],
+#         'session_number'  : ikey['session_number'],  # add this
+#         'scan_number'     : ikey['scan_number'],      # add this
+#         'trigdff_param_set_id': trigdff_param_set_id,
+#         'trigdff_inclusion_param_set_id': trigdff_inclusion_param_set_id
+#     }
+        
+#         # do selecion at the fetching level for speed
+#         if which_neurons == 'stimd':
+#             breakpoint()
+#             # stimd neurons bypass inclusion criteria
+#             avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('KEY')
+#             # tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & avg_keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
+#             sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & avg_keys).fetch('is_significant', 'is_included', 'KEY')
+            
+#             if signif_only:
+#                 idx  = np.argwhere(np.array(sig)==1).flatten()
+#                 keys = list(np.array(keys)[idx])
+#                 sig  = list(np.array(sig)[idx]) 
+        
+#             tids, trials, ts, sids, com, maxmin, peakt, trought, rids,roi_keys = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id',
+#                                                                                                                                 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 
+#                                                                                                                                 'time_of_trough_sec_poststim', 'roi_id','KEY')
+#             trial_resps.extend(trials)
+#             trial_ids.extend([int(t) for t in tids])
+#             stim_ids.extend([int(s) for s in sids])
+#             roi_keys_list.extend(roi_keys)
+#             roi_ids.extend([int(r + ct * 10000) for r in rids]) # 10000 is arbitrary experiment increment to make roi_ids unique
+#             t_axes.extend(ts)
+#             coms.extend(com)
+#             peak_ts.extend(peakt)
+#             peak_amp.extend(maxmin)
+
+#         elif which_neurons == 'non_stimd':
+            
+            
+#             # Get all stim_ids for this experiment key
+#             try:
+#                 these_stim_ids = list((twop_opto_analysis.Opto2PSummary & this_key).fetch1('stim_ids'))
+                
+#                 opto_key = {
+#                     'subject_fullname': ikey['subject_fullname'],
+#                     'session_date': ikey['session_date'],
+#                     'session_number': ikey['session_number'],
+#                     'scan_number': ikey['scan_number'],
+#                     'trigdff_param_set_id': trigdff_param_set_id,
+#                     'trigdff_inclusion_param_set_id': trigdff_inclusion_param_set_id
+#                 }
+#                 incl_key = {
+#                     'subject_fullname': ikey['subject_fullname'],
+#                     'session_date': ikey['session_date'],
+#                     'trigdff_param_set_id': trigdff_param_set_id,
+#                     'trigdff_inclusion_param_set_id': trigdff_inclusion_param_set_id
+#                 }
+                
+#                 these_stim_ids = list((twop_opto_analysis.Opto2PSummary & opto_key).fetch1('stim_ids'))
+                                
+#             except:
+#                 continue
+        
+#             for this_stim in these_stim_ids:
+#                 this_key['stim_id'] = this_stim  # Set specific stim ID for filtering
+                
+#                 print(f"Querying with inclusion_param={trigdff_inclusion_param_set_id}, trigdff_param={trigdff_param_set_id}")
+#                 # Get inclusion flags and keys for this stim ID
+#                 sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch(
+#                     'is_significant', 'is_included', 'KEY'
+#                 )
+        
+#                 # Filter by inclusion
+#                 incl = np.array(incl)
+#                 sig = np.array(sig)
+#                 keys = np.array(keys)
+        
+#                 valid_idx = np.where(incl == 1)[0]
+#                 keys = keys[valid_idx]
+#                 sig = sig[valid_idx]
+        
+#                 # Further filter by significance if requested
+#                 if signif_only:
+#                     valid_idx = np.where(sig == 1)[0]
+#                     keys = keys[valid_idx]
+#                     sig = sig[valid_idx]
+        
+#                 if len(keys) == 0:
+#                     continue
+        
+#                 # Now fetch the actual single-trial data for only those (stim_id, roi_id) combinations
+#                 try:
+#                     tids, trials, ts, sids, com, maxmin, peakt, trought, rids,roi_keys = (
+#                         twop_opto_analysis.TrigDffTrial & list(keys)
+#                     ).fetch(
+#                         'trial_id', 'trig_dff', 'time_axis_sec', 'stim_id',
+#                         'center_of_mass_sec_poststim', 'max_or_min_dff',
+#                         'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id','KEY'
+#                     )
+#                 except Exception as e:
+#                     print(f"Fetch error for stim {this_stim}: {e}")
+#                     continue
+        
+#                 maxmin_t = [trought[i] if maxmin[i] < 0 else peakt[i] for i in range(len(trought))]
+        
+#                 trial_resps.extend(trials)
+#                 trial_ids.extend([int(t) for t in tids])
+#                 stim_ids.extend([int(s) for s in sids])
+#                 roi_keys_list.extend(roi_keys)
+#                 roi_ids.extend([int(r + ct * 10000) for r in rids]) # 10000 is arbitrary experiment increment to make roi_ids unique
+#                 t_axes.extend(ts)
+#                 coms.extend(com)
+#                 peak_ts.extend(maxmin_t)
+#                 peak_amp.extend(maxmin)
+#                 # sig_all.extend(sig.tolist())
+
+
+
+#         # elif which_neurons == 'non_stimd':
+#         #     avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=0').fetch('KEY')
+#         #     sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & avg_keys).fetch('is_significant', 'is_included', 'KEY')
+#         #     idx  = np.argwhere(np.array(incl)==1).flatten()   #need to comment this in, but worried about distance cutoff
+#         #     keys = list(np.array(keys)[idx])
+#         #     sig  = list(np.array(sig)[idx])
+            
+#         #     if signif_only:
+#         #         idx  = np.argwhere(np.array(sig)==1).flatten()
+#         #         keys = list(np.array(keys)[idx])
+#         #         sig  = list(np.array(sig)[idx]) 
+            
+#         #     tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
+#         else:
+#             print('code not implemented for this category of which_neurons, returning nothing')
+#             return None
+
+#         # pick trough or peak time, whichever is higher magnitude
+#         maxmin_t = list()
+#         for iNeuron in range(len(trought)):
+#             if maxmin[iNeuron] < 0:
+#                 maxmin_t.append(trought[iNeuron])
+#             else:
+#                 maxmin_t.append(peakt[iNeuron])
+                
+#         # flatten lists
+#         # [trial_resps.append(trial) for trial in trials]
+#         # [trial_ids.append(int(tid)) for tid in tids]
+#         # [stim_ids.append(int(sid)) for sid in sids]
+#         # [roi_ids.append(int(rid+(ct*10000))) for rid in rids] # 10000 is arbitrary experiment increment to make roi_ids unique
+#         # [t_axes.append(t) for t in ts]
+#         # [coms.append(co) for co in com]
+#         # [peak_ts.append(pt) for pt in maxmin_t]
+#         # [peak_amp.append(pa) for pa in maxmin]
+            
+#     # convert to arrays for easy indexing, trial and time vectors remain lists
+#     trial_ids = np.array(trial_ids)
+#     stim_ids  = np.array(stim_ids)
+#     roi_ids   = np.array(roi_ids)
+#     coms      = np.array(coms)
+#     peak_ts   = np.array(peak_ts)
+#     peak_amp  = np.array(peak_amp)
+        
+#     # collect summary data   
+#     trial_data = {
+#                 'trig_dff_trials'         : trial_resps, 
+#                 'trial_ids'               : trial_ids, 
+#                 'time_axis_sec'           : t_axes,
+#                 'signif_only'             : signif_only,
+#                 'stim_ids'                : stim_ids, 
+#                 'roi_ids'                 : roi_ids, 
+#                 'com_sec'                 : coms, 
+#                 'peak_or_trough_time_sec' : peak_ts, 
+#                 'peak_amp_value'          : peak_amp,
+#                 'relax_timing_criteria'   : relax_timing_criteria,
+#                 'which_neurons'           : which_neurons,
+#                 'response_type'           : resp_type, 
+#                 'experiment_type'         : expt_type, 
+#                 'analysis_params'         : deepcopy(params),
+#                 'sig'                     : sig,
+#                 'roi_keys'                : roi_keys_list
+#                 }
+    
+#     end_time = time.time()
+#     print("     done after {: 1.2f} min".format((end_time-start_time)/60))
+    
+#     return trial_data
+# %%
 def get_single_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', relax_timing_criteria=params['xval_relax_timing_criteria']):
     
     """
     get_single_trial_data(area='M2', params=params, expt_type='high_trial_count', resp_type='dff', eg_ids=None, signif_only=True, which_neurons='non_stimd', relax_timing_criteria=params['xval_relax_timing_criteria'])
     retrieves single-trial opto-triggered responses for a given area and experiment type
-    
-    INPUTS:
-        area                  : str, 'V1' or 'M2' (default is 'M2')
-        params                : dict, analysis parameters (default is params from top of this script)
-        expt_type             : str, 'standard' (default), 'short_stim', 'high_trial_count', 'multi_cell'
-        resp_type             : str, 'dff' (default) or 'deconv'
-        eg_ids                : list of int, experiment group ids to restrict to (optional, default is None)
-        signif_only           : bool, if True only include significant neurons (default is True)
-        which_neurons         : str, 'non_stimd' (default), 'all', 'stimd'
-        relax_timing_criteria : bool, if True relax timing criteria (default is in params['xval_relax_timing_criteria']). 
-                                This will fetch from a different param set that doesn't require the timing criteria
-        
-    OUTPUTS:
-        trial_data : dict with summary data and single-trial responses
     """
     
-    start_time      = time.time()
+    start_time = time.time()
     print('Fetching opto-triggered trials...')
     
-    # get relevant keys
     expt_keys = get_keys_for_expt_types(area, params=params, expt_type=expt_type)
     
-    # restrict to only desired rec/stim if applicable
     if eg_ids is not None:
-        if isinstance(eg_ids,list) == False:
+        if isinstance(eg_ids, list) == False:
             eg_ids = [eg_ids]
         expt_keys = list(np.array(expt_keys)[np.array(eg_ids).astype(int)])
     
-    # loop through keys to fetch the responses
     trigdff_param_set_id = params['trigdff_param_set_id_{}'.format(resp_type)]
     if relax_timing_criteria:
         trigdff_inclusion_param_set_id = params['trigdff_inclusion_param_set_id_notiming']
     else:
         trigdff_inclusion_param_set_id = params['trigdff_inclusion_param_set_id']
     
-    trial_resps = list()
-    trial_ids   = list()
-    stim_ids    = list()
-    roi_ids     = list()
-    peak_ts     = list()
-    peak_amp    = list()
-    coms        = list()
-    t_axes      = list()
-    roi_keys_list      = list()
-    num_expt    = len(expt_keys)
-    for ct, ikey in enumerate(expt_keys):
-        print('     {} of {}...'.format(ct+1,num_expt))
-        this_key = {'subject_fullname' : ikey['subject_fullname'], 
-                    'session_date': ikey['session_date'], 
-                    'trigdff_param_set_id': trigdff_param_set_id, 
-                    'trigdff_inclusion_param_set_id': trigdff_inclusion_param_set_id
-                    }
-        
-        # do selecion at the fetching level for speed
-        if which_neurons == 'stimd':
-            # stimd neurons bypass inclusion criteria
-            avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=1').fetch('KEY')
-            # tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & avg_keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
-            sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & avg_keys).fetch('is_significant', 'is_included', 'KEY')
-            
-            if signif_only:
-                idx  = np.argwhere(np.array(sig)==1).flatten()
-                keys = list(np.array(keys)[idx])
-                sig  = list(np.array(sig)[idx]) 
-        
-            tids, trials, ts, sids, com, maxmin, peakt, trought, rids,roi_keys = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id',
-                                                                                                                                'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 
-                                                                                                                                'time_of_trough_sec_poststim', 'roi_id','KEY')
-            trial_resps.extend(trials)
-            trial_ids.extend([int(t) for t in tids])
-            stim_ids.extend([int(s) for s in sids])
-            roi_keys_list.extend(roi_keys)
-            roi_ids.extend([int(r + ct * 10000) for r in rids]) # 10000 is arbitrary experiment increment to make roi_ids unique
-            t_axes.extend(ts)
-            coms.extend(com)
-            peak_ts.extend(peakt)
-            peak_amp.extend(maxmin)
+    trial_resps   = list()
+    trial_ids     = list()
+    stim_ids      = list()
+    roi_ids       = list()
+    peak_ts       = list()
+    peak_amp      = list()
+    coms          = list()
+    t_axes        = list()
+    roi_keys_list = list()
+    sig           = np.array([])
+    num_expt      = len(expt_keys)
 
-        elif which_neurons == 'non_stimd':
+    # for ct, ikey in enumerate(expt_keys):
+    #     print('     {} of {}...'.format(ct+1, num_expt))
+        
+    #     # key with session/scan for tables that need it (Opto2PSummary, TrigDffTrialAvg)
+    #     opto_key = {
+    #         'subject_fullname'              : ikey['subject_fullname'],
+    #         'session_date'                  : ikey['session_date'],
+    #         'session_number'                : ikey['session_number'],
+    #         'scan_number'                   : ikey['scan_number'],
+    #         'trigdff_param_set_id'          : trigdff_param_set_id,
+    #         'trigdff_inclusion_param_set_id': trigdff_inclusion_param_set_id
+    #     }
+    #     # key without session/scan for TrigDffTrialAvgInclusion
+    #     incl_key = {
+    #         'subject_fullname'              : ikey['subject_fullname'],
+    #         'session_date'                  : ikey['session_date'],
+    #         'trigdff_param_set_id'          : trigdff_param_set_id,
+    #         'trigdff_inclusion_param_set_id': trigdff_inclusion_param_set_id
+    #     }
+    
+    # for ct, ikey in enumerate(expt_keys):
+    #     entries = (twop_opto_analysis.Opto2PSummary & {
+    #         'subject_fullname'      : ikey['subject_fullname'],
+    #         'session_date'          : ikey['session_date'],
+    #     }).fetch('KEY', as_dict=True)
+    #     print(f"\n{ikey['session_date']} index={ct} ikey: sess={ikey['session_number']} scan={ikey['scan_number']} param={ikey['param_set_id']}")
+    #     print(f"  Opto2PSummary entries for this date:")
+    #     for e in entries:
+    #         print(f"    sess={e['session_number']} scan={e['scan_number']} "
+    #               f"param={e['param_set_id']} fov={e['fov_number']}")
+    
+    for ct, ikey in enumerate(expt_keys):
+        print(f'\n     {ct+1} of {num_expt}...')
+        
+        # opto key uses session/scan from Opto2PSummary directly
+        opto_summary_entries = (twop_opto_analysis.Opto2PSummary & {
+            'subject_fullname' : ikey['subject_fullname'],
+            'session_date'     : ikey['session_date'],
+            'param_set_id'     : ikey['param_set_id'],
+            'fov_number'       : ikey['fov_number'],
+            'segmentation_algorithm': ikey['segmentation_algorithm'],
+            'mc_param_set_id'  : ikey['mc_param_set_id'],
+        }).fetch('KEY', as_dict=True)
+        
+        if len(opto_summary_entries) == 0:
+            print(f"  No Opto2PSummary entry found for param_set_id={ikey['param_set_id']}, skipping")
+            continue
+        if len(opto_summary_entries) > 1:
+            print(f"  Multiple Opto2PSummary entries found for param_set_id={ikey['param_set_id']}, skipping")
+            continue
             
+        opto_key = opto_summary_entries[0]
+        opto_key['trigdff_param_set_id']           = trigdff_param_set_id
+        opto_key['trigdff_inclusion_param_set_id'] = trigdff_inclusion_param_set_id
+    
+        # incl_key uses segmentation fields from ikey
+        incl_key = {
+            'subject_fullname'              : ikey['subject_fullname'],
+            'session_date'                  : ikey['session_date'],
+            'param_set_id'                  : ikey['param_set_id'],
+            'fov_number'                    : ikey['fov_number'],
+            'segmentation_algorithm'        : ikey['segmentation_algorithm'],
+            'mc_param_set_id'               : ikey['mc_param_set_id'],
+            'trigdff_param_set_id'          : trigdff_param_set_id,
+            'trigdff_inclusion_param_set_id': trigdff_inclusion_param_set_id
+        }
+
+        # if which_neurons == 'stimd':
             
-            # Get all stim_ids for this experiment key
-            try:
-                these_stim_ids = list((twop_opto_analysis.Opto2PSummary & this_key).fetch1('stim_ids'))
-            except:
-                continue
-        
-            for this_stim in these_stim_ids:
-                this_key['stim_id'] = this_stim  # Set specific stim ID for filtering
-        
-                # Get inclusion flags and keys for this stim ID
-                sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & this_key).fetch(
-                    'is_significant', 'is_included', 'KEY'
-                )
-        
-                # Filter by inclusion
+        #     # temp fix but hate it
+        #     # After building opto_key from Opto2PSummary entries
+        #     opto_key = opto_summary_entries[0]
+        #     opto_key['trigdff_param_set_id']           = trigdff_param_set_id
+        #     opto_key['trigdff_inclusion_param_set_id'] = trigdff_inclusion_param_set_id
+            
+        #     # Override scan_number to match what's in TrigDffTrialAvg
+        #     trig_scan_nums = (twop_opto_analysis.TrigDffTrialAvg & {
+        #         'subject_fullname': opto_key['subject_fullname'],
+        #         'session_date':     opto_key['session_date'],
+        #         'param_set_id':     opto_key['param_set_id'],
+        #     }).fetch('scan_number')
+            
+        #     if len(trig_scan_nums) == 0:
+        #         print(f"  No TrigDffTrialAvg entries found for this session, skipping")
+        #         continue
+            
+        #     opto_key['scan_number'] = np.int64(trig_scan_nums[0])            
+            
+        #     avg_keys = (twop_opto_analysis.TrigDffTrialAvg & opto_key & 'is_stimd=1').fetch('KEY')
+        #     breakpoint()
+        #     # print(f"  stimd avg_keys found: {len(avg_keys)}")
+        #     # print(f"  opto_key used: {opto_key}")
+        #     # also check without is_stimd filter
+        #     # all_avg_keys = (twop_opto_analysis.TrigDffTrialAvg & opto_key).fetch('KEY')
+        #     # print(f"  total TrigDffTrialAvg entries with opto_key: {len(all_avg_keys)}")
+            
+        #     # avg_keys = (twop_opto_analysis.TrigDffTrialAvg & opto_key & 'is_stimd=1').fetch('KEY')
+        #     sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & avg_keys).fetch(
+        #         'is_significant', 'is_included', 'KEY')
+        #     if signif_only:
+        #         idx  = np.argwhere(np.array(sig)==1).flatten()
+        #         keys = list(np.array(keys)[idx])
+        #         sig  = list(np.array(sig)[idx])
+        #     tids, trials, ts, sids, com, maxmin, peakt, trought, rids, roi_keys = (
+        #         twop_opto_analysis.TrigDffTrial & keys).fetch(
+        #             'trial_id', 'trig_dff', 'time_axis_sec', 'stim_id',
+        #             'center_of_mass_sec_poststim', 'max_or_min_dff',
+        #             'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id', 'KEY')
+        #     maxmin_t = [trought[i] if maxmin[i] < 0 else peakt[i] for i in range(len(trought))]
+        #     trial_resps.extend(trials)
+        #     trial_ids.extend([int(t) for t in tids])
+        #     stim_ids.extend([int(s) for s in sids])
+        #     roi_keys_list.extend(roi_keys)
+        #     roi_ids.extend([int(r + ct * 10000) for r in rids])
+        #     t_axes.extend(ts)
+        #     coms.extend(com)
+        #     peak_ts.extend(maxmin_t)
+        #     peak_amp.extend(maxmin)
+        if which_neurons == 'stimd':
+            for this_stim in (twop_opto_analysis.Opto2PSummary & opto_key).fetch1('stim_ids'):
+                incl_key['stim_id'] = int(this_stim)
+                
+                # Use incl_key like non_stimd does (no scan_number mismatch)
+                sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & incl_key).fetch(
+                    'is_significant', 'is_included', 'KEY')
+                
                 incl = np.array(incl)
-                sig = np.array(sig)
+                sig  = np.array(sig)
                 keys = np.array(keys)
         
-                valid_idx = np.where(incl == 1)[0]
-                keys = keys[valid_idx]
-                sig = sig[valid_idx]
+                # Now filter for stimd=1 from TrigDffTrialAvg using the returned keys
+                stimd_keys = (twop_opto_analysis.TrigDffTrialAvg & list(keys) & 'is_stimd=1').fetch('KEY')
+                stimd_keys = np.array(stimd_keys)
         
-                # Further filter by significance if requested
+                print(f"  {ikey['session_date']} stim={this_stim}: {len(keys)} inclusion keys, "
+                      f"{np.sum(incl==1)} included, {len(stimd_keys)} stimd")
+                
+                # breakpoint()
+        
+                if len(stimd_keys) == 0:
+                    continue
+        
+                # Apply inclusion and significance filters on the stimd keys
+                sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & list(stimd_keys)).fetch(
+                    'is_significant', 'is_included', 'KEY')
+                incl = np.array(incl)
+                sig  = np.array(sig)
+                keys = np.array(keys)
+        
+        
                 if signif_only:
                     valid_idx = np.where(sig == 1)[0]
                     keys = keys[valid_idx]
-                    sig = sig[valid_idx]
+                    sig  = sig[valid_idx]
         
                 if len(keys) == 0:
                     continue
         
-                # Now fetch the actual single-trial data for only those (stim_id, roi_id) combinations
                 try:
-                    tids, trials, ts, sids, com, maxmin, peakt, trought, rids,roi_keys = (
+                    tids, trials, ts, sids, com, maxmin, peakt, trought, rids, roi_keys = (
                         twop_opto_analysis.TrigDffTrial & list(keys)
                     ).fetch(
                         'trial_id', 'trig_dff', 'time_axis_sec', 'stim_id',
                         'center_of_mass_sec_poststim', 'max_or_min_dff',
-                        'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id','KEY'
-                    )
+                        'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id', 'KEY')
                 except Exception as e:
-                    print(f"Fetch error for stim {this_stim}: {e}")
+                    print(f"  Fetch error for stim {this_stim}: {e}")
                     continue
         
                 maxmin_t = [trought[i] if maxmin[i] < 0 else peakt[i] for i in range(len(trought))]
-        
                 trial_resps.extend(trials)
                 trial_ids.extend([int(t) for t in tids])
                 stim_ids.extend([int(s) for s in sids])
                 roi_keys_list.extend(roi_keys)
-                roi_ids.extend([int(r + ct * 10000) for r in rids]) # 10000 is arbitrary experiment increment to make roi_ids unique
+                roi_ids.extend([int(r + ct * 10000) for r in rids])
                 t_axes.extend(ts)
                 coms.extend(com)
                 peak_ts.extend(maxmin_t)
                 peak_amp.extend(maxmin)
-                # sig_all.extend(sig.tolist())
+                
+        elif which_neurons == 'non_stimd':
+            try:
+                these_stim_ids = list((twop_opto_analysis.Opto2PSummary & opto_key).fetch1('stim_ids'))
+            except Exception as e:
+                print(f"  Could not get stim_ids: {e}")
+                continue
 
+            for this_stim in these_stim_ids:
+                incl_key['stim_id'] = this_stim
+                sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & incl_key).fetch(
+                    'is_significant', 'is_included', 'KEY')
+                incl = np.array(incl)
+                sig  = np.array(sig)
+                keys = np.array(keys)
+                
+                print(f"  {ikey['session_date']} sess={ikey['session_number']} scan={ikey['scan_number']} stim={this_stim}: {len(keys)} inclusion keys, {np.sum(incl==1)} included, {np.sum(sig[incl==1]==1)} significant")
+                valid_idx = np.where(incl == 1)[0]
+                keys = keys[valid_idx]
+                sig  = sig[valid_idx]
+                if signif_only:
+                    valid_idx = np.where(sig == 1)[0]
+                    keys = keys[valid_idx]
+                    sig  = sig[valid_idx]
+                if len(keys) == 0:
+                    continue
+                try:
+                    tids, trials, ts, sids, com, maxmin, peakt, trought, rids, roi_keys = (
+                        twop_opto_analysis.TrigDffTrial & list(keys)
+                    ).fetch(
+                        'trial_id', 'trig_dff', 'time_axis_sec', 'stim_id',
+                        'center_of_mass_sec_poststim', 'max_or_min_dff',
+                        'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id', 'KEY')
+                except Exception as e:
+                    print(f"  Fetch error for stim {this_stim}: {e}")
+                    continue
+                maxmin_t = [trought[i] if maxmin[i] < 0 else peakt[i] for i in range(len(trought))]
+                trial_resps.extend(trials)
+                trial_ids.extend([int(t) for t in tids])
+                stim_ids.extend([int(s) for s in sids])
+                roi_keys_list.extend(roi_keys)
+                roi_ids.extend([int(r + ct * 10000) for r in rids])
+                t_axes.extend(ts)
+                coms.extend(com)
+                peak_ts.extend(maxmin_t)
+                peak_amp.extend(maxmin)
 
-
-        # elif which_neurons == 'non_stimd':
-        #     avg_keys = (twop_opto_analysis.TrigDffTrialAvg & this_key & 'is_stimd=0').fetch('KEY')
-        #     sig, incl, keys = (twop_opto_analysis.TrigDffTrialAvgInclusion & avg_keys).fetch('is_significant', 'is_included', 'KEY')
-        #     idx  = np.argwhere(np.array(incl)==1).flatten()   #need to comment this in, but worried about distance cutoff
-        #     keys = list(np.array(keys)[idx])
-        #     sig  = list(np.array(sig)[idx])
-            
-        #     if signif_only:
-        #         idx  = np.argwhere(np.array(sig)==1).flatten()
-        #         keys = list(np.array(keys)[idx])
-        #         sig  = list(np.array(sig)[idx]) 
-            
-        #     tids, trials, ts, sids, com, maxmin, peakt, trought, rids = (twop_opto_analysis.TrigDffTrial & keys).fetch('trial_id', 'trig_dff', 'time_axis_sec', 'stim_id', 'center_of_mass_sec_poststim', 'max_or_min_dff', 'time_of_peak_sec_poststim', 'time_of_trough_sec_poststim', 'roi_id')
         else:
             print('code not implemented for this category of which_neurons, returning nothing')
             return None
 
-        # pick trough or peak time, whichever is higher magnitude
-        maxmin_t = list()
-        for iNeuron in range(len(trought)):
-            if maxmin[iNeuron] < 0:
-                maxmin_t.append(trought[iNeuron])
-            else:
-                maxmin_t.append(peakt[iNeuron])
-                
-        # flatten lists
-        # [trial_resps.append(trial) for trial in trials]
-        # [trial_ids.append(int(tid)) for tid in tids]
-        # [stim_ids.append(int(sid)) for sid in sids]
-        # [roi_ids.append(int(rid+(ct*10000))) for rid in rids] # 10000 is arbitrary experiment increment to make roi_ids unique
-        # [t_axes.append(t) for t in ts]
-        # [coms.append(co) for co in com]
-        # [peak_ts.append(pt) for pt in maxmin_t]
-        # [peak_amp.append(pa) for pa in maxmin]
-            
-    # convert to arrays for easy indexing, trial and time vectors remain lists
     trial_ids = np.array(trial_ids)
     stim_ids  = np.array(stim_ids)
     roi_ids   = np.array(roi_ids)
     coms      = np.array(coms)
     peak_ts   = np.array(peak_ts)
     peak_amp  = np.array(peak_amp)
-        
-    # collect summary data   
+    
     trial_data = {
-                'trig_dff_trials'         : trial_resps, 
-                'trial_ids'               : trial_ids, 
-                'time_axis_sec'           : t_axes,
-                'signif_only'             : signif_only,
-                'stim_ids'                : stim_ids, 
-                'roi_ids'                 : roi_ids, 
-                'com_sec'                 : coms, 
-                'peak_or_trough_time_sec' : peak_ts, 
-                'peak_amp_value'          : peak_amp,
-                'relax_timing_criteria'   : relax_timing_criteria,
-                'which_neurons'           : which_neurons,
-                'response_type'           : resp_type, 
-                'experiment_type'         : expt_type, 
-                'analysis_params'         : deepcopy(params),
-                'sig'                     : sig,
-                'roi_keys'                : roi_keys_list
-                }
+        'trig_dff_trials'         : trial_resps,
+        'trial_ids'               : trial_ids,
+        'time_axis_sec'           : t_axes,
+        'signif_only'             : signif_only,
+        'stim_ids'                : stim_ids,
+        'roi_ids'                 : roi_ids,
+        'com_sec'                 : coms,
+        'peak_or_trough_time_sec' : peak_ts,
+        'peak_amp_value'          : peak_amp,
+        'relax_timing_criteria'   : relax_timing_criteria,
+        'which_neurons'           : which_neurons,
+        'response_type'           : resp_type,
+        'experiment_type'         : expt_type,
+        'analysis_params'         : deepcopy(params),
+        'sig'                     : sig,
+        'roi_keys'                : roi_keys_list
+    }
     
     end_time = time.time()
     print("     done after {: 1.2f} min".format((end_time-start_time)/60))
